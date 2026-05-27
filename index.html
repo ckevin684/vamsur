@@ -381,58 +381,80 @@ function sTank(x,y,fr,hit,elite){
   }
   if(elite){G.save();G.strokeStyle='rgba(200,150,255,0.6)';G.lineWidth=2;G.shadowColor='#aa66cc';G.shadowBlur=12;G.beginPath();G.ellipse(x,y,15,26,0,0,Math.PI*2);G.stroke();G.restore()}
 }
-function sBossMungchi(x,y,fr){
-  const t=fr%2,col='#c8844a',dk='#7a4a1a',lt='#e0a866',vd='#5a2f0a';
+function sBossSabi(x,y,fr){
+  // 슈나우저 보스 (싸비): 회색 와이어 헤어, 흰 수염, 굵은 눈썹, 사각진 체형
+  const t=fr%2;
+  const gr='#888888',dk='#555555',vd='#333333',lt='#bbbbbb',wh='#f0f0f0';
   // 그림자
   shadow(x,y+30,30,5,0.5);
-  // 꼬리 (흔들림)
-  const ty=t?-5:5;
-  G.fillStyle=col;G.fillRect(x+22,y-14+ty,14,8);
-  G.fillStyle=lt;G.fillRect(x+22,y-14+ty,14,2);
-  G.fillStyle=dk;G.fillRect(x+34,y-12+ty,2,4);
-  // 뒷다리
+  // 꼬리 (짧고 위로 흔들림 — 슈나우저는 단미)
+  const ty=t?-3:3;
+  G.fillStyle=gr;G.fillRect(x+22,y-16+ty,8,7);
+  G.fillStyle=lt;G.fillRect(x+22,y-16+ty,8,2);
+  G.fillStyle=dk;G.fillRect(x+27,y-14+ty,3,3);
+  // 뒷다리 (네모반듯)
   G.fillStyle=dk;
   G.fillRect(x-18,y+12,10,14+(t?2:0));G.fillRect(x+14,y+12+(t?0:2),10,14);
-  // 발바닥
-  G.fillStyle='#3a1a05';
+  G.fillStyle=gr;
+  G.fillRect(x-18,y+12,10,4);G.fillRect(x+14,y+12,10,4);
+  // 발바닥 (검정)
+  G.fillStyle='#1a1a1a';
   G.fillRect(x-19,y+24+(t?2:0),12,3);G.fillRect(x+13,y+24+(t?0:2),12,3);
-  // 앞다리
+  // 앞다리 (와이어 헤어 끝 — 흰 수염 같은 디테일)
   G.fillStyle=dk;
   G.fillRect(x-6,y+12+(t?2:0),10,14);G.fillRect(x+4,y+12,10,14+(t?0:2));
-  G.fillStyle='#3a1a05';
+  G.fillStyle=wh;G.fillRect(x-6,y+22+(t?2:0),10,4);G.fillRect(x+4,y+22,10,4+(t?0:2));
+  G.fillStyle='#1a1a1a';
   G.fillRect(x-7,y+24+(t?2:0),12,3);G.fillRect(x+3,y+24,12,3);
-  // 몸통
-  G.fillStyle=col;G.fillRect(x-22,y-14,44,26);
+  // 몸통 (사각진 회색)
+  G.fillStyle=gr;G.fillRect(x-22,y-14,44,26);
   G.fillStyle=lt;G.fillRect(x-22,y-14,44,3);G.fillRect(x-22,y-14,3,26);
   G.fillStyle=dk;G.fillRect(x-22,y+9,44,3);G.fillRect(x+19,y-14,3,26);
-  // 점박이 무늬
-  G.fillStyle=vd;G.fillRect(x-12,y-2,5,5);G.fillRect(x+6,y+2,4,4);G.fillRect(x-18,y-8,3,3);
-  // 머리
-  G.fillStyle=col;G.fillRect(x-18,y-34,36,22);
+  // 와이어 텍스처 (지글지글한 선들)
+  G.fillStyle=vd;
+  G.fillRect(x-18,y-8,2,1);G.fillRect(x-12,y-4,2,1);G.fillRect(x-6,y-9,2,1);
+  G.fillRect(x+2,y-5,2,1);G.fillRect(x+10,y-1,2,1);G.fillRect(x+14,y-7,2,1);
+  G.fillRect(x-15,y+2,2,1);G.fillRect(x-8,y+5,2,1);G.fillRect(x+6,y+4,2,1);
+  // 머리 (사각진 회색)
+  G.fillStyle=gr;G.fillRect(x-18,y-34,36,22);
   G.fillStyle=lt;G.fillRect(x-18,y-34,36,3);G.fillRect(x-18,y-34,3,22);
   G.fillStyle=dk;G.fillRect(x+15,y-34,3,22);
-  // 귀
-  G.fillStyle=dk;G.fillRect(x-24,y-40,12,18);G.fillRect(x+12,y-40,12,18);
-  G.fillStyle='#9a5a20';G.fillRect(x-22,y-36,8,11);G.fillRect(x+14,y-36,8,11);
-  G.fillStyle='#ffaa88';G.fillRect(x-20,y-32,4,5);G.fillRect(x+16,y-32,4,5);
-  // 주둥이
-  G.fillStyle='#a8703a';G.fillRect(x-10,y-20,20,12);
-  G.fillStyle=lt;G.fillRect(x-10,y-20,20,2);
-  // 코
-  G.fillStyle='#111';G.fillRect(x-4,y-18,8,4);
-  G.fillStyle='#444';G.fillRect(x-3,y-17,2,1);G.fillRect(x+2,y-17,2,1);
-  // 입
-  G.fillStyle='#3a1a05';G.fillRect(x-5,y-12,10,3);
-  G.fillStyle='#7a1a1a';G.fillRect(x-4,y-10,8,1);
-  G.fillStyle='#fff';G.fillRect(x-3,y-12,1,2);G.fillRect(x+2,y-12,1,2);
-  // 눈
-  G.fillStyle='#fff';G.fillRect(x-12,y-31,8,8);G.fillRect(x+4,y-31,8,8);
-  G.fillStyle='#111';G.fillRect(x-10,y-30,5,6);G.fillRect(x+5,y-30,5,6);
-  G.fillStyle='#ffcc00';G.fillRect(x-10,y-30,5,2);G.fillRect(x+5,y-30,5,2);
-  G.fillStyle='#fff';G.fillRect(x-9,y-29,2,2);G.fillRect(x+6,y-29,2,2);
-  // 목걸이
-  G.fillStyle='#cc0000';G.fillRect(x-22,y-15,44,3);
-  G.fillStyle='#ffcc00';G.fillRect(x-2,y-15,4,5);
+  // 귀 (단이 — 슈나우저 자른 귀 또는 V자, V자 선택)
+  G.fillStyle=dk;
+  G.beginPath();G.moveTo(x-18,y-34);G.lineTo(x-24,y-44);G.lineTo(x-12,y-34);G.closePath();G.fill();
+  G.beginPath();G.moveTo(x+18,y-34);G.lineTo(x+24,y-44);G.lineTo(x+12,y-34);G.closePath();G.fill();
+  G.fillStyle=vd;
+  G.beginPath();G.moveTo(x-17,y-34);G.lineTo(x-22,y-41);G.lineTo(x-14,y-34);G.closePath();G.fill();
+  G.beginPath();G.moveTo(x+17,y-34);G.lineTo(x+22,y-41);G.lineTo(x+14,y-34);G.closePath();G.fill();
+  // 굵은 흰 눈썹 (슈나우저 시그니처!)
+  G.fillStyle=wh;
+  G.fillRect(x-14,y-27,8,3);G.fillRect(x+6,y-27,8,3);
+  G.fillStyle=lt;
+  G.fillRect(x-13,y-26,6,1);G.fillRect(x+7,y-26,6,1);
+  // 눈 (눈썹 밑)
+  G.fillStyle='#111';G.fillRect(x-11,y-23,4,4);G.fillRect(x+7,y-23,4,4);
+  G.fillStyle='#ffcc00';G.fillRect(x-11,y-23,4,1);G.fillRect(x+7,y-23,4,1);
+  G.fillStyle='#fff';G.fillRect(x-10,y-22,1,1);G.fillRect(x+8,y-22,1,1);
+  // 주둥이 (긴 흰 수염 — 슈나우저 핵심!)
+  G.fillStyle=wh;G.fillRect(x-12,y-18,24,14);
+  G.fillStyle=lt;G.fillRect(x-12,y-18,24,2);
+  // 수염 끝 — 더 길게 늘어진
+  G.fillStyle=wh;
+  G.fillRect(x-14,y-12,3,10);  // 왼쪽
+  G.fillRect(x+11,y-12,3,10);  // 오른쪽
+  G.fillRect(x-10,y-4,20,4);   // 아래 수염
+  G.fillStyle=lt;
+  G.fillRect(x-13,y-10,1,8);G.fillRect(x+12,y-10,1,8);
+  // 코 (검은 사각)
+  G.fillStyle='#111';G.fillRect(x-4,y-18,8,5);
+  G.fillStyle='#333';G.fillRect(x-3,y-17,2,1);G.fillRect(x+2,y-17,2,1);
+  // 입 (수염 사이)
+  G.fillStyle='#3a1a1a';G.fillRect(x-5,y-7,10,2);
+  G.fillStyle='#7a3a3a';G.fillRect(x-4,y-6,8,1);
+  // 목걸이 (흰 가죽 — 더 점잖게)
+  G.fillStyle='#222';G.fillRect(x-22,y-15,44,3);
+  G.fillStyle=lt;G.fillRect(x-22,y-15,44,1);
+  G.fillStyle='#cccccc';G.fillRect(x-2,y-15,4,5);
 }
 function sBossTruck(x,y){
   // 그림자
@@ -578,7 +600,7 @@ const CHARS=[
   {id:'jw',name:'최종원',sub:'셰프',color:'#dd6622',hp:100,spd:110,startWpn:'knife',pdesc:'시간↑공격↑ · 🍳 8콤보→폭주',def:1.0},
   {id:'sm',name:'윤소민',sub:'심야경비+버튜버',color:'#33aa66',hp:110,spd:128,startWpn:'light',pdesc:'이동 +15% · 🎰 변신 룰렛',def:1.0},
   {id:'gj',name:'최기종',sub:'허리디스크레전드',color:'#9955cc',hp:160,spd:70,startWpn:'staff',pdesc:'공격+40% 속도-30% · 💥 디스크 폭발',def:0.8},
-  {id:'co',name:'최초',sub:'뭉치 주인',color:'#cc8800',hp:100,spd:120,startWpn:'mungchi',pdesc:'크리 +30% · 🐕 뭉치 컴패니언',def:1.0},
+  {id:'co',name:'최초',sub:'뭉치 주인',color:'#cc8800',hp:100,spd:120,startWpn:'mungchi',pdesc:'크리 +20% · 🐕 뭉치 컴패니언',def:1.0},
   {id:'gh',name:'황기훈',sub:'몬헌마스터',color:'#cc3377',hp:110,spd:105,startWpn:'gsword',pdesc:'보스 +25% · 🪓 페이얼/SAED',def:1.0},
 ];
 const WDEFS={
@@ -630,11 +652,14 @@ const STREAMER_FORMS=[
   {id:'lize',   name:'아카네 리제',emoji:'🦇',col:'#cc3344',desc:'흡혈의 밤'},
   {id:'tabi',   name:'아라하시 타비',emoji:'🎤',col:'#ffaa22',desc:'트로트 폭격'},
   {id:'sleep',  name:'졸린 윤소민',emoji:'💤',col:'#666688',desc:'야간경비 졸음...'},
+  {id:'hina',   name:'칸자키 히나',emoji:'👑',col:'#ff66bb',desc:'절대적 아이돌 ★ JACKPOT'},
 ];
+// 확률: 25% 꽝(sleep) + 10% 잭팟(hina) + 65% 5명 균등(13% each)
 function pickStreamerForm(){
   const r=Math.random();
-  if(r<0.25)return STREAMER_FORMS[5];  // 꽝 25%
-  const idx=Math.floor((r-0.25)/0.15);  // 나머지 75% → 5명 균등
+  if(r<0.25)return STREAMER_FORMS[5];   // 25% 꽝
+  if(r<0.35)return STREAMER_FORMS[6];   // 10% 잭팟
+  const idx=Math.floor((r-0.35)/0.13);  // 나머지 65% → 5명 균등 (각 13%)
   return STREAMER_FORMS[Math.min(idx,4)];
 }
 const PASSIVES=[
@@ -648,7 +673,7 @@ const PASSIVES=[
   {id:'cane',   name:'🦯 기종의 지팡이',desc:'최대HP +40',fn:p=>{p.mhp+=40;p.hp=Math.min(p.hp+40,p.mhp)}},
   {id:'torch',  name:'🔦 소민의 야간조명',desc:'보석 흡수 범위 2배',fn:p=>p.magr*=2},
   {id:'monhun', name:'🎮 기훈의 몬헌경험',desc:'보스 데미지 +20%',fn:p=>p.bdm*=1.2},
-  {id:'bark',   name:'🗣️ 뭉치의 짖음',desc:'크리티컬 +15%',fn:p=>p.crit+=0.15},
+  {id:'bark',   name:'🗣️ 뭉치의 짖음',desc:'크리티컬 +12%',fn:p=>p.crit+=0.12},
   {id:'knife2', name:'🔪 종원의 칼솜씨',desc:'공격력 +15%',fn:p=>p.dm*=1.15},
 ];
 const WUP=[
@@ -776,7 +801,7 @@ class Player{
     this.facing={x:1,y:0};
     this.passives={};  // {id: lv}
     this.wpns=[{type:cd.startWpn,t:0,lv:1}];
-    this.flashT=0;this.bdm=1;this.crit=cd.id==='co'?0.3:0;
+    this.flashT=0;this.bdm=1;this.crit=cd.id==='co'?0.2:0;
     this.itemLog=[];
     this.dashT=0;this.dashCd=0;this.dashCdMax=3;
     this.companions=[];this.magrBoost=0;
@@ -1039,22 +1064,28 @@ function fireWpn(type,p,wlv){
   };
   switch(type){
     case 'ram':{
-      // RAM 스틱을 여러 방향으로 던지기 (약한 데미지)
+      // RAM 스틱: 화면 가장자리에 튕기면서 다회 타격 (뱀서 스타일)
+      // life 5s, cd 0.9s → 발사당 1~3개로 적당히 화면에 누적 (~6~15개 동시)
       SFX.shoot();
-      const cnt=wlvAt(WPROJ.ram,wlv),ramDmg=dmg*0.55;
+      const cnt=1+Math.floor(wlv/3),ramDmg=dmg*0.85;
       for(let i=0;i<cnt;i++){
-        const a=ang+Math.PI*2/cnt*i;
-        projs.push(new Proj(p.x,p.y,Math.cos(a)*230,Math.sin(a)*230,ramDmg,1.0,'#44aaff',11*am,pierce,'ram'));
+        spawnBouncingRam(p,{
+          dmg:ramDmg, life:5, speed:220,
+          col:'#44aaff', sz:9*am, wt:'ram_bounce'
+        });
       }
       break;
     }
     case 'fullspec':{
-      // 풀스펙: 더 많고 빠르고 강한 RAM (그래도 약화 적용)
+      // 풀스펙: 더 많고 빠르고 강한 튕기는 RAM + 임팩트 플래시
       SFX.shoot();
-      const cnt=wlvAt(WPROJ.fullspec,wlv),ramDmg=dmg*0.75;
+      const cnt=2+Math.floor(wlv/3),ramDmg=dmg*1.1;
       for(let i=0;i<cnt;i++){
-        const a=ang+Math.PI*2/cnt*i;
-        projs.push(new Proj(p.x,p.y,Math.cos(a)*270,Math.sin(a)*270,ramDmg,1.2,'#00eeff',12*am,pierce+1,'fullspec'));
+        spawnBouncingRam(p,{
+          dmg:ramDmg, life:6, speed:265,
+          col:'#00eeff', sz:10*am, wt:'fullspec_bounce',
+          fancy:true
+        });
       }
       // 중앙 임팩트 플래시 (시각 효과)
       aoeHit(p.x,p.y,55*am,'#ffffff',dmg*0.4,0.2,0,false,'flash',0);
@@ -1262,6 +1293,32 @@ function applyStreamerLight(p,ang,dmg,am,pierce,wlv,form,baseType){
         life:0.55, tickInt:0.30,
         dmg:dmg*0.45, slowDur:0.6, wt:'beam_sleep'
       });
+      break;
+    }
+    case 'hina':{
+      // 🌟 절대적 아이돌 (JACKPOT): 8방향 거대 빔. 360° 커버리지. 처치 시 HP+1.
+      const beams=8;
+      const len=235+lvCnt*15+evoLen*1.2;
+      for(let i=0;i<beams;i++){
+        const a=ang+Math.PI*2/beams*i;
+        spawnBeam(p,a,{
+          col: i%2===0 ? '#ff66bb' : '#ffdd66', // 핑크/금 번갈아
+          len:len, halfAng:0.50,
+          life:0.95, tickInt:0.18*evoTick,  // (단발이라 tickInt는 무시되지만 호환용)
+          dmg:dmg*1.7, slowDur:3.0+evoSlow, wt:'beam_hina',
+          bigClick:true,
+          onHit:(e,wasAlive)=>{
+            if(wasAlive&&e.dead){
+              player.hp=Math.min(player.mhp,player.hp+1);
+              showDmg(player.x,player.y-16,1,'#ff66bb',false);
+            }
+          }
+        });
+      }
+      // 잭팟 임팩트: 큰 화면 흔들림 + 별빛 파티클
+      shake(0.25,5);
+      spawnParts(p.x,p.y,'#ff66bb',16);
+      spawnParts(p.x,p.y,'#ffdd66',16);
       break;
     }
   }
@@ -1502,6 +1559,91 @@ function spawnLightning(x,y,dmg,evolved){
   });
   shake(0.12,3);
 }
+// ═══ 튕기는 RAM 스틱 (화면 가시 영역 안에서 튕기면서 데미지 — 뱀서 스타일) ═══
+// 발사 시 spawnBouncingRam을 호출. 화면 가장자리에 닿으면 반사. 각 적당 0.5초 쿨다운으로 재타격 가능.
+function spawnBouncingRam(p,opts){
+  const o=opts||{};
+  const sp=o.speed||230;
+  const ang=Math.random()*Math.PI*2;
+  const ram={
+    x:p.x,y:p.y,
+    vx:Math.cos(ang)*sp, vy:Math.sin(ang)*sp,
+    dmg:o.dmg||10,
+    life:o.life||5, ml:o.life||5, dead:false,
+    col:o.col||'#44aaff',
+    sz:o.sz||10,
+    wt:o.wt||'ram_bounce',
+    fancy:!!o.fancy,
+    spin:0,
+    hitMap:new Map(), // enemy -> last hit gameTime
+    isAoe:true, // Proj.draw 우회 (custom draw 사용)
+    update(dt){
+      this.life-=dt;
+      if(this.life<=0){this.dead=true;return}
+      this.spin+=dt*9;
+      // 이동
+      this.x+=this.vx*dt;
+      this.y+=this.vy*dt;
+      // 화면 가시 영역 (카메라가 플레이어 따라가니까 항상 화면 안에 머무름)
+      const pad=18;
+      const minX=player.x-LW/2+pad, maxX=player.x+LW/2-pad;
+      const minY=player.y-LH/2+pad, maxY=player.y+LH/2-pad;
+      // 반사
+      if(this.x<minX){this.x=minX;this.vx=Math.abs(this.vx)}
+      else if(this.x>maxX){this.x=maxX;this.vx=-Math.abs(this.vx)}
+      if(this.y<minY){this.y=minY;this.vy=Math.abs(this.vy)}
+      else if(this.y>maxY){this.y=maxY;this.vy=-Math.abs(this.vy)}
+      // 적 충돌 체크 (적당 0.5초 쿨다운)
+      const cdT=0.5;
+      const all=boss?[...enemies,boss]:enemies;
+      all.forEach(e=>{
+        const last=this.hitMap.get(e)||-1;
+        if(gameTime-last<cdT)return;
+        const dx=e.x-this.x,dy=e.y-this.y;
+        const rr=this.sz+e.sz;
+        if(dx*dx+dy*dy<rr*rr){
+          let dd=this.dmg;
+          if(e===boss)dd*=player.bdm;
+          const cr=Math.random()<player.crit; if(cr)dd*=2;
+          e.hurt(dd,cr);
+          this.hitMap.set(e,gameTime);
+        }
+      });
+    },
+    draw(){
+      const al=clamp(this.life/this.ml,0,1);
+      const s=this.sz;
+      G.save();
+      G.translate(this.x,this.y);
+      G.rotate(this.spin);
+      G.globalAlpha=Math.min(1,al*1.4);
+      // 글로우
+      if(this.fancy){
+        G.fillStyle='rgba(0,200,255,0.25)';
+        G.beginPath();G.arc(0,0,s*1.6,0,Math.PI*2);G.fill();
+      }
+      // PCB 본체
+      G.fillStyle=this.fancy?'#0088cc':'#1a6633';
+      G.fillRect(-s,-s*0.42,s*2,s*0.84);
+      G.fillStyle=this.fancy?'#00bbff':'#228844';
+      G.fillRect(-s,-s*0.42,s*2,s*0.16);
+      // 메모리 칩들
+      G.fillStyle='#1a1a1a';
+      for(let i=-2;i<=2;i++){
+        G.fillRect(i*s*0.32-s*0.13,-s*0.22,s*0.26,s*0.44);
+      }
+      // 라벨 스티커
+      G.fillStyle='#fff';
+      G.fillRect(-s*0.32,-s*0.06,s*0.64,s*0.14);
+      G.fillStyle=this.fancy?'#0088cc':'#000';
+      G.fillRect(-s*0.26,-s*0.02,s*0.52,s*0.07);
+      G.restore();
+    }
+  };
+  projs.push(ram);
+  return ram;
+}
+
 // ═══ 손전등 빔 (콘 단발 데미지 + 슬로우, 발사 위치에 잔상으로 남음) ═══
 // 윤소민이 손전등을 "딸깍" 한 번 켜는 느낌. 빔은 발사 순간 위치/방향 고정 → 단발 데미지+슬로우 → 잔상으로 페이드.
 // opts: {col,len,halfAng,life,dmg,slowDur,wt,onHit,bigClick}
@@ -1945,7 +2087,7 @@ class Enemy{
       this.dmg=(6+w*0.5)*em;this.col='#9955aa';this.sz=8*(elite?1.3:1);this.xv=2*(elite?3:1);
       this.zT=0;this.zD=1;
     }else if(type==='rusher'){
-      this.hp=this.mhp=(22+w*5)*hs*em;this.spd=(130+w*4)*(elite?1.15:1);
+      this.hp=this.mhp=(22+w*5)*hs*em;this.spd=(100+w*2)*(elite?1.15:1);
       this.dmg=(8+w*0.8)*em;this.col='#dd4488';this.sz=9*(elite?1.3:1);this.xv=2*(elite?3:1);
     }else if(type==='tank'){
       this.hp=this.mhp=(180+w*30)*hs*em;this.spd=(28+w*1)*(elite?1.1:1);
@@ -2026,7 +2168,7 @@ class Enemy{
 
 // ═══ BOSS ═══
 const BDEFS=[
-  {t:180,bt:'mungchi',name:'🐕 뭉치',bHp:1200,bS:85,bD:22,col:'#cc8844',sz:36,bXp:60},
+  {t:180,bt:'sabi',name:'🐕 싸비',bHp:1800,bS:95,bD:30,col:'#888888',sz:36,bXp:60},
   {t:360,bt:'truck',name:'🖥️ 납품트럭',bHp:2500,bS:55,bD:30,col:'#4488cc',sz:44,bXp:120},
   {t:600,bt:'uncomfy',name:'😤 불편러',bHp:5000,bS:70,bD:35,col:'#ff8888',sz:36,bXp:200},
   {t:900,bt:'lol',name:'😡 협곡의 망령',bHp:8000,bS:95,bD:48,col:'#ff3333',sz:36,bXp:300},
@@ -2050,7 +2192,7 @@ class Boss{
     this.x+=dx/d*this.spd*sm*dt;this.y+=dy/d*this.spd*sm*dt;
     if(d<this.sz+13&&this.ct<=0){player.takeDmg(this.cdmg);this.ct=0.6}
     this.at-=dt;
-    if(this.at<=0){this.attack();this.at=this.phase===2?1.0:2.2;this.pat=(this.pat+1)%3}
+    if(this.at<=0){this.attack();this.at=this.phase===2?(this.bt==='sabi'?0.8:1.0):(this.bt==='sabi'?1.6:2.2);this.pat=(this.pat+1)%3}
     this.bp=this.bp.filter(p=>!p.dead);
     this.bp.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;if(p.life<=0){p.dead=true;return}if(dist(p,player)<p.sz+12){player.takeDmg(p.pdmg);p.dead=true}});
     // 텔레그래프 시간 감소
@@ -2059,10 +2201,37 @@ class Boss{
   }
   attack(){
     const cnt=this.phase===2?8:4,a=Math.atan2(player.y-this.y,player.x-this.x);
-    if(this.bt==='mungchi'){
-      if(this.pat===0)for(let i=0;i<cnt;i++)this.bp_add(Math.PI*2/cnt*i+gameTime,150,this.cdmg*0.5,'#cc8844',12);
-      else if(this.pat===1)[-0.2,0,0.2].forEach(da=>this.bp_add(a+da,200,this.cdmg*0.7,'#ffaa00',10));
-      else spawnParts(this.x,this.y,'#cc8844',12);
+    if(this.bt==='sabi'){
+      // pat0: 360° 링 (페이즈2 시 8발), pat1: 5방향 부채꼴 강력 탄, pat2: 텔레그래프 후 플레이어 위치 폭발
+      const ring=this.phase===2?8:6;
+      const spread=this.phase===2?7:5;
+      if(this.pat===0){
+        for(let i=0;i<ring;i++)this.bp_add(Math.PI*2/ring*i+gameTime,170,this.cdmg*0.55,'#888888',12);
+      }else if(this.pat===1){
+        for(let i=0;i<spread;i++){
+          const da=-0.5+1.0*(i/(spread-1));
+          this.bp_add(a+da,220,this.cdmg*0.75,'#cccccc',10);
+        }
+      }else{
+        // 물어뜯기: 플레이어 위치 텔레그래프 후 8방향 폭발 탄
+        const tx=player.x,ty=player.y;
+        this.addTele(tx,ty,50,0.6);
+        const self=this;
+        setTimeout(()=>{
+          if(!self.dead&&boss){
+            for(let i=0;i<8;i++){
+              const ba=Math.PI*2/8*i;
+              self.bp.push({
+                x:tx,y:ty,
+                vx:Math.cos(ba)*200,vy:Math.sin(ba)*200,
+                pdmg:self.cdmg*0.85,life:1.0,sz:12,
+                col:'#aaaaaa',dead:false
+              });
+            }
+            SFX.bHit();
+          }
+        },600);
+      }
     }else if(this.bt==='truck'){
       if(this.pat===0)for(let i=0;i<cnt;i++)this.bp_add(Math.PI*2/cnt*i,130,this.cdmg*0.5,'#4488cc',16);
       else if(this.pat===1)for(let i=-2;i<=2;i++)this.bp_add(a+i*0.25,200,this.cdmg*0.5,'#88ccff',12);
@@ -2121,7 +2290,7 @@ class Boss{
     this.bp.forEach(p=>{if(!p.dead){G.fillStyle=p.col;G.fillRect(p.x-p.sz/2,p.y-p.sz/2,p.sz,p.sz)}});
     if(this.pf>0){G.globalAlpha=Math.sin(this.pf*10)*0.3;G.fillStyle='#ff0000';G.fillRect(this.x-this.sz,this.y-this.sz,this.sz*2,this.sz*2);G.globalAlpha=1}
     G.save();G.translate(this.x,this.y);G.scale(0.8,0.8);G.translate(-this.x,-this.y);
-    if(this.bt==='mungchi')sBossMungchi(this.x,this.y,afr);
+    if(this.bt==='sabi')sBossSabi(this.x,this.y,afr);
     else if(this.bt==='truck')sBossTruck(this.x,this.y);
     else if(this.bt==='uncomfy')sBossUncomfy(this.x,this.y,afr);
     else sBossLol(this.x,this.y,afr,this.phase===2);
@@ -2209,12 +2378,12 @@ class Companion{
     this.target=null;this.biteT=0;this.fr=0;this.evolved=!!evolved;
     this.facing={x:1,y:0};
     this.lookT=0;
-    this.barkT=rnd(5,8);    // 짖기 쿨다운 (Lv3+에서 활성화)
+    this.barkT=rnd(4,6);    // 짖기 쿨다운 (Lv3+에서 활성화, 진화 시 Lv2+)
     this.scratchCount=0;     // 할퀴기 연속 카운터
     this.scratchT=0;
     this.barkAnimT=0;        // 짖기 시각 효과 타이머
     this.scratchAnimT=0;     // 할퀴기 시각 효과 타이머
-    this.returnT=rnd(5,6);   // 플레이어 복귀 타이머 (5~6초마다 강제 복귀)
+    this.returnT=rnd(8,10);  // 플레이어 복귀 타이머 (8~10초마다 강제 복귀, 사냥 끊김 적게)
     this.returning=false;    // 현재 복귀 중인지
   }
   getWpnLv(){
@@ -2224,7 +2393,7 @@ class Companion{
   baseDmg(){
     const lv=this.getWpnLv();
     const dM=wlvAt(WLV.dmgM,lv);
-    return 16*player.dm*dM*(1+Math.max(0,player.lv-1)*0.04)*(this.evolved?1.4:1);
+    return 24*player.dm*dM*(1+Math.max(0,player.lv-1)*0.04)*(this.evolved?1.4:1);
   }
   doBark(){
     const lv=this.getWpnLv();
@@ -2249,9 +2418,9 @@ class Companion{
   doScratch(){
     const lv=this.getWpnLv();
     if(lv<2||!this.target||this.target.dead)return false;
-    const scratchChance=this.evolved?0.7:(0.12+lv*0.06);
+    const scratchChance=this.evolved?0.85:(0.25+lv*0.08);
     if(Math.random()>scratchChance)return false;
-    this.scratchCount=this.evolved?3:2;
+    this.scratchCount=this.evolved?4:3;
     this.scratchT=0.12;
     this.scratchAnimT=0.45;  // 더 오래 보이게
     SFX.slash();
@@ -2265,12 +2434,13 @@ class Companion{
     this.lookT-=dt;
     this.returnT-=dt;
     const lv=this.getWpnLv();
-    // 짖기 (Lv 3+) - 복귀 중에도 발동
-    if(lv>=3){
+    // 짖기 (Lv 3+) - 복귀 중에도 발동, 진화 시 Lv 2+로 더 일찍
+    const barkMinLv=this.evolved?2:3;
+    if(lv>=barkMinLv){
       this.barkT-=dt;
       if(this.barkT<=0){
         this.doBark();
-        this.barkT=Math.max(2,7-lv*0.55)-(this.evolved?1:0);
+        this.barkT=Math.max(1.5,5.5-lv*0.5)-(this.evolved?1:0);
       }
     }
     // 5~6초마다 플레이어 복귀 강제
@@ -2283,7 +2453,7 @@ class Companion{
       if(pd<60){
         // 복귀 완료, 다시 사냥
         this.returning=false;
-        this.returnT=rnd(5,6);
+        this.returnT=rnd(8,10);
       }else{
         // 플레이어한테 직진 (적 무시)
         const dx=player.x-this.x,dy=player.y-this.y,d=Math.hypot(dx,dy)||1;
@@ -2561,16 +2731,37 @@ function drawStreamerAccessory(x,y,form){
       G.textAlign='left';
       break;
     }
+    case 'hina':{
+      // 👑 별 왕관 (잭팟 표시 — 머리 위 황금 왕관 + 깜빡이는 별)
+      const sparkle=0.5+0.5*Math.sin(gameTime*8);
+      // 왕관 베이스 (사다리꼴)
+      G.fillStyle='#ffdd33';
+      G.fillRect(x-5,hy-7,11,2);
+      // 왕관 뾰족 (3개)
+      G.fillRect(x-5,hy-9,2,3);
+      G.fillRect(x-1,hy-10,2,4);
+      G.fillRect(x+3,hy-9,2,3);
+      // 보석
+      G.fillStyle='#ff66bb';
+      G.fillRect(x-4,hy-6,1,1);G.fillRect(x+3,hy-6,1,1);G.fillRect(x,hy-6,1,1);
+      // 깜빡이는 별
+      G.globalAlpha=0.6+sparkle*0.4;
+      G.fillStyle='#ffffaa';G.font='bold 8px serif';G.textAlign='center';
+      G.fillText('✦',x-8,hy-2);G.fillText('✦',x+9,hy-5);G.fillText('✦',x,hy-12);
+      G.globalAlpha=1;G.textAlign='left';
+      break;
+    }
   }
 }
 // 변신 결과 카드 (룰렛 끝나고 2초간 표시)
 const FORM_EFFECTS={
-  shibuki:'4방향 발사 · 데미지 럭(약/보통/4배)',
-  riko:'에메랄드 칼 다타 (cnt×3)',
-  huya:'어둠 단발 4.5배 데미지',
-  lize:'적 처치시 HP+3 흡혈 · 슬로우',
-  tabi:'호밍 음표 다타',
-  sleep:'이동/공격 0.5x · 30% 발사 실패',
+  shibuki:'주황 빔 · 15% 폭딜 추가타',
+  riko:'좁고 빠른 에메랄드 빔',
+  huya:'길고 좁은 보라 레이저',
+  lize:'슬로우 2초 · 처치 시 HP+3 흡혈',
+  tabi:'주황 빔 + 호밍 음표',
+  sleep:'짧고 약한 빔 · 30% 발사 실패',
+  hina:'8방향 360° 거대 빔 · 슬로우 3초 · 처치 HP+1',
 };
 function drawResultCard(){
   if(!player||!player.awaitingClick)return;
@@ -2614,6 +2805,13 @@ function drawResultCard(){
     G.fillStyle='#ff6666';G.font='bold 13px Courier New';G.textAlign='center';
     G.fillText('💢 야간경비 졸음 (꽝!)',LW/2,by+148);
   }
+  // 잭팟 특별 표시
+  if(form.id==='hina'){
+    const sp=0.5+0.5*Math.sin(gameTime*8);
+    G.fillStyle=`rgba(255,${180+sp*60},${100+sp*100},1)`;
+    G.font='bold 14px Courier New';G.textAlign='center';
+    G.fillText('★ ★ ★  J A C K P O T  ★ ★ ★',LW/2,by+148);
+  }
   // 클릭 안내 — 펄스 효과
   G.globalAlpha=0.6+pulse*0.4;
   G.fillStyle=form.col;G.font='bold 14px Courier New';G.textAlign='center';
@@ -2647,90 +2845,106 @@ function drawRouletteAnim(){
   // ease-out: 1 - (1-prog)^4 → 초반 빠르고 끝에서 거의 안 움직임
   const eased=1-Math.pow(1-prog,4);
   const scrollY=totalDist*eased;
-  // 폼들 표시 (위/중간/아래)
+  // 폼들 표시 (위/중간/아래) — textBaseline='middle' 사용해서 정확한 시각 중앙 정렬
+  const slotCenter=slotY+slotH/2;
   G.save();
   G.beginPath();G.rect(bx+20,slotY,bw-40,slotH);G.clip();
+  G.textBaseline='middle';
   for(let i=-1;i<=3;i++){
     const idx=((Math.floor(scrollY/36)+i)%STREAMER_FORMS.length+STREAMER_FORMS.length)%STREAMER_FORMS.length;
     const form=STREAMER_FORMS[idx];
-    const fy=slotY+40-(scrollY%36)+i*36;
-    const distFromCenter=Math.abs(fy-(slotY+40));
+    const fy=slotCenter-(scrollY%36)+i*36;
+    const distFromCenter=Math.abs(fy-slotCenter);
     const isCenter=distFromCenter<18;
     G.globalAlpha=isCenter?1:Math.max(0.25,0.7-distFromCenter*0.015);
     G.fillStyle=form.col;G.font=`bold ${isCenter?22:15}px Courier New`;
     G.textAlign='center';
     G.fillText(form.emoji+' '+form.name,LW/2,fy);
   }
+  G.textBaseline='alphabetic';
   G.restore();
-  // 선택 인디케이터 (중앙) — 끝나갈수록 노란빛 강해짐
+  // 선택 인디케이터 (중앙) — 슬롯 정중앙에 박스, 끝나갈수록 노란빛 강해짐
   const glow=prog>0.7?(prog-0.7)/0.3:0;
+  const boxH=32, boxY=slotCenter-boxH/2;
   G.strokeStyle=`rgba(255,${255-glow*60},${102-glow*102},${1})`;
   G.lineWidth=2+glow*2;
-  G.strokeRect(bx+20,slotY+25,bw-40,32);
+  G.strokeRect(bx+20,boxY,bw-40,boxH);
   G.fillStyle=`rgba(255,${255-glow*60},${102-glow*102},${1})`;
-  G.fillRect(bx+18,slotY+33,4,16);G.fillRect(bx+bw-22,slotY+33,4,16);
+  G.fillRect(bx+18,boxY+boxH/2-8,4,16);G.fillRect(bx+bw-22,boxY+boxH/2-8,4,16);
   // 진행도 바 (하단)
   G.fillStyle='#332211';G.fillRect(bx+12,by+bh-12,bw-24,4);
   G.fillStyle='#ffaa44';G.fillRect(bx+12,by+bh-12,(bw-24)*prog,4);
   G.restore();
 }
 function drawCocker(x,y,fr,evolved,flip){
-  // 흰 코카 스파니엘: 짧은 다리, 긴 늘어진 귀, 흰 털
+  // 비글: 삼색 (흰 배 / 황갈 옆 / 검은 등 안장), 짧은 다리, 늘어진 귀, 활발한 표정
+  // (함수명은 호환을 위해 그대로 유지; 외형은 비글)
   const t=Math.floor(fr)%2;
+  const wh='#f8f5f0',tan='#c89060',dk='#3a1f10',blk='#1a1108',brn='#8a5530';
   G.save();
   if(flip){G.translate(x,0);G.scale(-1,1);G.translate(-x,0)}
   // 그림자
   G.fillStyle='rgba(0,0,0,0.4)';
   G.beginPath();G.ellipse(x,y+8,11,3,0,0,Math.PI*2);G.fill();
-  // 다리 4개 (짧고 통통)
-  G.fillStyle='#f0f0f0';
+  // 다리 4개 — 흰색 (비글은 발이 흰색)
+  G.fillStyle=wh;
   G.fillRect(x-7,y+2+(t?1:0),3,5);
   G.fillRect(x-3,y+2+(t?0:1),3,5);
   G.fillRect(x+1,y+2+(t?1:0),3,5);
   G.fillRect(x+5,y+2+(t?0:1),3,5);
-  // 발 (어두운 끝)
-  G.fillStyle='#cccccc';
+  // 발 끝 (살짝 어두운 음영)
+  G.fillStyle='#d8d0c5';
   G.fillRect(x-7,y+6+(t?1:0),3,1);G.fillRect(x-3,y+6+(t?0:1),3,1);
   G.fillRect(x+1,y+6+(t?1:0),3,1);G.fillRect(x+5,y+6+(t?0:1),3,1);
-  // 몸통 (흰 털)
-  G.fillStyle='#ffffff';G.fillRect(x-8,y-3,15,6);
-  // 몸통 위 하이라이트
-  G.fillRect(x-8,y-4,15,1);
-  G.fillStyle='#dddddd';G.fillRect(x-8,y+1,15,2);
-  // 꼬리 (작고 위로 흔들림)
-  G.fillStyle='#ffffff';
-  G.fillRect(x-10,y-3,3,4);
-  G.fillRect(x-11,y-5+(t?-1:1),2,3);
-  G.fillRect(x-12,y-6+(t?0:2),2,2);
-  // 머리 (앞쪽으로)
-  G.fillStyle='#ffffff';G.fillRect(x+5,y-5,8,7);
+  // 몸통: 흰 배 (기본)
+  G.fillStyle=wh;G.fillRect(x-8,y-3,15,6);
+  // 등 안장 (검은 무늬 — 비글 핵심)
+  G.fillStyle=blk;G.fillRect(x-7,y-4,12,3);
+  G.fillStyle=dk;G.fillRect(x-7,y-1,12,1);
+  // 황갈 옆구리 (검정 아래)
+  G.fillStyle=tan;G.fillRect(x-8,y,15,2);
+  // 몸통 하이라이트
+  G.fillStyle=wh;G.fillRect(x-8,y+2,15,1);
+  // 꼬리 — 흰 끝이 특징 (위로 들고 흔들림)
+  G.fillStyle=tan;
+  G.fillRect(x-10,y-4,3,3);
+  G.fillStyle=blk;
+  G.fillRect(x-11,y-6+(t?-1:1),2,3);
+  G.fillStyle=wh;  // 흰 꼬리 끝
+  G.fillRect(x-12,y-7+(t?0:2),2,2);
+  // 머리 — 황갈색
+  G.fillStyle=tan;G.fillRect(x+5,y-5,8,7);
   G.fillRect(x+6,y-6,6,1);
-  // 늘어진 귀 (코카 스파니엘의 특징)
-  G.fillStyle='#ffffff';
-  G.fillRect(x+4,y-3,2,7);  // 왼쪽 귀
+  // 두개 정수리 (조금 더 어두운 갈색)
+  G.fillStyle=brn;G.fillRect(x+6,y-6,7,2);
+  // 늘어진 귀 — 검은 비글 귀 (가장 큰 특징)
+  G.fillStyle=blk;
+  G.fillRect(x+4,y-4,2,7);  // 왼쪽 귀
   G.fillRect(x+3,y-1,2,5);
-  G.fillStyle='#eeeeee';
-  G.fillRect(x+12,y-3,2,7);  // 오른쪽 귀
+  G.fillStyle=blk;
+  G.fillRect(x+12,y-4,2,7);  // 오른쪽 귀
   G.fillRect(x+13,y-1,2,5);
-  // 귀 안쪽 (살구색 살짝)
-  G.fillStyle='#dabba0';
-  G.fillRect(x+4,y-2,1,4);
-  G.fillRect(x+13,y-2,1,4);
-  // 주둥이
-  G.fillStyle='#ffffff';G.fillRect(x+10,y-1,4,3);
-  G.fillStyle='#dddddd';G.fillRect(x+10,y+1,4,1);
+  // 귀 안쪽 (살구색)
+  G.fillStyle='#c89488';
+  G.fillRect(x+4,y-2,1,3);
+  G.fillRect(x+13,y-2,1,3);
+  // 주둥이 (흰)
+  G.fillStyle=wh;G.fillRect(x+10,y-1,4,3);
+  // 주둥이 음영
+  G.fillStyle='#e8e0d0';G.fillRect(x+10,y+1,4,1);
   // 눈 (검은 동그라미)
-  G.fillStyle='#000';G.fillRect(x+7,y-3,1,2);G.fillRect(x+10,y-3,1,2);
+  G.fillStyle=blk;G.fillRect(x+7,y-3,1,2);G.fillRect(x+10,y-3,1,2);
   // 눈 하이라이트
   G.fillStyle='#fff';G.fillRect(x+7,y-3,1,1);G.fillRect(x+10,y-3,1,1);
   // 코 (검은 단추)
-  G.fillStyle='#1a1a1a';G.fillRect(x+13,y,2,2);
+  G.fillStyle=blk;G.fillRect(x+13,y,2,2);
   G.fillStyle='#000';G.fillRect(x+13,y,2,1);
-  // 입 (작은 V)
-  G.fillStyle='#aa6666';G.fillRect(x+11,y+2,2,1);
-  // 혀 (가끔)
+  // 입 (살짝 벌린 표정)
+  G.fillStyle='#aa4444';G.fillRect(x+11,y+2,2,1);
+  // 혀 (활발하게 빼고 있음)
   if(t===0){G.fillStyle='#ff6688';G.fillRect(x+12,y+3,1,1)}
-  // 진화형 (unleash) - 황금 발광
+  else{G.fillStyle='#ff5577';G.fillRect(x+12,y+3,2,1)}
+  // 진화형 (unleash) — 황금 글로우
   if(evolved){
     G.save();
     G.shadowColor='#ffaa00';G.shadowBlur=8;
@@ -2828,7 +3042,19 @@ function triggerLvUp(){
   // 새 무기 (슬롯 여유)
   if(player.wpns.length<W_SLOTS){
     const owned=player.wpns.map(w=>w.type);
-    BASE_WPNS.filter(t=>!owned.includes(t)).forEach(wt=>{
+    // 진화된 무기 보유 시 그 베이스 무기도 제외 (다시 못 먹게)
+    const evolvedOwned=new Set();
+    Object.entries(EVOS).forEach(([base,def])=>{
+      if(owned.includes(def.res))evolvedOwned.add(base);
+    });
+    // 최초는 컴패니언 전문가 — 다른 베이스 무기 못 들음 (mungchi만 사용)
+    const isCho=player.cd.id==='co';
+    BASE_WPNS.filter(t=>{
+      if(owned.includes(t))return false;
+      if(evolvedOwned.has(t))return false;
+      if(isCho&&t!=='mungchi')return false;
+      return true;
+    }).forEach(wt=>{
       wpnPool.push({
         tag:'무기 NEW',
         name:`${WDEFS[wt].name}`,
@@ -3691,6 +3917,12 @@ function getMouse(e){
   const r=c.getBoundingClientRect();
   return {x:(e.clientX-r.left)*(LW/r.width),y:(e.clientY-r.top)*(LH/r.height)};
 }
+// 우클릭으로 컨텍스트 메뉴가 열리면 keyup 이벤트가 묻혀서 이동 키가 잠긴 채 유지되는 버그가 있음.
+// 컨텍스트 메뉴를 막아서 keyup이 정상적으로 도착하게 함.
+c.addEventListener('contextmenu',e=>{e.preventDefault();return false});
+// 추가 안전장치: 윈도우/캔버스 포커스 잃을 때 눌린 키 전부 초기화
+window.addEventListener('blur',()=>{for(const k in keys)keys[k]=false});
+c.addEventListener('mouseleave',()=>{for(const k in keys)keys[k]=false});
 c.addEventListener('mousemove',e=>{
   const m=getMouse(e);
   if(settingsOpen){
