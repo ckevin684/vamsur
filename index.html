@@ -79,6 +79,21 @@ function playBgm(category){
 function stopBgm(){if(bgmAudio){try{bgmAudio.pause()}catch(e){}bgmAudio=null}bgmCategory=''}
 function setBgmVol(v){bgmVol=Math.max(0,Math.min(1,v));if(bgmAudio)bgmAudio.volume=bgmVol}
 
+// 실제 뭉치 짖음 SFX (사용자 영상에서 추출, 5개 클립 랜덤 재생)
+const BARK_FILES=['bgm/sfx/mungchi_bark1.mp3','bgm/sfx/mungchi_bark2.mp3','bgm/sfx/mungchi_bark3.mp3','bgm/sfx/mungchi_bark4.mp3','bgm/sfx/mungchi_bark5.mp3'];
+const BARK_POOL=BARK_FILES.map(f=>{const a=new Audio(encodeURI(f));a.preload='auto';return a});
+let barkIdx=0;
+function playBark(){
+  // 풀에서 다음 오디오 선택 (라운드 로빈으로 동시 재생 가능)
+  const a=BARK_POOL[barkIdx];
+  barkIdx=(barkIdx+1)%BARK_POOL.length;
+  try{
+    a.currentTime=0;
+    a.volume=sfxVol*0.7;  // SFX 볼륨에 맞춤
+    a.play().catch(()=>{});
+  }catch(e){}
+}
+
 // ═══ HELPERS ═══
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const rnd=(a,b)=>a+Math.random()*(b-a);
@@ -2476,7 +2491,7 @@ class Companion{
     });
     this.barkAnimT=0.7;  // 더 오래 보이게
     this.barkR=r;
-    SFX.bHit();SFX.bHit();  // 두 번 연속해서 더 또렷하게
+    playBark();  // 실제 뭉치 짖음 (영상에서 추출)
   }
   doScratch(){
     const lv=this.getWpnLv();
