@@ -805,6 +805,7 @@ class Player{
     this.itemLog=[];
     this.dashT=0;this.dashCd=0;this.dashCdMax=3;
     this.companions=[];this.magrBoost=0;
+    this.bouncingRams=[];  // 준형 영구 RAM (매 발사마다 새로 안 만들고 갯수만 유지)
     // 차지 액스 페이얼 시스템
     this.cbGauge=0;
     this.cbMode='sword';
@@ -1064,31 +1065,65 @@ function fireWpn(type,p,wlv){
   };
   switch(type){
     case 'ram':{
-      // RAM 스틱: 화면 가장자리에 튕기면서 다회 타격 (뱀서 스타일)
-      // life 5s, cd 0.9s → 발사당 1~3개로 적당히 화면에 누적 (~6~15개 동시)
-      SFX.shoot();
-      const cnt=1+Math.floor(wlv/3),ramDmg=dmg*0.85;
-      for(let i=0;i<cnt;i++){
-        spawnBouncingRam(p,{
-          dmg:ramDmg, life:5, speed:220,
-          col:'#44aaff', sz:9*am, wt:'ram_bounce'
+      // RAM 스틱: 영구 1개 유지 (매 발사마다 새로 안 만들고 갯수만 조정)
+      // 레벨업은 데미지/속도/크기/타격 빈도 스케일
+      if(!p.bouncingRams)p.bouncingRams=[];
+      // 죽은 RAM 제거
+      p.bouncingRams=p.bouncingRams.filter(r=>!r.dead);
+      const wantCount=1; // 기본 1개 영구
+      const ramDmg=dmg*1.4; // 단발 1개라 데미지 강화 (cd마다 새로 안 만드니 DPS 보상)
+      const ramSpd=220+wlv*10; // 레벨 따라 빠름 (Lv1: 230, Lv8: 300)
+      const ramSz=(9+wlv*0.3)*am; // 레벨 따라 살짝 큼 (Lv1: 9.3, Lv8: 11.4)
+      // 능력치 동기화 (레벨업 시 즉시 반영)
+      p.bouncingRams.forEach(r=>{
+        r.dmg=ramDmg; r.sz=ramSz; r.col='#44aaff'; r.fancy=false;
+        // 속도 재조정 (현재 방향 유지)
+        const cur=Math.hypot(r.vx,r.vy)||1;
+        r.vx=r.vx/cur*ramSpd; r.vy=r.vy/cur*ramSpd; r.spdBase=ramSpd;
+      });
+      // 부족하면 새로 추가
+      while(p.bouncingRams.length<wantCount){
+        const r=spawnBouncingRam(p,{
+          dmg:ramDmg, persistent:true, speed:ramSpd,
+          col:'#44aaff', sz:ramSz, wt:'ram_bounce'
         });
+        p.bouncingRams.push(r);
+        SFX.shoot();
+      }
+      // 초과면 제거 (현재 디자인에선 안 일어남)
+      while(p.bouncingRams.length>wantCount){
+        const r=p.bouncingRams.pop();
+        r.dead=true;
       }
       break;
     }
     case 'fullspec':{
-      // 풀스펙: 더 많고 빠르고 강한 튕기는 RAM + 임팩트 플래시
-      SFX.shoot();
-      const cnt=2+Math.floor(wlv/3),ramDmg=dmg*1.1;
-      for(let i=0;i<cnt;i++){
-        spawnBouncingRam(p,{
-          dmg:ramDmg, life:6, speed:265,
-          col:'#00eeff', sz:10*am, wt:'fullspec_bounce',
-          fancy:true
+      // 풀스펙 진화: 영구 2개 + 빠르고 강함 + 발광
+      if(!p.bouncingRams)p.bouncingRams=[];
+      p.bouncingRams=p.bouncingRams.filter(r=>!r.dead);
+      const wantCount=2;
+      const ramDmg=dmg*1.6;
+      const ramSpd=270+wlv*12;
+      const ramSz=(10+wlv*0.3)*am;
+      p.bouncingRams.forEach(r=>{
+        r.dmg=ramDmg; r.sz=ramSz; r.col='#00eeff'; r.fancy=true;
+        const cur=Math.hypot(r.vx,r.vy)||1;
+        r.vx=r.vx/cur*ramSpd; r.vy=r.vy/cur*ramSpd; r.spdBase=ramSpd;
+      });
+      while(p.bouncingRams.length<wantCount){
+        const r=spawnBouncingRam(p,{
+          dmg:ramDmg, persistent:true, speed:ramSpd,
+          col:'#00eeff', sz:ramSz, wt:'fullspec_bounce', fancy:true
         });
+        p.bouncingRams.push(r);
+        // 진화 직후 임팩트 플래시
+        aoeHit(p.x,p.y,55*am,'#ffffff',dmg*0.4,0.2,0,false,'flash',0);
+        SFX.shoot();
       }
-      // 중앙 임팩트 플래시 (시각 효과)
-      aoeHit(p.x,p.y,55*am,'#ffffff',dmg*0.4,0.2,0,false,'flash',0);
+      while(p.bouncingRams.length>wantCount){
+        const r=p.bouncingRams.pop();
+        r.dead=true;
+      }
       break;
     }
     case 'knife':      fan(wlvAt(WPROJ.knife,wlv),0.6,310,1.5,'#ff8844',7,0,'knife',1);break;
@@ -1565,28 +1600,39 @@ function spawnLightning(x,y,dmg,evolved){
   });
   shake(0.12,3);
 }
-// ═══ 튕기는 RAM 스틱 (화면 가시 영역 안에서 튕기면서 데미지 — 뱀서 스타일) ═══
-// 발사 시 spawnBouncingRam을 호출. 화면 가장자리에 닿으면 반사. 각 적당 0.5초 쿨다운으로 재타격 가능.
+// ═══ 튕기는 RAM 스틱 (영구 — 매 발사마다 새로 생성하지 않고 1~2개를 계속 유지) ═══
+// 화면 가시 영역 안에서 튕기면서 데미지. 적당 0.5초 쿨다운으로 재타격 가능.
+// dead로 명시 표시할 때까지 영구. opts.persistent=true면 life 감소 안 함.
 function spawnBouncingRam(p,opts){
   const o=opts||{};
   const sp=o.speed||230;
   const ang=Math.random()*Math.PI*2;
   const ram={
     x:p.x,y:p.y,
-    vx:Math.cos(ang)*sp, vy:Math.sin(ang)*sp,
+    vx:Math.cos(ang)*sp, vy:Math.sin(ang)*sp, spdBase:sp,
     dmg:o.dmg||10,
     life:o.life||5, ml:o.life||5, dead:false,
+    persistent:!!o.persistent,
     col:o.col||'#44aaff',
     sz:o.sz||10,
     wt:o.wt||'ram_bounce',
     fancy:!!o.fancy,
-    spin:0,
+    trail:[],         // 잔상 추적 (최근 위치들)
+    trailT:0,         // 잔상 갱신 타이머
     hitMap:new Map(), // enemy -> last hit gameTime
     isAoe:true, // Proj.draw 우회 (custom draw 사용)
     update(dt){
-      this.life-=dt;
-      if(this.life<=0){this.dead=true;return}
-      this.spin+=dt*9;
+      if(!this.persistent){
+        this.life-=dt;
+        if(this.life<=0){this.dead=true;return}
+      }
+      // 잔상 위치 기록 (0.04초마다 — 너무 자주 안 쌓이게)
+      this.trailT-=dt;
+      if(this.trailT<=0){
+        this.trailT=0.04;
+        this.trail.push({x:this.x,y:this.y});
+        if(this.trail.length>8)this.trail.shift(); // 최대 8개
+      }
       // 이동
       this.x+=this.vx*dt;
       this.y+=this.vy*dt;
@@ -1617,11 +1663,20 @@ function spawnBouncingRam(p,opts){
       });
     },
     draw(){
-      const al=clamp(this.life/this.ml,0,1);
+      const al=this.persistent?1:clamp(this.life/this.ml,0,1);
       const s=this.sz;
+      // 뿌연 흰 트레일 (회전 없이 직사각형으로) — 가시성 안 망치는 정도
+      G.save();
+      this.trail.forEach((pt,i)=>{
+        const f=(i+1)/this.trail.length;  // 새로울수록 진함
+        G.globalAlpha=f*0.18;             // 최대 0.18 (희미)
+        G.fillStyle='#ffffff';
+        G.fillRect(pt.x-s,pt.y-s*0.42,s*2,s*0.84);
+      });
+      G.restore();
+      // RAM 본체 (회전 없음, 직사각형 그대로)
       G.save();
       G.translate(this.x,this.y);
-      G.rotate(this.spin);
       G.globalAlpha=Math.min(1,al*1.4);
       // 글로우
       if(this.fancy){
