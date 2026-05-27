@@ -2944,83 +2944,85 @@ function drawRouletteAnim(){
   G.restore();
 }
 function drawCocker(x,y,fr,evolved,flip){
-  // 비글: 삼색 (흰 배 / 황갈 옆 / 검은 등 안장), 짧은 다리, 늘어진 귀, 활발한 표정
-  // (함수명은 호환을 위해 그대로 유지; 외형은 비글)
+  // 뭉치 — 흰 솜털 포메. 실제 뭉치 사진 기반 (흰 솜뭉치, 작은 검은 눈, 검은 단추 코, 살짝 어두운 입가, 작은 뾰족 귀)
+  // (함수명은 호환 위해 그대로; 외형은 흰 포메)
   const t=Math.floor(fr)%2;
-  const wh='#f8f5f0',tan='#c89060',dk='#3a1f10',blk='#1a1108',brn='#8a5530';
+  const wh='#fafaf5',cm='#f0ece0',sh='#d8d4c5',dk='#1a1408',blk='#0a0805',muz='#8a6850';
   G.save();
   if(flip){G.translate(x,0);G.scale(-1,1);G.translate(-x,0)}
   // 그림자
   G.fillStyle='rgba(0,0,0,0.4)';
-  G.beginPath();G.ellipse(x,y+8,11,3,0,0,Math.PI*2);G.fill();
-  // 다리 4개 — 흰색 (비글은 발이 흰색)
-  G.fillStyle=wh;
-  G.fillRect(x-7,y+2+(t?1:0),3,5);
-  G.fillRect(x-3,y+2+(t?0:1),3,5);
-  G.fillRect(x+1,y+2+(t?1:0),3,5);
-  G.fillRect(x+5,y+2+(t?0:1),3,5);
-  // 발 끝 (살짝 어두운 음영)
-  G.fillStyle='#d8d0c5';
+  G.beginPath();G.ellipse(x,y+8,12,3,0,0,Math.PI*2);G.fill();
+  // 다리 4개 — 짧고 통통한 흰 털
+  G.fillStyle=cm;
+  G.fillRect(x-7,y+3+(t?1:0),3,4);
+  G.fillRect(x-3,y+3+(t?0:1),3,4);
+  G.fillRect(x+1,y+3+(t?1:0),3,4);
+  G.fillRect(x+5,y+3+(t?0:1),3,4);
+  // 발 끝 (살짝 음영)
+  G.fillStyle=sh;
   G.fillRect(x-7,y+6+(t?1:0),3,1);G.fillRect(x-3,y+6+(t?0:1),3,1);
   G.fillRect(x+1,y+6+(t?1:0),3,1);G.fillRect(x+5,y+6+(t?0:1),3,1);
-  // 몸통: 흰 배 (기본)
-  G.fillStyle=wh;G.fillRect(x-8,y-3,15,6);
-  // 등 안장 (검은 무늬 — 비글 핵심)
-  G.fillStyle=blk;G.fillRect(x-7,y-4,12,3);
-  G.fillStyle=dk;G.fillRect(x-7,y-1,12,1);
-  // 황갈 옆구리 (검정 아래)
-  G.fillStyle=tan;G.fillRect(x-8,y,15,2);
-  // 몸통 하이라이트
-  G.fillStyle=wh;G.fillRect(x-8,y+2,15,1);
-  // 꼬리 — 흰 끝이 특징 (위로 들고 흔들림)
-  G.fillStyle=tan;
-  G.fillRect(x-10,y-4,3,3);
-  G.fillStyle=blk;
-  G.fillRect(x-11,y-6+(t?-1:1),2,3);
-  G.fillStyle=wh;  // 흰 꼬리 끝
-  G.fillRect(x-12,y-7+(t?0:2),2,2);
-  // 머리 — 황갈색
-  G.fillStyle=tan;G.fillRect(x+5,y-5,8,7);
-  G.fillRect(x+6,y-6,6,1);
-  // 두개 정수리 (조금 더 어두운 갈색)
-  G.fillStyle=brn;G.fillRect(x+6,y-6,7,2);
-  // 늘어진 귀 — 검은 비글 귀 (가장 큰 특징)
-  G.fillStyle=blk;
-  G.fillRect(x+4,y-4,2,7);  // 왼쪽 귀
-  G.fillRect(x+3,y-1,2,5);
-  G.fillStyle=blk;
-  G.fillRect(x+12,y-4,2,7);  // 오른쪽 귀
-  G.fillRect(x+13,y-1,2,5);
-  // 귀 안쪽 (살구색)
+  // 몸통 — 흰 솜뭉치 (살짝 둥글둥글)
+  G.fillStyle=wh;G.fillRect(x-8,y-3,15,7);
+  // 가슴 솜털 (밝게)
+  G.fillStyle='#ffffff';G.fillRect(x-7,y-3,13,2);
+  // 옆구리 음영
+  G.fillStyle=cm;G.fillRect(x-8,y+2,15,2);
+  // 몸통 솜털 톡톡 (작은 돌출들)
+  G.fillStyle=wh;G.fillRect(x-9,y-2,1,3);G.fillRect(x+7,y-2,1,3);
+  G.fillRect(x-9,y+1,1,2);G.fillRect(x+7,y+1,1,2);
+  // 꼬리 — 짧고 폭신, 위로 살짝 (포메 특유)
+  G.fillStyle=wh;
+  G.fillRect(x-10,y-3,3,3);
+  G.fillRect(x-11,y-5+(t?-1:1),2,3);
+  G.fillRect(x-12,y-6+(t?0:2),2,2);
+  // 꼬리 끝 솜털
+  G.fillStyle=cm;
+  G.fillRect(x-13,y-5+(t?-1:1),1,2);
+  // 머리 — 둥근 흰 머리 (조금 더 크게, 솜뭉치처럼)
+  G.fillStyle=wh;G.fillRect(x+4,y-6,10,8);
+  G.fillRect(x+5,y-7,8,1);  // 정수리 살짝
+  G.fillRect(x+3,y-3,1,4);  // 왼쪽 솜털
+  G.fillRect(x+14,y-3,1,4); // 오른쪽 솜털
+  // 머리 옆 솜털 (얼굴 주변 둥근 라인)
+  G.fillStyle=cm;
+  G.fillRect(x+3,y-5,1,2);G.fillRect(x+14,y-5,1,2);
+  G.fillRect(x+4,y+2,2,1);G.fillRect(x+12,y+2,2,1);
+  // 작은 뾰족 귀 (포메 핵심 — 늘어지지 않고 위로 뾰족)
+  G.fillStyle=wh;
+  // 왼쪽 귀 (작은 삼각형)
+  G.beginPath();
+  G.moveTo(x+5,y-7);G.lineTo(x+4,y-10);G.lineTo(x+7,y-7);G.closePath();G.fill();
+  // 오른쪽 귀
+  G.beginPath();
+  G.moveTo(x+11,y-7);G.lineTo(x+13,y-10);G.lineTo(x+12,y-7);G.closePath();G.fill();
+  // 귀 안쪽 (살구색 살짝)
   G.fillStyle='#c89488';
-  G.fillRect(x+4,y-2,1,3);
-  G.fillRect(x+13,y-2,1,3);
-  // 주둥이 (흰)
-  G.fillStyle=wh;G.fillRect(x+10,y-1,4,3);
-  // 주둥이 음영
-  G.fillStyle='#e8e0d0';G.fillRect(x+10,y+1,4,1);
-  // 눈 (검은 동그라미)
-  G.fillStyle=blk;G.fillRect(x+7,y-3,1,2);G.fillRect(x+10,y-3,1,2);
-  // 눈 하이라이트
-  G.fillStyle='#fff';G.fillRect(x+7,y-3,1,1);G.fillRect(x+10,y-3,1,1);
-  // 코 (검은 단추)
-  G.fillStyle=blk;G.fillRect(x+13,y,2,2);
-  G.fillStyle='#000';G.fillRect(x+13,y,2,1);
-  // 입 (살짝 벌린 표정)
-  G.fillStyle='#aa4444';G.fillRect(x+11,y+2,2,1);
-  // 혀 (활발하게 빼고 있음)
-  if(t===0){G.fillStyle='#ff6688';G.fillRect(x+12,y+3,1,1)}
-  else{G.fillStyle='#ff5577';G.fillRect(x+12,y+3,2,1)}
+  G.fillRect(x+5,y-8,1,1);G.fillRect(x+12,y-8,1,1);
+  // 주둥이 — 작고 살짝 어두운 (사진에서 입가가 진함)
+  G.fillStyle=muz;G.fillRect(x+10,y-1,5,3);
+  G.fillStyle='#6a4838';G.fillRect(x+11,y+1,4,1); // 입 주변 음영
+  // 작은 검은 눈 (단추처럼)
+  G.fillStyle=blk;G.fillRect(x+6,y-4,2,2);G.fillRect(x+11,y-4,2,2);
+  // 눈 반짝
+  G.fillStyle='#fff';G.fillRect(x+7,y-4,1,1);G.fillRect(x+12,y-4,1,1);
+  // 코 — 작은 검은 단추 (사진 기반, 가운데 살짝 위)
+  G.fillStyle=blk;G.fillRect(x+13,y-1,2,2);
+  // 입 (살짝 벌린 표정 — 사진처럼 잠잠한 느낌)
+  G.fillStyle='#3a1a1a';G.fillRect(x+12,y+1,2,1);
+  // 작은 혀 (가끔)
+  if(t===0){G.fillStyle='#ff8899';G.fillRect(x+13,y+2,1,1)}
   // 진화형 (unleash) — 황금 글로우
   if(evolved){
     G.save();
     G.shadowColor='#ffaa00';G.shadowBlur=8;
     G.strokeStyle='rgba(255,200,0,0.55)';G.lineWidth=1;
-    G.strokeRect(x-9,y-7,18,17);
+    G.strokeRect(x-9,y-8,18,18);
     G.restore();
     // 황금 목걸이
-    G.fillStyle='#ffcc00';G.fillRect(x+5,y-1,8,1);
-    G.fillStyle='#ffee88';G.fillRect(x+8,y-1,2,1);
+    G.fillStyle='#ffcc00';G.fillRect(x+4,y,9,1);
+    G.fillStyle='#ffee88';G.fillRect(x+8,y,2,1);
   }
   G.restore();
 }
