@@ -788,9 +788,10 @@ class Player{
     // 윤소민 스텔라이브 변신 시스템
     this.streamerForm=null;    // 현재 변신 (null = 평소)
     this.streamerT=30;         // 다음 룰렛까지 시간
-    this.rouletteT=0;          // 룰렛 애니메이션 시간
-    this.rouletteResult=null;  // 룰렛 결과 (애니 끝나면 적용)
-    this.resultCardT=0;        // 변신 결과 카드 표시 시간
+    this.rouletteT=0;          // 룰렛 애니메이션 시간 (스핀+감속)
+    this.rouletteResult=null;  // 룰렛 결과
+    this.awaitingClick=false;  // 룰렛 끝난 후 결과 카드 클릭 대기 (true면 게임 정지)
+    this.resultCardT=0;        // (deprecated, 호환용)
   }
   tryDash(){
     if(this.dashCd>0)return;
@@ -821,14 +822,12 @@ class Player{
     // 윤소민 스텔라이브 변신 - 30초마다 룰렛 트리거 (룰렛 진행은 update()에서)
     if(this.cd.id==='sm'){
       this.streamerT-=dt;
-      if(this.streamerT<=0&&this.rouletteT<=0){
-        this.rouletteT=2.6;
+      if(this.streamerT<=0&&this.rouletteT<=0&&!this.awaitingClick){
+        this.rouletteT=3.8;  // 더 길게 (감속 위해)
         this.rouletteResult=pickStreamerForm();
         this.streamerT=30;  // 다음 사이클까지 막기
         SFX.lvUp();
       }
-      // 결과 카드 타이머
-      if(this.resultCardT>0)this.resultCardT-=dt;
     }
     this.x=clamp(this.x,-1800,1800);this.y=clamp(this.y,-1800,1800);
     if(this.hitT>0)this.hitT-=dt;
@@ -923,12 +922,19 @@ function fireWpn(type,p,wlv){
     case 'knife':      fan(wlvAt(WPROJ.knife,wlv),0.6,310,1.5,'#ff8844',7,0,'knife',1);break;
     case 'fullcourse': fan(wlvAt(WPROJ.fullcourse,wlv),0.85,340,1.5,'#ff5500',9,0,'fullcourse',1.3);break;
     case 'light':{
-      // 윤소민 변신 효과 적용
+      // 윤소민 변신 효과 적용 (변신 시 변신별 빔)
       const form=(p.cd.id==='sm'&&p.streamerForm)?p.streamerForm:null;
       if(form){
         applyStreamerLight(p,ang,dmg,am,pierce,wlv,form,'light');
       }else{
-        fan(wlvAt(WPROJ.light,wlv),0.35,480,2,'#ccffee',14,3,'light',1.8);
+        // 기본 손전등: 흰빛 빔 (틱 데미지 + 슬로우)
+        const lvCnt=wlvAt(WPROJ.light,wlv); // 1~3 단계로 빔이 좀 더 강해짐
+        spawnBeam(p,ang,{
+          col:'#ccffee',
+          len:170+lvCnt*12, halfAng:0.36+lvCnt*0.02,
+          life:0.85, tickInt:0.22,
+          dmg:dmg*0.78, slowDur:1.4, wt:'beam'
+        });
       }
       break;
     }
@@ -937,13 +943,17 @@ function fireWpn(type,p,wlv){
       if(form){
         applyStreamerLight(p,ang,dmg,am,pierce,wlv,form,'nightwatch');
       }else{
-        SFX.shoot();
-        const cnt=wlvAt(WPROJ.nightwatch,wlv),baseDirs=[0,Math.PI/2,Math.PI,Math.PI*3/2];
-        for(let i=0;i<cnt;i++){
-          const layer=Math.floor(i/4),off=baseDirs[i%4]+layer*0.35;
-          const a=ang+off;
-          projs.push(new Proj(p.x,p.y,Math.cos(a)*480,Math.sin(a)*480,dmg*1.5,2,'#00ff88',13*am,pierce+5,'nightwatch'));
-        }
+        // 심야경계령 진화: 더 넓고 더 자주 틱하는 초록 빔 + 짧은 광역 펄스
+        const lvCnt=wlvAt(WPROJ.nightwatch,wlv);
+        spawnBeam(p,ang,{
+          col:'#00ff88',
+          len:210+lvCnt*8, halfAng:0.55,
+          life:0.65, tickInt:0.16,
+          dmg:dmg*1.05, slowDur:1.8, wt:'beam_nw',
+          bigClick:true
+        });
+        // 360° 짧은 펄스 (진화 보너스)
+        aoeHit(p.x,p.y,90,'#00ff88',dmg*0.6,0.22,0,true,'flash',0);
       }
       break;
     }
@@ -1011,79 +1021,106 @@ function fireWpn(type,p,wlv){
     }
   }
 }
-// 윤소민 스텔라이브 변신 손전등 공격
+// 윤소민 스텔라이브 변신 빔 공격 (각 변신마다 빔 색/길이/각도/효과 차별화)
 function applyStreamerLight(p,ang,dmg,am,pierce,wlv,form,baseType){
   const isEvo=baseType==='nightwatch';
-  const cnt=wlvAt(WPROJ.light,wlv);
-  SFX.shoot();
+  const lvCnt=wlvAt(WPROJ.light,wlv);
+  // 진화 시 모든 변신 빔이 더 강해짐 (길이/틱속도/슬로우)
+  const evoLen=isEvo?25:0, evoTick=isEvo?0.85:1.0, evoSlow=isEvo?0.4:0;
   switch(form.id){
     case 'shibuki':{
-      // 여우신의 변덕: 데미지 폭이 큼 (30% 약, 55% 보통, 15% 폭딜)
-      const r=Math.random();
-      const dmgMul=r<0.3?0.4:(r<0.85?1.6:4.0);
-      const fc=dmgMul>3?'#ffaa00':form.col;
-      // 4방향 + 약간의 추가
-      const total=cnt+3;
-      for(let i=0;i<total;i++){
-        const a=ang+Math.PI*2/total*i+(r<0.1?rnd(-0.3,0.3):0);
-        projs.push(new Proj(p.x,p.y,Math.cos(a)*460,Math.sin(a)*460,dmg*1.8*dmgMul,2,fc,16*am,pierce+3,'light_sb'));
-      }
-      if(dmgMul>3){shake(0.1,3);spawnParts(p.x,p.y,'#ffaa00',6)}
+      // 여우신의 변덕: 틱마다 데미지 럭 (0.4x/1.6x/4x), 폭딜 시 화면 흔들림
+      const wideBeam=isEvo;
+      spawnBeam(p,ang,{
+        col:form.col, // 주황
+        len:(175+lvCnt*10+evoLen), halfAng:wideBeam?0.55:0.42,
+        life:0.85, tickInt:0.18*evoTick,
+        dmg:dmg*1.4, slowDur:1.2+evoSlow, wt:'beam_sb',
+        bigClick:true,
+        onHit:(e,wasAlive)=>{
+          // 럭 데미지 — 폭딜 트리거 시 추가타
+          const r=Math.random();
+          if(r<0.15&&wasAlive&&!e.dead){
+            // 추가 폭딜
+            e.hurt(dmg*1.8,true);
+            spawnParts(e.x,e.y,'#ffaa00',5);
+            shake(0.06,1.8);
+          }
+        }
+      });
       break;
     }
     case 'riko':{
-      // 이지피야 칼춤: 빠른 다타 (cnt × 3)
-      const total=cnt*3+2;
-      for(let i=0;i<total;i++){
-        const da=cnt>1?-0.6+1.2*(i/(total-1)):0;
-        const a=ang+da;
-        projs.push(new Proj(p.x,p.y,Math.cos(a)*520,Math.sin(a)*520,dmg*0.95,1.4,'#22cc88',12*am,pierce+1,'light_rk'));
-      }
+      // 이지피야 칼춤: 좁고 빠른 빔. 틱이 매우 빠름 (좁아서 약간 더 길게)
+      spawnBeam(p,ang,{
+        col:'#22cc88',
+        len:(200+lvCnt*10+evoLen), halfAng:0.24,
+        life:0.85, tickInt:0.10*evoTick,
+        dmg:dmg*0.55, slowDur:0.8+evoSlow, wt:'beam_rk'
+      });
       break;
     }
     case 'huya':{
-      // 어둠 마법: 강한 단발 한 방
-      const a=ang;
-      projs.push(new Proj(p.x,p.y,Math.cos(a)*420,Math.sin(a)*420,dmg*4.5,2.5,'#9966cc',22*am,pierce+7,'light_hy'));
-      // 보조 그림자 효과
-      projs.push(new Proj(p.x,p.y,Math.cos(a)*420,Math.sin(a)*420,dmg*1,2.5,'#552288',32*am,pierce+5,'light_hy_aura'));
+      // 어둠 마법: 좁은 보라색 레이저 (가장 김), 강한 단발 틱
+      spawnBeam(p,ang,{
+        col:'#9966cc',
+        len:(265+lvCnt*12+evoLen), halfAng:0.15,
+        life:0.95, tickInt:0.35*evoTick,
+        dmg:dmg*3.0, slowDur:1.6+evoSlow, wt:'beam_hy',
+        bigClick:true
+      });
       break;
     }
     case 'lize':{
-      // 흡혈의 밤: 적 처치 시 HP 회복 + 슬로우
-      const total=cnt+1;
-      for(let i=0;i<total;i++){
-        const da=total>1?-0.3+0.6*(i/(total-1)):0;
-        const a=ang+da;
-        projs.push(new Proj(p.x,p.y,Math.cos(a)*470,Math.sin(a)*470,dmg*1.7,2,'#cc3344',14*am,pierce+3,'light_lz'));
-      }
+      // 흡혈의 밤: 빨간 빔. 처치시 HP 회복, 슬로우 더 길게
+      spawnBeam(p,ang,{
+        col:'#cc3344',
+        len:(185+lvCnt*10+evoLen), halfAng:0.40,
+        life:0.85, tickInt:0.20*evoTick,
+        dmg:dmg*1.4, slowDur:2.0+evoSlow, wt:'beam_lz',
+        onHit:(e,wasAlive)=>{
+          if(wasAlive&&e.dead&&Math.random()<0.6){
+            const heal=isEvo?4:3;
+            player.hp=Math.min(player.mhp,player.hp+heal);
+            showDmg(player.x,player.y-16,heal,'#ff66aa',false);
+          }
+        }
+      });
       break;
     }
     case 'tabi':{
-      // 트로트 폭격: 음표가 호밍
-      const total=cnt+2;
+      // 트로트 폭격: 호밍 음표 + 빔. 빔은 트로트 컬러로 비추고, 콘 안에서 음표가 적을 따라감
+      const beam=spawnBeam(p,ang,{
+        col:'#ffaa22',
+        len:(170+lvCnt*10+evoLen), halfAng:0.40,
+        life:0.85, tickInt:0.22*evoTick,
+        dmg:dmg*1.0, slowDur:1.2+evoSlow, wt:'beam_tb'
+      });
+      // 호밍 음표 추가 발사 (콘 안에서 적 추적)
       const t=p.nearest();
-      for(let i=0;i<total;i++){
-        const a=ang+rnd(-0.5,0.5);
-        const pr=new Proj(p.x,p.y,Math.cos(a)*380,Math.sin(a)*380,dmg*1.3,2.5,'#ffaa22',13*am,pierce+2,'light_tb');
+      const cnt=lvCnt+1+(isEvo?1:0);
+      for(let i=0;i<cnt;i++){
+        const a=ang+rnd(-0.35,0.35);
+        const pr=new Proj(p.x,p.y,Math.cos(a)*340,Math.sin(a)*340,dmg*0.95,2.2,'#ffaa22',12*am,pierce+2,'light_tb');
         pr.hom=true;pr.htgt=t;
         projs.push(pr);
       }
       break;
     }
     case 'sleep':{
-      // 졸음: 데미지 약함, 약간만 발사, 가끔 발사 실패
+      // 졸음 (꽝): 30% 확률로 그냥 안 켜짐, 켜져도 짧고 약한 빔
       if(Math.random()<0.3){
-        // 발사 실패! 효과음만
+        // 꽝! 불 안 켜짐
         showDmg(p.x,p.y-16,0,'#888888',false);
+        spawnParts(p.x,p.y-8,'#666688',3);
         return;
       }
-      const total=Math.max(1,cnt-1);
-      for(let i=0;i<total;i++){
-        const da=total>1?-0.2+0.4*(i/(total-1)):0;
-        const a=ang+da;
-        projs.push(new Proj(p.x,p.y,Math.cos(a)*280,Math.sin(a)*280,dmg*0.5,1.5,'#666688',11*am,pierce,'light'));
-      }
+      spawnBeam(p,ang,{
+        col:'#888899',
+        len:115+lvCnt*5, halfAng:0.32,
+        life:0.55, tickInt:0.30,
+        dmg:dmg*0.45, slowDur:0.6, wt:'beam_sleep'
+      });
       break;
     }
   }
@@ -1324,6 +1361,97 @@ function spawnLightning(x,y,dmg,evolved){
   });
   shake(0.12,3);
 }
+// ═══ 손전등 빔 (콘 단발 데미지 + 슬로우, 발사 위치에 잔상으로 남음) ═══
+// 윤소민이 손전등을 "딸깍" 한 번 켜는 느낌. 빔은 발사 순간 위치/방향 고정 → 단발 데미지+슬로우 → 잔상으로 페이드.
+// opts: {col,len,halfAng,life,dmg,slowDur,wt,onHit,bigClick}
+function spawnBeam(p,ang,opts){
+  const o=opts||{};
+  // 발사 순간 위치/방향 캡처 (이후 절대 안 움직임)
+  const ox=p.x, oy=p.y;
+  const len=o.len||280, halfAng=o.halfAng||0.38;
+  // 데미지 + 슬로우는 spawn 순간 1회만 동기 적용
+  const dmg=o.dmg||10, slowDur=o.slowDur||1.4;
+  const onHit=o.onHit||null;
+  const all=boss?[...enemies,boss]:enemies;
+  all.forEach(e=>{
+    const dx=e.x-ox, dy=e.y-oy, d=Math.hypot(dx,dy);
+    if(d>len+e.sz||d<2)return;
+    const ea=Math.atan2(dy,dx);
+    let dela=ea-ang;
+    while(dela>Math.PI)dela-=Math.PI*2;
+    while(dela<-Math.PI)dela+=Math.PI*2;
+    if(Math.abs(dela)>halfAng)return;
+    let dd=dmg;
+    if(e===boss)dd*=player.bdm;
+    const cr=Math.random()<player.crit; if(cr)dd*=2;
+    const wasAlive=!e.dead;
+    e.hurt(dd,cr);
+    if('slow'in e)e.slow=Math.max(e.slow,slowDur);
+    if(onHit)onHit(e,wasAlive);
+  });
+  // 이후 객체는 순수 시각용 — 발사 위치에 콘 잔상으로 페이드
+  const beam={
+    x:ox,y:oy,ang:ang,
+    col:o.col||'#ccffee',
+    len:len, halfAng:halfAng,
+    life:o.life||0.85, ml:o.life||0.85, dead:false,
+    wt:o.wt||'beam',
+    click:o.bigClick?0.18:0.11, clickMax:o.bigClick?0.18:0.11,
+    bigClick:!!o.bigClick, isAoe:true,
+    update(dt){
+      this.life-=dt; if(this.life<=0){this.dead=true;return}
+      if(this.click>0)this.click-=dt;
+      // 위치/방향 모두 고정 — 어디에도 따라가지 않음
+    },
+    draw(){
+      const al=clamp(this.life/this.ml,0,1);
+      const clickAl=this.click>0?this.click/this.clickMax:0;
+      const cr=parseInt(this.col.slice(1,3),16),cg=parseInt(this.col.slice(3,5),16),cb=parseInt(this.col.slice(5,7),16);
+      G.save();
+      G.translate(this.x,this.y);
+      G.rotate(this.ang);
+      // 손에서 출발하는 약간의 오프셋
+      const ox=4;
+      const wStart=4, wEnd=Math.tan(this.halfAng)*this.len*2;
+      // 외곽 글로우 콘
+      G.globalAlpha=Math.min(1,al*0.18+clickAl*0.35);
+      G.fillStyle=`rgb(${cr},${cg},${cb})`;
+      G.beginPath();
+      G.moveTo(ox,-wStart/2);
+      G.lineTo(ox+this.len,-wEnd/2);
+      G.lineTo(ox+this.len,wEnd/2);
+      G.lineTo(ox,wStart/2);
+      G.closePath();G.fill();
+      // 내부 더 밝은 콘
+      G.globalAlpha=Math.min(1,al*0.42+clickAl*0.5);
+      G.beginPath();
+      G.moveTo(ox,-wStart/4);
+      G.lineTo(ox+this.len*0.95,-wEnd*0.32);
+      G.lineTo(ox+this.len*0.95,wEnd*0.32);
+      G.lineTo(ox,wStart/4);
+      G.closePath();G.fill();
+      // 중심 흰 줄기
+      G.globalAlpha=al*0.85+clickAl*0.15;
+      G.fillStyle='#ffffff';
+      G.fillRect(ox,-1.5,this.len*0.9,3);
+      // 끝 반짝
+      G.globalAlpha=al*0.7+clickAl*0.3;
+      G.beginPath();G.arc(ox+this.len*0.92,0,3.4+clickAl*4,0,Math.PI*2);G.fill();
+      // 딸깍 플래시 (켜진 직후 origin에 흰 번쩍)
+      if(clickAl>0){
+        G.globalAlpha=clickAl*0.85;
+        G.fillStyle='#ffffff';
+        G.beginPath();G.arc(ox,0,6+clickAl*8,0,Math.PI*2);G.fill();
+      }
+      G.restore();
+    }
+  };
+  projs.push(beam);
+  // 딸깍 SFX + 살짝 진동
+  SFX.shoot();
+  if(o.bigClick)shake(0.05,1.5);
+  return beam;
+}
 
 // ═══ PROJECTILE ═══
 class Proj{
@@ -1406,40 +1534,34 @@ class Proj{
         G.fillRect(-s*1.85,-s*0.32,s*0.18,s*0.64);
         break;
       }
-      case 'light':case 'nightwatch':
-      case 'light_sb':case 'light_rk':case 'light_hy':case 'light_hy_aura':case 'light_lz':case 'light_tb':{
-        G.rotate(ang);
-        const evolved=this.wt==='nightwatch';
-        // 변신형은 this.col 그대로 사용 (각자 컬러 다름)
-        const isStreamer=this.wt.startsWith('light_');
+      case 'light_tb':{
+        // 트로트 변신 호밍 음표 (♪) - 빛나는 트레일 + 음표 머리
         const cr=parseInt(this.col.slice(1,3),16),cg=parseInt(this.col.slice(3,5),16),cb=parseInt(this.col.slice(5,7),16);
-        // 빛 콘
-        G.fillStyle=`rgba(${cr},${cg},${cb},${al*0.18})`;
-        G.beginPath();G.moveTo(s*0.5,-s*0.35);G.lineTo(s*4.5,-s*0.95);G.lineTo(s*4.5,s*0.95);G.lineTo(s*0.5,s*0.35);G.closePath();G.fill();
-        G.fillStyle=`rgba(${cr},${cg},${cb},${al*0.45})`;
-        G.beginPath();G.moveTo(s*0.5,-s*0.2);G.lineTo(s*4.5,-s*0.5);G.lineTo(s*4.5,s*0.5);G.lineTo(s*0.5,s*0.2);G.closePath();G.fill();
-        // 중심 빛 줄기
-        G.fillStyle='#ffffff';G.globalAlpha=al*0.9;
-        G.fillRect(s*0.5,-s*0.08,s*4,s*0.16);
+        // 빛나는 글로우
+        G.globalAlpha=al*0.35;
+        G.fillStyle=`rgb(${cr},${cg},${cb})`;
+        G.beginPath();G.arc(0,0,s*0.95,0,Math.PI*2);G.fill();
+        G.globalAlpha=al*0.7;
+        G.beginPath();G.arc(0,0,s*0.55,0,Math.PI*2);G.fill();
+        // 음표 머리 (검은 타원, 살짝 기울임)
         G.globalAlpha=al;
-        // 몸통 (검은 원통)
-        G.fillStyle='#1a1a1a';G.fillRect(-s*2.0,-s*0.4,s*2.5,s*0.8);
-        G.fillStyle='#555';G.fillRect(-s*2.0,-s*0.4,s*2.5,s*0.16);
-        G.fillStyle='#0a0a0a';G.fillRect(-s*2.0,s*0.24,s*2.5,s*0.16);
-        // 스위치 - 변신형은 컬러 매치
-        G.fillStyle=isStreamer?this.col:'#aa1111';G.fillRect(-s*0.5,-s*0.45,s*0.4,s*0.18);
-        G.fillStyle='#660000';G.fillRect(-s*0.5,-s*0.33,s*0.4,s*0.05);
-        // 그립 줄
-        G.fillStyle='#000';
-        G.fillRect(-s*1.5,-s*0.4,s*0.06,s*0.8);
-        G.fillRect(-s*1.2,-s*0.4,s*0.06,s*0.8);
-        G.fillRect(-s*0.9,-s*0.4,s*0.06,s*0.8);
-        // 렌즈
-        G.fillStyle='#888';G.fillRect(s*0.5,-s*0.45,s*0.15,s*0.9);
-        G.fillStyle=this.col;G.fillRect(s*0.35,-s*0.35,s*0.18,s*0.7);
-        G.fillStyle='#fff';G.fillRect(s*0.4,-s*0.2,s*0.1,s*0.15);
-        // 끝 배터리 캡
-        G.fillStyle='#0a0a0a';G.fillRect(-s*2.2,-s*0.3,s*0.2,s*0.6);
+        G.rotate(-0.35+spinT*0.3);
+        G.fillStyle='#1a0a00';
+        G.beginPath();G.ellipse(0,0,s*0.4,s*0.28,0,0,Math.PI*2);G.fill();
+        // 음표 줄기 (스템)
+        G.fillStyle='#1a0a00';
+        G.fillRect(s*0.35,-s*0.9,s*0.1,s*0.95);
+        // 깃발 (flag)
+        G.fillStyle=`rgb(${cr},${cg},${cb})`;
+        G.beginPath();
+        G.moveTo(s*0.45,-s*0.9);
+        G.quadraticCurveTo(s*1.1,-s*0.6,s*0.7,-s*0.15);
+        G.quadraticCurveTo(s*0.55,-s*0.5,s*0.45,-s*0.45);
+        G.closePath();G.fill();
+        // 반짝
+        G.globalAlpha=al*0.9;
+        G.fillStyle='#ffffff';
+        G.beginPath();G.arc(-s*0.18,-s*0.1,s*0.08,0,Math.PI*2);G.fill();
         break;
       }
       case 'gsword_axe':case 'caff_axe':{
@@ -2310,52 +2432,59 @@ const FORM_EFFECTS={
   sleep:'이동/공격 0.5x · 30% 발사 실패',
 };
 function drawResultCard(){
-  if(!player||!player.resultCardT||player.resultCardT<=0)return;
-  const form=player.streamerForm;if(!form)return;
-  const t=1-player.resultCardT/2.2;
-  // 슬라이드 인/아웃
-  let alpha=1;
-  if(t<0.15)alpha=t/0.15;
-  else if(t>0.85)alpha=(1-t)/0.15;
-  const bw=380,bh=130,bx=LW/2-bw/2,by=LH/2-bh/2-30;
-  G.save();G.globalAlpha=alpha;
+  if(!player||!player.awaitingClick)return;
+  const form=player.rouletteResult;if(!form)return;
+  // 펄스 (시간 기반) — 클릭 안내 강조용
+  const pulseT=(gameTime*1.5+performance.now()/1000)%1;
+  const pulse=0.5+0.5*Math.sin(pulseT*Math.PI*2);
+  const bw=440,bh=180,bx=LW/2-bw/2,by=LH/2-bh/2-20;
+  G.save();
+  // 어두운 배경 디머 (게임 화면 살짝 가림)
+  G.fillStyle='rgba(0,0,0,0.5)';G.fillRect(0,0,LW,LH);
   // 그림자
-  G.fillStyle='rgba(0,0,0,0.7)';G.fillRect(bx+5,by+5,bw,bh);
+  G.fillStyle='rgba(0,0,0,0.8)';G.fillRect(bx+6,by+6,bw,bh);
   // 본체
   G.fillStyle='#0a0612';G.fillRect(bx,by,bw,bh);
   G.strokeStyle=form.col;G.lineWidth=3;G.strokeRect(bx,by,bw,bh);
-  G.strokeStyle='rgba(255,255,255,0.15)';G.lineWidth=1;G.strokeRect(bx+3,by+3,bw-6,bh-6);
+  G.strokeStyle='rgba(255,255,255,0.2)';G.lineWidth=1;G.strokeRect(bx+4,by+4,bw-8,bh-8);
   // 헤더 컬러 바
-  G.fillStyle=form.col;G.fillRect(bx,by,bw,5);
-  G.fillStyle=form.col+'33';G.fillRect(bx,by+5,bw,3);
-  // "변신 완료" 라벨
-  G.fillStyle=form.col;G.font='bold 11px Courier New';G.textAlign='center';
-  G.fillText('━━ 🎰 변신 완료 ━━',LW/2,by+24);
-  // 큰 이모지
-  G.font='40px serif';G.textAlign='center';
-  G.fillText(form.emoji,LW/2-130,by+72);
-  // 이름 + 효과
-  G.fillStyle='#fff';G.font='bold 20px Courier New';G.textAlign='left';
-  G.fillText(form.name,bx+90,by+58);
-  // 효과 설명 (한 줄 깔끔)
-  G.fillStyle=form.col;G.font='bold 11px Courier New';
-  G.fillText('▸ '+(FORM_EFFECTS[form.id]||form.desc),bx+90,by+80);
-  // 30초 카운트다운 안내
-  G.fillStyle='#666';G.font='10px Courier New';
-  G.fillText('30초 후 다시 룰렛',bx+90,by+98);
-  // 꽝일 때 특별 표시
+  G.fillStyle=form.col;G.fillRect(bx,by,bw,6);
+  G.fillStyle=form.col+'33';G.fillRect(bx,by+6,bw,3);
+  // "변신 결정" 라벨
+  G.fillStyle=form.col;G.font='bold 12px Courier New';G.textAlign='center';
+  G.fillText('━━ 🎰 변신 결정 ━━',LW/2,by+28);
+  // 큰 이모지 (왼쪽)
+  G.font='52px serif';G.textAlign='center';
+  G.fillText(form.emoji,bx+62,by+90);
+  // 이름 (오른쪽 상단)
+  G.fillStyle='#fff';G.font='bold 22px Courier New';G.textAlign='left';
+  G.fillText(form.name,bx+120,by+68);
+  // 별명 (회색)
+  G.fillStyle='#999';G.font='12px Courier New';
+  G.fillText(form.desc,bx+120,by+86);
+  // 효과 설명
+  G.fillStyle=form.col;G.font='bold 12px Courier New';
+  G.fillText('▸ '+(FORM_EFFECTS[form.id]||form.desc),bx+120,by+108);
+  // 30초 안내
+  G.fillStyle='#777';G.font='10px Courier New';
+  G.fillText('30초 동안 유지',bx+120,by+126);
+  // 꽝 특별 표시
   if(form.id==='sleep'){
-    G.fillStyle='#ff6666';G.font='bold 12px Courier New';G.textAlign='center';
-    G.fillText('💢 야간경비 졸음 (꽝!)',LW/2,by+bh-8);
+    G.fillStyle='#ff6666';G.font='bold 13px Courier New';G.textAlign='center';
+    G.fillText('💢 야간경비 졸음 (꽝!)',LW/2,by+148);
   }
+  // 클릭 안내 — 펄스 효과
+  G.globalAlpha=0.6+pulse*0.4;
+  G.fillStyle=form.col;G.font='bold 14px Courier New';G.textAlign='center';
+  G.fillText('▶ 클릭하여 계속 ◀',LW/2,by+bh-12);
   G.restore();
 }
-// 룰렛 애니메이션 (윤소민 변신 진행 중)
+// 룰렛 애니메이션 (윤소민 변신 진행 중) — ease-out 감속으로 결과에 정확히 안착
 function drawRouletteAnim(){
   if(!player||!player.rouletteT||player.rouletteT<=0)return;
-  const total=2.6,elapsed=total-player.rouletteT,prog=elapsed/total;
+  const total=3.8,elapsed=total-player.rouletteT,prog=clamp(elapsed/total,0,1);
   // 배경 패널
-  const bw=320,bh=140,bx=LW/2-bw/2,by=LH/2-bh/2-20;
+  const bw=340,bh=150,bx=LW/2-bw/2,by=LH/2-bh/2-20;
   G.save();
   G.fillStyle='rgba(0,0,0,0.88)';G.fillRect(bx,by,bw,bh);
   G.strokeStyle='#ffaa44';G.lineWidth=3;G.strokeRect(bx,by,bw,bh);
@@ -2365,49 +2494,43 @@ function drawRouletteAnim(){
   G.fillStyle='#000';G.font='bold 16px Courier New';G.textAlign='center';
   G.fillText('🎰 변신 룰렛 🎰',LW/2,by+19);
   // 슬롯 영역
-  const slotY=by+45,slotH=70;
+  const slotY=by+45,slotH=80;
   G.fillStyle='#1a0e18';G.fillRect(bx+20,slotY,bw-40,slotH);
-  // 스크롤 속도 (점점 느려짐)
-  const speed=Math.pow(1-prog,0.8)*60+3;
-  const offset=elapsed*200*speed/3;
-  // 결과로 점차 수렴
+  // 결과 인덱스 및 스크롤 계산
+  // ease-out quartic — 끝에서 거의 멈춤 (prog=1에서 미분=0)
   const targetIdx=STREAMER_FORMS.indexOf(player.rouletteResult);
   const cycleH=STREAMER_FORMS.length*36;
-  let scrollY;
-  if(prog>0.85){
-    // 마지막엔 결과 위치로 보간
-    const endScroll=targetIdx*36;
-    const startScroll=offset%cycleH;
-    const lerpT=(prog-0.85)/0.15;
-    scrollY=startScroll+(endScroll-startScroll)*lerpT;
-  }else{
-    scrollY=offset%cycleH;
-  }
+  // N번 완전 회전 + 마지막에 targetIdx에 안착
+  const N=6;
+  const totalDist=N*cycleH+targetIdx*36;
+  // ease-out: 1 - (1-prog)^4 → 초반 빠르고 끝에서 거의 안 움직임
+  const eased=1-Math.pow(1-prog,4);
+  const scrollY=totalDist*eased;
   // 폼들 표시 (위/중간/아래)
   G.save();
   G.beginPath();G.rect(bx+20,slotY,bw-40,slotH);G.clip();
   for(let i=-1;i<=3;i++){
     const idx=((Math.floor(scrollY/36)+i)%STREAMER_FORMS.length+STREAMER_FORMS.length)%STREAMER_FORMS.length;
     const form=STREAMER_FORMS[idx];
-    const fy=slotY+35-(scrollY%36)+i*36;
-    const isCenter=Math.abs(fy-(slotY+35))<18;
-    G.globalAlpha=isCenter?1:0.4;
-    G.fillStyle=form.col;G.font=`bold ${isCenter?22:16}px Courier New`;
+    const fy=slotY+40-(scrollY%36)+i*36;
+    const distFromCenter=Math.abs(fy-(slotY+40));
+    const isCenter=distFromCenter<18;
+    G.globalAlpha=isCenter?1:Math.max(0.25,0.7-distFromCenter*0.015);
+    G.fillStyle=form.col;G.font=`bold ${isCenter?22:15}px Courier New`;
     G.textAlign='center';
     G.fillText(form.emoji+' '+form.name,LW/2,fy);
   }
   G.restore();
-  // 선택 인디케이터 (중앙)
-  G.strokeStyle='#ffff66';G.lineWidth=2;
-  G.strokeRect(bx+20,slotY+22,bw-40,30);
-  G.fillStyle='#ffff66';G.fillRect(bx+18,slotY+30,4,14);G.fillRect(bx+bw-22,slotY+30,4,14);
-  // 결과 글씨 (마지막에)
-  if(prog>0.95){
-    const fade=(prog-0.95)/0.05;
-    G.globalAlpha=fade;
-    G.fillStyle='#fff';G.font='bold 14px Courier New';G.textAlign='center';
-    G.fillText('▶ 결정! ◀',LW/2,by+bh-8);
-  }
+  // 선택 인디케이터 (중앙) — 끝나갈수록 노란빛 강해짐
+  const glow=prog>0.7?(prog-0.7)/0.3:0;
+  G.strokeStyle=`rgba(255,${255-glow*60},${102-glow*102},${1})`;
+  G.lineWidth=2+glow*2;
+  G.strokeRect(bx+20,slotY+25,bw-40,32);
+  G.fillStyle=`rgba(255,${255-glow*60},${102-glow*102},${1})`;
+  G.fillRect(bx+18,slotY+33,4,16);G.fillRect(bx+bw-22,slotY+33,4,16);
+  // 진행도 바 (하단)
+  G.fillStyle='#332211';G.fillRect(bx+12,by+bh-12,bw-24,4);
+  G.fillStyle='#ffaa44';G.fillRect(bx+12,by+bh-12,(bw-24)*prog,4);
   G.restore();
 }
 function drawCocker(x,y,fr,evolved,flip){
@@ -2813,11 +2936,13 @@ function drawHUD(){
     }
     // 다음 룰렛까지 카운트다운 바
     G.fillStyle='#222';G.fillRect(sIX,sIY+sIH,sIW,3);
-    const t=p.rouletteT>0?1:(p.streamerT/30);
-    G.fillStyle=p.rouletteT>0?'#ffaa44':col;G.fillRect(sIX,sIY+sIH,sIW*t,3);
+    const t=(p.rouletteT>0||p.awaitingClick)?1:(p.streamerT/30);
+    const barCol=p.awaitingClick?'#ffff66':(p.rouletteT>0?'#ffaa44':col);
+    G.fillStyle=barCol;G.fillRect(sIX,sIY+sIH,sIW*t,3);
     // 시간 텍스트
     G.fillStyle='#aaa';G.font='8px Courier New';G.textAlign='right';
-    if(p.rouletteT>0)G.fillText('🎰 룰렛 돌아가는 중',sIX+sIW-4,sIY+11);
+    if(p.awaitingClick)G.fillText('👆 클릭하여 변신',sIX+sIW-4,sIY+11);
+    else if(p.rouletteT>0)G.fillText('🎰 룰렛 돌아가는 중',sIX+sIW-4,sIY+11);
     else G.fillText(`다음 변신 ${Math.ceil(p.streamerT)}s`,sIX+sIW-4,sIY+11);
   }
   G.restore();
@@ -3434,6 +3559,15 @@ c.addEventListener('click',e=>{
     else if(sb===1){canvasAutoFit=!canvasAutoFit;if(canvasAutoFit)autoFitCanvas()}
     return;
   }
+  // 윤소민 룰렛 결과 카드 클릭 → 변신 적용 + 게임 재개
+  if(state==='playing'&&player&&player.awaitingClick&&player.cd.id==='sm'){
+    player.streamerForm=player.rouletteResult;
+    player.streamerT=30;
+    player.awaitingClick=false;
+    SFX.lvUp();
+    if(player.streamerForm.id==='sleep')SFX.over();
+    return;
+  }
   if(state==='title'){
     const i=getTitleBtnAt(m.x,m.y);
     if(i===0){state='select';playBgm('title')}  // 게임 시작 → 캐릭 선택
@@ -3464,14 +3598,15 @@ function update(dt){
   if(player&&player.rouletteT>0&&player.cd.id==='sm'){
     player.rouletteT-=dt;
     if(player.rouletteT<=0){
-      player.streamerForm=player.rouletteResult;
-      player.streamerT=30;
-      player.resultCardT=2.2;  // 결과 카드 표시 시간
+      // 룰렛 끝 — 변신 적용은 클릭 후로 미룸
+      player.rouletteT=0;
+      player.awaitingClick=true;
       SFX.phialReady();
-      if(player.streamerForm.id==='sleep')SFX.over();
     }
     return;
   }
+  // 룰렛 결과 카드 클릭 대기 중에도 게임 정지
+  if(player&&player.awaitingClick&&player.cd.id==='sm')return;
   gameTime+=dt;
   afrT+=dt;if(afrT>0.18){afr++;afrT=0}
   player.update(dt);spawnEnemies(dt);

@@ -129,27 +129,32 @@ C:\Users\조규형\Documents\GitHub\vamsur\
 - **5~6초마다 강제 복귀**: 너무 멀리 안 나가게. 복귀 중 머리 위 🏃 표시
 - Companion 클래스, `drawCocker()` 그리기
 
-### 3. 윤소민 — 🎰 스텔라이브 변신 룰렛
+### 3. 윤소민 — 🔦 손전등 빔 + 🎰 스텔라이브 변신 룰렛
+
+**손전등은 던지지 않고 들고 비추는 빔** — 쿨다운마다 "딸깍" 켜져서 콘 모양 빛이 가장 가까운 적을 향해 비춰지며, 콘 안의 적들에게 **틱 데미지** + **40% 슬로우** (`e.slow` 시스템 활용). 빔은 플레이어를 따라다니고, 적 방향으로 부드럽게(9rad/s) 조준 회전.
 
 **30초마다 룰렛 → 변신 → 30초 유지 → 다시 룰렛**
 
 **룰렛 진행 중 (2.6초)**: **게임 완전 정지** (적/공격/이동 다 멈춤)
 **룰렛 종료 후**: 2.2초간 큰 결과 카드 표시 (이모지, 이름, 효과 한 줄)
 
-**확률 분포:**
-- 🦊 텐코 시부키 (15%) — 주황 여우귀. 4방향 발사, 데미지 럭(0.4x/1.6x/4x 랜덤)
-- 🗡️ 유즈하 리코 (15%) — 손에 에메랄드 이지피야 칼. 빠른 다타 (cnt×3)
-- 🐲 사키하네 후야 (15%) — 검은 뿔. 어둠 단발 4.5배 데미지
-- 🦇 아카네 리제 (15%) — 송곳니+망토. 처치시 HP+3 흡혈 + 1.5초 슬로우
-- 🎤 아라하시 타비 (15%) — 손에 마이크. 호밍 음표 다타
-- 💤 졸린 윤소민 (25% 꽝) — zZ 표시. 이동/공격 0.5x, 30% 발사 실패
+**확률 분포 / 변신별 빔 차별화:**
+- 🦊 텐코 시부키 (15%) — 주황 빔, 중간 폭(0.42rad), 틱마다 15% 확률 폭딜 추가타
+- 🗡️ 유즈하 리코 (15%) — 에메랄드 좁고 빠른 빔(halfAng 0.24, tick 0.10s)
+- 🐲 사키하네 후야 (15%) — 보라 매우 길고 좁은 레이저(len 400, halfAng 0.15), 강한 단발 틱
+- 🦇 아카네 리제 (15%) — 빨간 빔, 슬로우 2.0초 길게, 처치 시 60% 확률 HP+3 흡혈
+- 🎤 아라하시 타비 (15%) — 주황 빔 + 호밍 음표 동시 발사
+- 💤 졸린 윤소민 (25% 꽝) — 회색 짧고 약한 빔, 30% 확률로 "불 안 켜짐"
+
+**진화 (🌙 심야경계령)** — 빔 + 90px 360° 짧은 펄스. 변신 시 모든 빔이 더 길고(40px+) 빠른 틱(0.85x) + 슬로우 0.4초 길게.
 
 **관련 코드:**
 - STREAMER_FORMS, FORM_EFFECTS 상수
 - Player 상태: `streamerForm`, `streamerT`, `rouletteT`, `rouletteResult`, `resultCardT`
-- 헬퍼: `pickStreamerForm()`, `applyStreamerLight()`, `drawStreamerAccessory()`, `drawRouletteAnim()`, `drawResultCard()`
-- HUD 인디케이터: 현재 변신 + 다음 룰렛 카운트다운 바
-- 손전등 투사체 wt: `light_sb` / `light_rk` / `light_hy` / `light_lz` / `light_tb`
+- 헬퍼: `pickStreamerForm()`, `spawnBeam()`, `applyStreamerLight()`, `drawStreamerAccessory()`, `drawRouletteAnim()`, `drawResultCard()`
+- `spawnBeam(p,ang,opts)` — 콘 빔 객체 (projs에 추가). opts: `{col,len,halfAng,life,dmg,tickInt,slowDur,wt,onHit,bigClick}`
+- 빔은 `isAoe:true` 객체로 매 프레임 플레이어 따라가며, `tickInt`초마다 콘 안 적에게 데미지+슬로우 갱신
+- 호밍 음표 (tabi만): wt `light_tb` (Proj.draw에서 ♪ 모양으로 렌더)
 - 색상은 `this.col` 사용 (각 변신마다 다른 컬러)
 
 ### 4. 다른 캐릭터들 (특수 메카닉 없음 — 시작 무기만)
@@ -333,5 +338,5 @@ C:\Users\조규형\Documents\GitHub\vamsur\
 
 ---
 
-*마지막 업데이트: 차지 액스 + 뭉치 컴패니언 + 스텔라이브 변신 시스템 완성 후*
-*총 작업 시간: 약 60+ 세션, index.html ~3800줄*
+*마지막 업데이트: 윤소민 손전등 → 들고 비추는 빔(콘) 시스템 전환 (변신 6종 모두 빔으로 재설계)*
+*총 작업 시간: 약 60+ 세션, index.html ~3930줄*
