@@ -574,12 +574,12 @@ function sBossLol(x,y,fr,phase2){
 
 // ═══ DEFINITIONS ═══
 const CHARS=[
-  {id:'jh',name:'준형전자',sub:'조립의 신',color:'#4488cc',hp:130,spd:100,startWpn:'ram',pdesc:'방어력 +10%',def:0.9},
-  {id:'jw',name:'최종원',sub:'셰프',color:'#dd6622',hp:100,spd:110,startWpn:'knife',pdesc:'시간↑ 공격력↑',def:1.0},
-  {id:'sm',name:'윤소민',sub:'심야경비+버튜버',color:'#33aa66',hp:110,spd:128,startWpn:'light',pdesc:'이동속도 +15%',def:1.0},
-  {id:'gj',name:'최기종',sub:'허리디스크레전드',color:'#9955cc',hp:160,spd:70,startWpn:'staff',pdesc:'공격+40% 속도-30%',def:0.8},
-  {id:'co',name:'최초',sub:'뭉치 주인',color:'#cc8800',hp:100,spd:120,startWpn:'mungchi',pdesc:'크리티컬 +30%',def:1.0},
-  {id:'gh',name:'황기훈',sub:'몬헌마스터',color:'#cc3377',hp:110,spd:105,startWpn:'gsword',pdesc:'보스데미지 +25%',def:1.0},
+  {id:'jh',name:'준형전자',sub:'조립의 신',color:'#4488cc',hp:130,spd:100,startWpn:'ram',pdesc:'방어 +10% · 🔧 위급시 자가수리',def:0.9},
+  {id:'jw',name:'최종원',sub:'셰프',color:'#dd6622',hp:100,spd:110,startWpn:'knife',pdesc:'시간↑공격↑ · 🍳 8콤보→폭주',def:1.0},
+  {id:'sm',name:'윤소민',sub:'심야경비+버튜버',color:'#33aa66',hp:110,spd:128,startWpn:'light',pdesc:'이동 +15% · 🎰 변신 룰렛',def:1.0},
+  {id:'gj',name:'최기종',sub:'허리디스크레전드',color:'#9955cc',hp:160,spd:70,startWpn:'staff',pdesc:'공격+40% 속도-30% · 💥 디스크 폭발',def:0.8},
+  {id:'co',name:'최초',sub:'뭉치 주인',color:'#cc8800',hp:100,spd:120,startWpn:'mungchi',pdesc:'크리 +30% · 🐕 뭉치 컴패니언',def:1.0},
+  {id:'gh',name:'황기훈',sub:'몬헌마스터',color:'#cc3377',hp:110,spd:105,startWpn:'gsword',pdesc:'보스 +25% · 🪓 페이얼/SAED',def:1.0},
 ];
 const WDEFS={
   ram:      {name:'🖥️ 램 스틱',      cd:0.9,  col:'#44aaff', evolved:false},
@@ -719,7 +719,7 @@ function shake(t,m){shakeT=Math.max(shakeT,t);shakeM=Math.max(shakeM,m)}
 function showDmg(x,y,v,col,big,crit){dmgTexts.push({x:x+rnd(-6,6),y:y-10,vy:-32,life:crit?1.0:0.8,ml:crit?1.0:0.8,t:Math.ceil(v).toString(),c:col||'#ffeecc',sz:crit?16:(big?13:10),dead:false,crit:!!crit})}
 function spark(x,y,col,n){for(let i=0;i<(n||3);i++){const a=Math.random()*Math.PI*2,s=rnd(80,200);hitSparks.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:rnd(0.15,0.3),ml:0.3,col,dead:false})}}
 function notify(title,sub,col){notifs.push({title,sub:sub||'',col:col||'#ffdd66',life:2.4,ml:2.4,dead:false})}
-function bumpCombo(){combo++;comboT=2.5;if(combo>comboMax)comboMax=combo}
+function bumpCombo(){combo++;comboT=2.5;if(combo>comboMax)comboMax=combo;if(player&&player.notifyKill)player.notifyKill()}
 // 픽업: heal / magnet / bomb
 const PICKUP_TYPES=['heal','magnet','bomb'];
 function spawnPickup(x,y,type){
@@ -792,6 +792,16 @@ class Player{
     this.rouletteResult=null;  // 룰렛 결과
     this.awaitingClick=false;  // 룰렛 끝난 후 결과 카드 클릭 대기 (true면 게임 정지)
     this.resultCardT=0;        // (deprecated, 호환용)
+    // 준형전자 — 🔧 AS 보증 (HP 위급 시 자가 수리)
+    this.repairCd=0;        // 0 이상: 사용 후 쿨다운 (초)
+    this.repairFx=0;        // 발동 시 시각 이펙트 시간
+    // 최종원 — 🍳 주문 폭주 (콤보 트리거 → 일정 시간 공속 2배)
+    this.rushT=0;           // 활성 시간 (>0이면 발동 중)
+    this.rushKills=0;       // 5초 윈도우 내 누적 킬
+    this.rushWnd=0;         // 윈도우 카운트다운
+    // 최기종 — 💥 디스크 폭발 (피격 통증 게이지 100% 도달 시 자동 발동)
+    this.discPain=0;        // 0~1, 1 도달 시 발동
+    this.discFx=0;          // 발동 시 시각 이펙트 시간
   }
   tryDash(){
     if(this.dashCd>0)return;
@@ -832,12 +842,45 @@ class Player{
     this.x=clamp(this.x,-1800,1800);this.y=clamp(this.y,-1800,1800);
     if(this.hitT>0)this.hitT-=dt;
     if(this.flashT>0)this.flashT-=dt;
+    // 최종원 주문 폭주 활성 시 발사 속도 ×2
+    const rushAsMul=(this.cd.id==='jw'&&this.rushT>0)?2:1;
     this.wpns.forEach(w=>{
       w.t-=dt;
-      if(w.t<=0){fireWpn(w.type,this,w.lv||1);w.t=(WDEFS[w.type]?.cd||1)*wlvAt(WLV.cdM,w.lv||1)/this.as}
+      if(w.t<=0){fireWpn(w.type,this,w.lv||1);w.t=(WDEFS[w.type]?.cd||1)*wlvAt(WLV.cdM,w.lv||1)/(this.as*rushAsMul)}
     });
-    if(this.regen>0){this.regenT-=dt;if(this.regenT<=0){this.hp=Math.min(this.mhp,this.hp+this.regen*0.2);this.regenT=0.2}}
+    if(this.regen>0){this.regenT=Math.max(0,this.regenT-dt);if(this.regenT<=0){this.hp=Math.min(this.mhp,this.hp+this.regen*0.2);this.regenT=0.2}}
     if(this.cd.id==='jw')this.dm=1+(gameTime/120)*0.7;
+    // 캐릭터별 메카닉 타이머
+    if(this.repairCd>0)this.repairCd-=dt;
+    if(this.repairFx>0)this.repairFx-=dt;
+    if(this.discFx>0)this.discFx-=dt;
+    // 최종원 — 콤보 윈도우 카운트다운 (5초 안에 8킬 도달해야 발동)
+    if(this.cd.id==='jw'){
+      if(this.rushWnd>0){
+        this.rushWnd-=dt;
+        if(this.rushWnd<=0)this.rushKills=0;
+      }
+      if(this.rushT>0)this.rushT-=dt;
+    }
+    // 최기종 — 통증 게이지 자연 감소 (오래 안 맞으면 천천히 빠짐)
+    if(this.cd.id==='gj'&&this.discPain>0&&this.hitT<=0){
+      this.discPain=Math.max(0,this.discPain-dt*0.04);
+    }
+  }
+  // 최종원 — 처치 1건 알림 (bumpCombo에서 호출)
+  notifyKill(){
+    if(this.cd.id!=='jw')return;
+    if(this.rushT>0)return; // 이미 폭주 중이면 무시
+    this.rushKills++;
+    this.rushWnd=5;  // 5초 윈도우 갱신
+    if(this.rushKills>=8){
+      this.rushT=5;  // 5초간 발동
+      this.rushKills=0;this.rushWnd=0;
+      SFX.lvUp();SFX.phialReady();
+      notify('🍳 주문 폭주!','5초간 공속 ×2','#ff8844');
+      spawnParts(this.x,this.y,'#ff8844',14);
+      shake(0.15,3);
+    }
   }
   nearest(){let n=null,md=99999;(boss?[...enemies,boss]:enemies).forEach(e=>{const d=dist(this,e);if(d<md){md=d;n=e}});return n}
   takeDmg(v){
@@ -847,7 +890,49 @@ class Player{
     SFX.pHit();spawnParts(this.x,this.y,'#ff4444',8);
     showDmg(this.x,this.y-12,dmg,'#ff5566',true);
     shake(0.25,5);spark(this.x,this.y,'#ff6644',6);
-    if(this.hp<=0){this.hp=0;SFX.over();state='dead';shake(0.6,12)}
+    // 최기종 — 디스크 폭발: 통증 게이지 충전 (받은 데미지의 mhp 대비 비율 × 2.5)
+    if(this.cd.id==='gj'&&this.hp>0){
+      this.discPain=Math.min(1,this.discPain+(dmg/this.mhp)*2.5);
+      if(this.discPain>=1)this.triggerDiscBurst();
+    }
+    if(this.hp<=0){
+      // 준형전자 — AS 보증: HP 0 이하 도달 시 쿨다운 가능하면 자동 수리 (긴급)
+      if(this.cd.id==='jh'&&this.repairCd<=0){
+        this.triggerASRepair(true);
+        return;
+      }
+      this.hp=0;SFX.over();state='dead';shake(0.6,12);
+      return;
+    }
+    // 준형전자 — AS 보증: HP 25% 이하 + 쿨다운 끝났을 때 자동 발동
+    if(this.cd.id==='jh'&&this.repairCd<=0&&this.hp/this.mhp<0.25){
+      this.triggerASRepair(false);
+    }
+  }
+  // 준형전자 자가수리 — 무적 1.5초 + HP 35% 회복 + 60초 쿨다운
+  triggerASRepair(emergency){
+    const healAmt=this.mhp*(emergency?0.55:0.35);
+    this.hp=Math.min(this.mhp,Math.max(this.hp,0)+healAmt);
+    this.hitT=Math.max(this.hitT,1.5);  // 1.5초 무적
+    this.repairCd=60;
+    this.repairFx=1.2;
+    SFX.lvUp();SFX.phialReady();
+    notify(emergency?'🔧 긴급 부팅!':'🔧 AS 보증 발동',`HP +${Math.round(healAmt)} · 1.5초 무적`,'#44aaff');
+    spawnParts(this.x,this.y,'#44aaff',16);
+    shake(0.2,4);
+    showDmg(this.x,this.y-20,Math.round(healAmt),'#88ddff',true);
+  }
+  // 최기종 디스크 폭발 — 광역 폭딜 + 0.8초 무적, 게이지 리셋
+  triggerDiscBurst(){
+    this.discPain=0;
+    this.hitT=Math.max(this.hitT,0.8);
+    this.discFx=0.6;
+    const bdmg=20*this.dm*4;  // 베이스 데미지 × 4 (게임 후반엔 dm이 커지므로 비례)
+    aoeHit(this.x,this.y,180,'#cc66ff',bdmg,0.45,0,true,'disc_burst',0);
+    SFX.bHit();SFX.boss();
+    notify('💥 디스크 폭발!','허리 작살남','#cc66ff');
+    spawnParts(this.x,this.y,'#cc66ff',20);
+    shake(0.3,6);
   }
   gainXp(v){
     this.xp+=v*this.xpm;
@@ -876,6 +961,62 @@ class Player{
     }
     G.restore();
     if(fl){G.save();G.globalAlpha=this.flashT*2;G.fillStyle='#ff4444';G.fillRect(this.x-9,this.y-16,18,30);G.restore()}
+    // 캐릭터별 시각 이펙트
+    // 준형전자 AS 보증 발동 직후: 파란 회로 글로우 링
+    if(this.cd.id==='jh'&&this.repairFx>0){
+      const t=1-this.repairFx/1.2;
+      G.save();
+      G.globalAlpha=(1-t)*0.85;
+      G.strokeStyle='#44ccff';G.lineWidth=3;
+      G.beginPath();G.arc(this.x,this.y,16+t*30,0,Math.PI*2);G.stroke();
+      G.globalAlpha=(1-t)*0.5;
+      G.strokeStyle='#aaeeff';G.lineWidth=1.5;
+      G.beginPath();G.arc(this.x,this.y,10+t*22,0,Math.PI*2);G.stroke();
+      // 🔧 위 표시
+      G.globalAlpha=Math.min(1,(1-t)*1.4);
+      G.font='14px serif';G.textAlign='center';
+      G.fillText('🔧',this.x,this.y-22-t*8);
+      G.restore();
+    }
+    // 최종원 주문 폭주 활성 중: 🍳 위에 + 주황 글로우
+    if(this.cd.id==='jw'&&this.rushT>0){
+      const pulse=0.5+0.5*Math.sin(gameTime*10);
+      G.save();
+      G.globalAlpha=0.3+pulse*0.3;
+      G.fillStyle='#ff8844';
+      G.beginPath();G.arc(this.x,this.y+2,15+pulse*3,0,Math.PI*2);G.fill();
+      G.globalAlpha=1;
+      G.font='14px serif';G.textAlign='center';
+      G.fillText('🍳',this.x,this.y-22);
+      // 잔여 시간 바
+      G.fillStyle='#332211';G.fillRect(this.x-12,this.y-30,24,3);
+      G.fillStyle='#ff8844';G.fillRect(this.x-12,this.y-30,24*(this.rushT/5),3);
+      G.restore();
+    }
+    // 최기종 통증 게이지 (피격 누적 시): 머리 위 보라 바
+    if(this.cd.id==='gj'&&this.discPain>0){
+      G.save();
+      const w=22,h=4,bx=this.x-w/2,by=this.y-26;
+      G.fillStyle='rgba(20,10,30,0.85)';G.fillRect(bx,by,w,h);
+      const col=this.discPain>=0.85?'#ff66cc':'#9966cc';
+      G.fillStyle=col;G.fillRect(bx,by,w*this.discPain,h);
+      // 가득 차기 직전 글로우
+      if(this.discPain>=0.85){
+        const p=0.5+0.5*Math.sin(gameTime*18);
+        G.globalAlpha=p*0.7;
+        G.strokeStyle='#ff66cc';G.lineWidth=2;G.strokeRect(bx-1,by-1,w+2,h+2);
+      }
+      G.restore();
+    }
+    // 최기종 디스크 폭발 직후: 보라 슬램 링
+    if(this.cd.id==='gj'&&this.discFx>0){
+      const t=1-this.discFx/0.6;
+      G.save();
+      G.globalAlpha=(1-t)*0.9;
+      G.strokeStyle='#cc66ff';G.lineWidth=4-t*2;
+      G.beginPath();G.arc(this.x,this.y,30+t*150,0,Math.PI*2);G.stroke();
+      G.restore();
+    }
   }
 }
 
@@ -2921,6 +3062,37 @@ function drawHUD(){
   G.fillStyle=ready?'#88ddff':'#444';G.fillRect(dashX,dashY-9,32*(ready?1:1-p.dashCd/p.dashCdMax),10);
   G.fillStyle=ready?'#000':'#888';G.font='bold 8px Courier New';G.textAlign='center';
   G.fillText(ready?'⚡ SPACE':`${p.dashCd.toFixed(1)}s`,dashX+16,dashY-1);
+  // 캐릭터별 메카닉 인디케이터 (대시 옆)
+  const mX=48,mY=82;
+  if(p.cd.id==='jh'){
+    // AS 보증 쿨다운
+    const r=p.repairCd<=0;
+    G.fillStyle='rgba(0,0,0,0.6)';G.fillRect(mX,mY-9,38,10);
+    G.fillStyle=r?'#44ccff':'#234';G.fillRect(mX,mY-9,38*(r?1:1-p.repairCd/60),10);
+    G.fillStyle=r?'#001':'#88aacc';G.font='bold 8px Courier New';G.textAlign='center';
+    G.fillText(r?'🔧 AS':`🔧 ${Math.ceil(p.repairCd)}s`,mX+19,mY-1);
+  }else if(p.cd.id==='jw'){
+    // 주문 폭주: 활성 시 잔여 시간 / 대기 중 콤보 카운트
+    const active=p.rushT>0;
+    G.fillStyle='rgba(0,0,0,0.6)';G.fillRect(mX,mY-9,38,10);
+    if(active){
+      G.fillStyle='#ff8844';G.fillRect(mX,mY-9,38*(p.rushT/5),10);
+      G.fillStyle='#000';G.font='bold 8px Courier New';G.textAlign='center';
+      G.fillText(`🍳 ${p.rushT.toFixed(1)}s`,mX+19,mY-1);
+    }else{
+      const frac=Math.min(1,p.rushKills/8);
+      G.fillStyle='#552';G.fillRect(mX,mY-9,38*frac,10);
+      G.fillStyle='#ffaa66';G.font='bold 8px Courier New';G.textAlign='center';
+      G.fillText(`🍳 ${p.rushKills}/8`,mX+19,mY-1);
+    }
+  }else if(p.cd.id==='gj'){
+    // 통증 게이지
+    G.fillStyle='rgba(0,0,0,0.6)';G.fillRect(mX,mY-9,38,10);
+    const c=p.discPain>=0.85?'#ff66cc':'#9966cc';
+    G.fillStyle=c;G.fillRect(mX,mY-9,38*p.discPain,10);
+    G.fillStyle='#fff';G.font='bold 8px Courier New';G.textAlign='center';
+    G.fillText(`💥 ${Math.round(p.discPain*100)}%`,mX+19,mY-1);
+  }
   // 윤소민 변신 인디케이터 (현재 변신 + 다음 룰렛까지 카운트다운)
   if(p.cd.id==='sm'){
     const sIX=260,sIY=12,sIW=140,sIH=24;
