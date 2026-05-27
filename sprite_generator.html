@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<title>스프라이트 생성기</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#111;color:#eee;font-family:'Courier New',monospace;padding:20px}
+h1{color:#ff8833;margin-bottom:6px;font-size:20px}
+p{color:#888;font-size:12px;margin-bottom:20px}
+.grid{display:flex;flex-wrap:wrap;gap:16px}
+.card{background:#1a1a1a;border:1px solid #333;border-radius:6px;padding:12px;text-align:center;min-width:160px}
+.card canvas{display:block;margin:0 auto 8px;image-rendering:pixelated;image-rendering:crisp-edges}
+.card .label{font-size:11px;color:#aaa;margin-bottom:6px}
+.card .fname{font-size:10px;color:#555;margin-bottom:8px}
+button{background:#333;color:#eee;border:1px solid #555;padding:5px 12px;cursor:pointer;font-family:'Courier New',monospace;font-size:11px;border-radius:3px}
+button:hover{background:#ff8833;color:#000;border-color:#ff8833}
+#dlAll{background:#ff8833;color:#000;border:none;padding:10px 28px;font-size:14px;font-weight:bold;border-radius:4px;cursor:pointer;margin-bottom:24px}
+#dlAll:hover{background:#ffaa55}
+.section{margin-bottom:24px}
+.section h2{color:#888;font-size:13px;border-bottom:1px solid #333;padding-bottom:4px;margin-bottom:12px}
+</style>
+</head><body>
+<h1>🎮 의리채팅뱀서 — 스프라이트 생성기</h1>
+<p>아래 버튼으로 각 PNG를 다운받아서 <strong>assets/</strong> 폴더에 넣으세요.</p>
+<button id="dlAll">⬇️ 전체 다운로드</button>
+
+<div id="root"></div>
+
+<script>
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function shade(h,a){const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return`rgb(${clamp(r+a,0,255)},${clamp(g+a,0,255)},${clamp(b+a,0,255)})`}
+
+// ─── 스프라이트 정의 ───
+const CHARS=[
+  {id:'jh',name:'준형전자',color:'#4488cc'},
+  {id:'jw',name:'최종원',color:'#dd6622'},
+  {id:'sm',name:'윤소민',color:'#33aa66'},
+  {id:'gj',name:'최기종',color:'#9955cc'},
+  {id:'co',name:'최초',color:'#cc8800'},
+  {id:'gh',name:'황기훈',color:'#cc3377'},
+];
+
+// ─── 그리기 함수 ───
+function sChar(G,x,y,cd,fr){
+  const col=cd.color,dk=shade(col,-55),sk='#ffcc99',t=fr%2;
+  G.fillStyle=sk;G.fillRect(x-6,y-16,12,11);
+  G.fillStyle='#222';G.fillRect(x-4,y-13,2,2);G.fillRect(x+2,y-13,2,2);
+  if(cd.id==='jh'){G.fillStyle='#336699';G.fillRect(x-7,y-19,14,4);G.fillStyle='#88ccff';G.fillRect(x-5,y-15,3,2);G.fillRect(x+2,y-15,3,2)}
+  if(cd.id==='jw'){G.fillStyle='#fff';G.fillRect(x-5,y-23,10,8);G.fillRect(x-6,y-16,12,2)}
+  if(cd.id==='sm'){G.fillStyle='#116633';G.fillRect(x-7,y-20,14,5)}
+  if(cd.id==='gj'){G.fillStyle='#cc88ff';G.fillRect(x+7,y-14,3,32)}
+  if(cd.id==='co'){G.fillStyle='#ffaa00';G.fillRect(x-5,y-21,3,7);G.fillRect(x+2,y-21,3,7)}
+  if(cd.id==='gh'){G.fillStyle='#ff2266';G.fillRect(x-8,y-18,16,4)}
+  G.fillStyle=col;G.fillRect(x-7,y-5,14,12);
+  G.fillStyle=dk;G.fillRect(x-11,y-4+(t?1:0),4,7);G.fillRect(x+7,y-4+(t?0:1),4,7);
+  G.fillStyle=shade(col,-70);G.fillRect(x-6,y+7,5,8+(t?1:0));G.fillRect(x+1,y+7,5,8+(t?0:1));
+}
+function sZombie(G,x,y,fr,elite){
+  const col=elite?'#88ff44':'#44bb44',dk='#1a6611',t=fr%2;
+  G.fillStyle=dk;G.fillRect(x-18,y-2+(t?1:0),12,4);G.fillRect(x+6,y-2+(t?0:1),12,4);
+  G.fillStyle=col;G.fillRect(x-7,y-18,14,12);G.fillRect(x-6,y-6,12,14);
+  G.fillStyle='#ff0000';G.fillRect(x-5,y-14,4,3);G.fillRect(x+1,y-14,4,3);
+  G.fillStyle=dk;G.fillRect(x-5,y+8,4,9+(t?1:0));G.fillRect(x+1,y+8,4,9+(t?0:1));
+}
+function sBat(G,x,y,fr){
+  const col='#9955aa',wc='#662277',t=fr%2,wy=t?-5:3;
+  G.fillStyle=wc;G.fillRect(x-20,y-2+wy,13,8);G.fillRect(x+7,y-2+wy,13,8);
+  G.fillStyle=col;G.fillRect(x-6,y-7,12,12);
+  G.fillStyle=wc;G.fillRect(x-6,y-12,4,7);G.fillRect(x+2,y-12,4,7);
+  G.fillStyle='#ff88ff';G.fillRect(x-4,y-4,3,3);G.fillRect(x+1,y-4,3,3);
+}
+function sSkel(G,x,y,fr){
+  const col='#cccccc',t=fr%2;
+  G.fillStyle=col;G.fillRect(x-6,y-20,12,11);
+  G.fillStyle='#111';G.fillRect(x-5,y-17,4,5);G.fillRect(x+1,y-17,4,5);
+  G.fillStyle='#888';[0,2,4].forEach(i=>G.fillRect(x-4+i*3,y-10,2,3));
+  G.fillStyle='#888';G.fillRect(x-2,y-9,4,15);
+  G.fillStyle='#aaa';[-2,2,6].forEach(ry=>G.fillRect(x-5,y-9+ry,10,1));
+  G.fillStyle=col;G.fillRect(x-10,y-8+(t?1:0),8,3);G.fillRect(x+2,y-8+(t?0:1),8,3);
+  G.fillRect(x-4,y+6,3,10+(t?1:0));G.fillRect(x+1,y+6,3,10+(t?0:1));
+}
+function sBossMungchi(G,x,y,fr){
+  const t=fr%2,col='#cc8844',dk='#885500';
+  G.fillStyle=col;G.fillRect(x+22,y-14+(t?-5:5),14,8);
+  G.fillRect(x-22,y-14,44,26);G.fillRect(x-18,y-34,36,22);
+  G.fillStyle=dk;G.fillRect(x-24,y-40,12,18);G.fillRect(x+12,y-40,12,18);
+  G.fillStyle='#aa7733';G.fillRect(x-10,y-20,20,12);
+  G.fillStyle='#222';G.fillRect(x-11,y-30,7,7);G.fillRect(x+4,y-30,7,7);
+  G.fillStyle='#ffcc00';G.fillRect(x-10,y-29,5,5);G.fillRect(x+5,y-29,5,5);
+  G.fillStyle='#111';G.fillRect(x-5,y-14,10,6);
+  G.fillStyle=dk;G.fillRect(x-18,y+12,10,14+(t?2:0));G.fillRect(x-6,y+12+(t?2:0),10,14);
+  G.fillRect(x+4,y+12,10,14+(t?0:2));G.fillRect(x+14,y+12+(t?0:2),10,14);
+}
+function sBossTruck(G,x,y){
+  G.fillStyle='#4488cc';G.fillRect(x-40,y-28,80,46);
+  G.fillStyle='#88ccff';G.fillRect(x-16,y-24,32,22);
+  G.fillStyle='#ffff00';G.fillRect(x-40,y-18,10,8);G.fillRect(x+30,y-18,10,8);
+  G.fillStyle='#224488';G.fillRect(x-40,y-28,80,8);G.fillRect(x-12,y+18,24,6);
+  G.fillStyle='#111';G.fillRect(x-36,y+14,18,14);G.fillRect(x+18,y+14,18,14);
+  G.fillStyle='#888';G.fillRect(x-32,y+18,10,10);G.fillRect(x+22,y+18,10,10);
+  G.fillStyle='#fff';G.font='bold 9px Courier New';G.textAlign='center';G.fillText('준형전자',x,y+6);
+}
+function sBossUncomfy(G,x,y,fr){
+  const t=fr%2,col='#ff8888',dk='#cc4444';
+  G.fillStyle='#cc5555';G.fillRect(x-20,y-38,40,16);
+  G.fillStyle=col;G.fillRect(x-16,y-22,32,22);G.fillRect(x-14,y,28,26);
+  G.fillStyle=dk;G.fillRect(x-26,y+(t?2:0),12,10);G.fillRect(x+14,y+(t?0:2),12,10);
+  G.fillStyle='#ff0000';G.fillRect(x-10,y-16,7,7);G.fillRect(x+3,y-16,7,7);
+  G.fillStyle='#000';G.fillRect(x-9,y-18,6,3);G.fillRect(x+3,y-18,6,3);
+  G.fillStyle='#333';G.fillRect(x-8,y-3,16,5);
+  G.fillStyle=col;G.fillRect(x-10,y+26,10,14+(t?1:0));G.fillRect(x,y+26+(t?1:0),10,14);
+}
+function sBossLol(G,x,y,fr){
+  const t=fr%2,col='#cc3333',dk='#882222';
+  G.fillStyle=dk;G.fillRect(x-18,y-42,36,16);
+  G.fillStyle=col;G.fillRect(x-18,y-26,36,24);G.fillRect(x-14,y-2,28,26);
+  G.fillStyle=dk;G.fillRect(x-28,y+(t?2:0),14,12);G.fillRect(x+14,y+(t?0:2),14,12);
+  G.fillStyle='#ffff00';G.fillRect(x-12,y-20,8,8);G.fillRect(x+4,y-20,8,8);
+  G.fillStyle='#111';G.fillRect(x-10,y-6,20,5);
+  G.fillStyle=col;G.fillRect(x-10,y+24,10,16+(t?1:0));G.fillRect(x,y+24+(t?1:0),10,16);
+}
+function sGem(G,x,y,fr){
+  const s=6+Math.sin(fr*1.2)*2;
+  const cols=['#00ccff','#00aadd','#0088bb','#00eeff'];
+  G.fillStyle=cols[fr%4];G.fillRect(x-s/2,y-s/2,s,s);
+  G.fillStyle='rgba(0,200,255,0.3)';G.fillRect(x-s,y-s,s*2,s*2);
+  G.fillStyle='#ffffff';G.fillRect(x-2,y-2,2,2);
+}
+function sTile(G,x,y,type){
+  if(type==='grass'){
+    G.fillStyle='#1a3a1a';G.fillRect(x,y,32,32);
+    G.fillStyle='#254a25';
+    for(let i=0;i<6;i++){G.fillRect(x+4+i*4,y+20+((i%2)*4),2,6);G.fillRect(x+6+i*4,y+24-((i%2)*3),2,5)}
+  }else if(type==='grave'){
+    G.fillStyle='#1a3a1a';G.fillRect(x,y,32,32);
+    G.fillStyle='#2a2a2a';G.fillRect(x+9,y+16,14,14);
+    G.fillStyle='#333';G.fillRect(x+6,y+8,20,12);
+    G.fillStyle='#888';G.fillRect(x+15,y+10,2,8);G.fillRect(x+10,y+12,12,2);
+  }else if(type==='tree'){
+    G.fillStyle='#1a3a1a';G.fillRect(x,y,32,32);
+    G.fillStyle='#1a3a1a';G.fillRect(x+12,y+16,8,16);
+    G.fillStyle='#254a25';G.fillRect(x+4,y+4,24,18);
+    G.fillStyle='#1d421d';G.fillRect(x+2,y+8,28,12);
+  }else if(type==='rock'){
+    G.fillStyle='#1a3a1a';G.fillRect(x,y,32,32);
+    G.fillStyle='#2a2a2a';G.fillRect(x+6,y+12,20,14);
+    G.fillStyle='#333';G.fillRect(x+8,y+10,16,8);
+    G.fillStyle='#444';G.fillRect(x+10,y+12,6,4);
+  }
+}
+
+// ─── 스프라이트시트 생성 ───
+const sprites = [];
+
+// 플레이어 6종 (32×48 × 4프레임 = 128×48)
+CHARS.forEach(cd=>{
+  const fw=32,fh=48,frames=4;
+  const c=document.createElement('canvas');
+  c.width=fw*frames;c.height=fh;
+  const G=c.getContext('2d');
+  for(let fr=0;fr<frames;fr++){
+    G.clearRect(fw*fr,0,fw,fh);
+    sChar(G,fw*fr+fw/2,fh-10,cd,fr);
+  }
+  sprites.push({canvas:c,name:`player_${cd.id}`,label:`${cd.name} (플레이어)`,file:`player_${cd.id}.png`,scale:3});
+});
+
+// 좀비 (32×48 × 4프레임)
+{const fw=32,fh=48,frames=4;
+const c=document.createElement('canvas');c.width=fw*frames;c.height=fh;
+const G=c.getContext('2d');
+for(let fr=0;fr<frames;fr++){G.clearRect(fw*fr,0,fw,fh);sZombie(G,fw*fr+fw/2,fh-10,fr,false)}
+sprites.push({canvas:c,name:'enemy_zombie',label:'좀비 (적)',file:'enemy_zombie.png',scale:3})}
+
+// 박쥐 (32×32 × 4프레임)
+{const fw=32,fh=32,frames=4;
+const c=document.createElement('canvas');c.width=fw*frames;c.height=fh;
+const G=c.getContext('2d');
+for(let fr=0;fr<frames;fr++){G.clearRect(fw*fr,0,fw,fh);sBat(G,fw*fr+fw/2,fh/2,fr)}
+sprites.push({canvas:c,name:'enemy_bat',label:'박쥐 (적)',file:'enemy_bat.png',scale:3})}
+
+// 해골 (32×48 × 4프레임)
+{const fw=32,fh=48,frames=4;
+const c=document.createElement('canvas');c.width=fw*frames;c.height=fh;
+const G=c.getContext('2d');
+for(let fr=0;fr<frames;fr++){G.clearRect(fw*fr,0,fw,fh);sSkel(G,fw*fr+fw/2,fh-8,fr)}
+sprites.push({canvas:c,name:'enemy_skeleton',label:'해골 (적)',file:'enemy_skeleton.png',scale:3})}
+
+// 보스 뭉치 (80×80 × 4프레임)
+{const fw=80,fh=80,frames=4;
+const c=document.createElement('canvas');c.width=fw*frames;c.height=fh;
+const G=c.getContext('2d');
+for(let fr=0;fr<frames;fr++){G.clearRect(fw*fr,0,fw,fh);sBossMungchi(G,fw*fr+fw/2,fh/2+8,fr)}
+sprites.push({canvas:c,name:'boss_mungchi',label:'뭉치 (보스)',file:'boss_mungchi.png',scale:2})}
+
+// 보스 트럭 (96×80 × 2프레임)
+{const fw=96,fh=80,frames=2;
+const c=document.createElement('canvas');c.width=fw*frames;c.height=fh;
+const G=c.getContext('2d');
+for(let fr=0;fr<frames;fr++){G.clearRect(fw*fr,0,fw,fh);sBossTruck(G,fw*fr+fw/2,fh/2)}
+sprites.push({canvas:c,name:'boss_truck',label:'납품트럭 (보스)',file:'boss_truck.png',scale:2})}
+
+// 보스 불편러 (80×96 × 4프레임)
+{const fw=80,fh=96,frames=4;
+const c=document.createElement('canvas');c.width=fw*frames;c.height=fh;
+const G=c.getContext('2d');
+for(let fr=0;fr<frames;fr++){G.clearRect(fw*fr,0,fw,fh);sBossUncomfy(G,fw*fr+fw/2,fh/2+10,fr)}
+sprites.push({canvas:c,name:'boss_uncomfy',label:'불편러 (보스)',file:'boss_uncomfy.png',scale:2})}
+
+// 보스 협곡의망령 (80×96 × 4프레임)
+{const fw=80,fh=96,frames=4;
+const c=document.createElement('canvas');c.width=fw*frames;c.height=fh;
+const G=c.getContext('2d');
+for(let fr=0;fr<frames;fr++){G.clearRect(fw*fr,0,fw,fh);sBossLol(G,fw*fr+fw/2,fh/2+10,fr)}
+sprites.push({canvas:c,name:'boss_lol',label:'협곡의망령 (보스)',file:'boss_lol.png',scale:2})}
+
+// 젬 (16×16 × 4프레임)
+{const fw=16,fh=16,frames=4;
+const c=document.createElement('canvas');c.width=fw*frames;c.height=fh;
+const G=c.getContext('2d');
+for(let fr=0;fr<frames;fr++){G.clearRect(fw*fr,0,fw,fh);sGem(G,fw*fr+fw/2,fh/2,fr)}
+sprites.push({canvas:c,name:'gem',label:'경험치 젬',file:'gem.png',scale:5})}
+
+// 타일셋 (32×32 × 4타일)
+{const fw=32,fh=32;
+const c=document.createElement('canvas');c.width=fw*4;c.height=fh;
+const G=c.getContext('2d');
+['grass','grave','tree','rock'].forEach((t,i)=>sTile(G,fw*i,0,t));
+sprites.push({canvas:c,name:'tileset',label:'타일셋 (배경)',file:'tileset.png',scale:2})}
+
+// ─── UI 렌더링 ───
+const root=document.getElementById('root');
+const sections={
+  '플레이어':sprites.filter(s=>s.name.startsWith('player')),
+  '적':sprites.filter(s=>s.name.startsWith('enemy')),
+  '보스':sprites.filter(s=>s.name.startsWith('boss')),
+  '기타':sprites.filter(s=>['gem','tileset'].includes(s.name)),
+};
+
+Object.entries(sections).forEach(([sec,list])=>{
+  const div=document.createElement('div');div.className='section';
+  div.innerHTML=`<h2>${sec}</h2>`;
+  const grid=document.createElement('div');grid.className='grid';
+  list.forEach(sp=>{
+    const card=document.createElement('div');card.className='card';
+    // 미리보기 캔버스 (스케일업)
+    const prev=document.createElement('canvas');
+    prev.width=sp.canvas.width*sp.scale;
+    prev.height=sp.canvas.height*sp.scale;
+    prev.style.imageRendering='pixelated';
+    const pg=prev.getContext('2d');
+    pg.imageSmoothingEnabled=false;
+    pg.drawImage(sp.canvas,0,0,prev.width,prev.height);
+    card.appendChild(prev);
+    card.innerHTML+=`<div class="label">${sp.label}</div>`;
+    card.innerHTML+=`<div class="fname">assets/${sp.file}</div>`;
+    const btn=document.createElement('button');
+    btn.textContent='⬇️ 다운로드';
+    btn.onclick=()=>download(sp);
+    card.appendChild(btn);
+    card.querySelector('canvas').before(prev);
+    grid.appendChild(card);
+  });
+  div.appendChild(grid);root.appendChild(div);
+});
+
+function download(sp){
+  const a=document.createElement('a');
+  a.href=sp.canvas.toDataURL('image/png');
+  a.download=sp.file;
+  a.click();
+}
+
+document.getElementById('dlAll').onclick=()=>{
+  sprites.forEach((sp,i)=>setTimeout(()=>download(sp),i*200));
+};
+</script>
+</body></html>
