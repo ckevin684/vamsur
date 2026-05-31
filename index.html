@@ -597,6 +597,118 @@ function sBossLol(x,y,fr,phase2){
   if(phase2){G.fillStyle='#ff4444';G.font='bold 10px Courier New';G.textAlign='center';G.fillText('ㅈ발 트롤..',x,y-56)}
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// ═══ BALANCE 중앙화 ═══
+// 자주 튜닝하는 모든 수치를 BAL 객체 한 곳에서 관리.
+// 코드 곳곳에서 BAL.X.Y 형태로 참조 → 한 군데만 바꾸면 전체 반영.
+// 새 메카닉 추가할 때 여기 BAL에 새 키 만들고 코드에서 참조하는 게 좋음.
+// ═══════════════════════════════════════════════════════════════════
+const BAL={
+  // ━━━ 캐릭터별 메카닉 튜닝 ━━━
+  char:{
+    jh:{ // 준형전자 — AS 보증
+      repairCd:90,         // 자가수리 쿨다운 (초) — 60→90 너프 (15분 게임 6.7회 → 10회 발동)
+      hpTrigger:0.25,      // 발동 HP 임계 (mhp 비율)
+      healPct:0.35,        // 평소 회복량 (mhp 비율)
+      healUrgentPct:0.55,  // HP 0 직전 긴급 회복량
+      healInvuln:1.5,      // 발동 후 무적 시간
+    },
+    jw:{ // 최종원 — 주문 폭주
+      rushKills:12,        // 발동 필요 킬 수
+      rushWnd:4,           // 콤보 윈도우 (초) — 3→4 (초반 발동 용이)
+      rushDur:5,           // 폭주 지속 시간
+      rushAsMul:2,         // 폭주 시 공속 배율
+      lateScaleStart:120,  // 시간 데미지 스케일링 시작 (초)
+      lateScaleRate:0.4,   // 스케일링 속도 (1+t*0.4) — 0.7→0.4 너프 (10분 dm 4.5→3.0)
+    },
+    gj:{ // 최기종 — 분노/휠체어
+      painPerHit:1.5,      // 누적 비율 (1.0→1.5 — 3~4 hit으로 분노 발동, 더 다이내믹)
+      painTrigger:1.0,     // 분노 발동 임계
+      painDecay:0.04,      // 자연 감소 속도 (per sec)
+      rageDur:6,           // 분노 지속 (초)
+      rageDmgMul:2.5,      // 분노 데미지 배율
+      rageAsMul:2,         // 분노 공속 배율
+      rageBurstR:220,      // 분노 진입 광역 폭발 반경
+      rageBurstDmgMul:5,   // 분노 진입 폭발 데미지 배율
+      wheelDmgMul:0.5,     // 휠체어 데미지 배율
+      wheelAsMul:0.7,      // 휠체어 공속 배율
+      wheelAmMul:1.0,      // 휠체어 범위 배율 — 0.75→1.0 디버프 제거 (4개 디버프로 충분)
+      wheelSpdMul:1.7,     // 휠체어 이동속도 배율
+      injDistMin:550,      // 신경주사 스폰 최소 거리
+      injDistMax:750,      // 신경주사 스폰 최대 거리
+      injHealPct:0.3,      // 픽업 시 HP 회복
+      injInvuln:2,         // 픽업 후 무적
+    },
+    co:{ // 최초 — 컴패니언
+      critBase:0.2,        // 시작 크리 확률
+    },
+    sm:{ // 윤소민 — 룰렛
+      rouletteDur:3.8,     // 룰렛 스핀 시간
+      streamerDur:30,      // 변신 지속 / 룰렛 주기
+    },
+    gh:{ // 황기훈 — 페이얼
+      phialPerHit:0.015,   // 베이스 충전량 per hit
+      phialPerLv:0.005,    // 레벨당 충전량 추가
+      phialEvoMul:2,       // 진화 시 충전 배율
+      axeDur:5,            // 도끼 모드 지속
+      axeEvoDur:6,         // 진화 도끼 모드 지속
+    },
+  },
+  // ━━━ 무기 데미지 배수 (fireWpn 안의 매직 넘버) ━━━
+  wpn:{
+    ram:{dmgMul:1.4, spdBase:220, spdPerLv:10, szBase:9, szPerLv:0.3, hitCd:0.5},
+    fullspec:{dmgMul:1.3, spdBase:270, spdPerLv:12, szBase:10, szPerLv:0.3, count:2},  // 1.6→1.3 너프 (2 RAM이라 광역 강함)
+    knife:{dmgMul:1.0, spread:0.6, speed:310, life:1.5, sz:7},
+    fullcourse:{dmgMul:1.3, spread:0.85, speed:340, life:1.5, sz:9},
+    light:{dmgMul:1.0, lenBase:170, lenPerLv:12, halfAngBase:0.36, halfAngPerLv:0.02, life:0.85, slowDur:1.4},  // 0.78→1.0 버프
+    nightwatch:{dmgMul:1.05, lenBase:210, lenPerLv:8, halfAng:0.55, life:0.65, slowDur:1.8, pulseR:90, pulseDmgMul:0.4},  // pulseDmg 0.6→0.4
+    staff:{dmgMul:1.6, r:120, life:0.5},      // 이미 너프됨
+    awakegj:{dmgMul:3.0, spd:300, life:1.5, sz:18},
+    mungchi:{dmgBase:24, evoMul:1.4},
+    gsword:{swordDmgMul:1.3, swordR:52, swordSpan:100, swordLife:0.22,
+            axeDmgMul:3.5, axeR:72, axeSpan:140, axeLife:0.32},  // axe 4.0→3.5 너프
+    caff:{swordDmgMul:1.5, swordR:56, swordSpan:110, axeDmgMul:4.0, axeR:80, axeSpan:150,
+          lightningCount:3, lightningDmgMul:1.2, lightningDelay:0.15},  // axe 4.5→4.0 너프, lightning 1.8→1.2
+  },
+  // ━━━ 윤소민 변신 빔 ━━━ (다양한 변신별 효과)
+  beam:{
+    shibuki:{dmgMul:1.4, lenBase:175, lenPerLv:10, halfAng:0.42, slowDur:1.2, burstChance:0.15, burstDmgMul:1.8},
+    riko:{dmgMul:0.9, count:3, arc:0.28, lenBase:200, lenPerLv:10, halfAng:0.22, slowDur:0.8},
+    huya:{dmgMul:2.4, lenBase:265, lenPerLv:12, halfAng:0.15, slowDur:1.6},  // 3.0→2.4 너프 (단발 어둠 마법)
+    lize:{dmgMul:1.4, lenBase:185, lenPerLv:10, halfAng:0.40, slowDur:2.0, healChance:0.6, healAmt:3},
+    tabi:{dmgMul:1.0, lenBase:170, lenPerLv:10, halfAng:0.40, slowDur:1.2, noteDmgMul:0.95},
+    sleep:{failChance:0.2, dmgMul:0.45, lenBase:115, lenPerLv:5, halfAng:0.32, slowDur:0.6},  // 0.3→0.2 (UX 개선)
+    hina:{dmgMul:1.1, count:5, lenBase:235, lenPerLv:15, halfAng:0.50, slowDur:3.0, healOnKill:1, alpha:0.65},
+    nightwatchBonus:{lenBoost:25, tickMul:0.85, slowBonus:0.4},
+  },
+  // ━━━ 회복 시스템 ━━━
+  regen:{
+    tickInterval:0.2,    // 매 0.2초마다 회복 틱
+    combatLockDur:1.5,   // 피격 후 회복 잠금 시간 (2.0→1.5, 회복 약간 더 사용성)
+  },
+  // ━━━ 룰렛 확률 ━━━
+  rouletteProb:{
+    sleep:0.15,     // 꽝 15%
+    hina:0.06,      // 잭팟 6%
+    each:0.158,     // 일반 5명 각각 ~15.8%
+  },
+  // ━━━ 패시브 아이템 효과 ━━━
+  passive:{
+    pill:1.5,         // HP 회복 +per lv
+    bark:0.12,        // 크리 +per lv
+    warrant:0.3,      // 무적 +초 per lv (0.5→0.3, 만렙 +2.5→+1.5초)
+    log:1.25,         // 경험치 ×per lv
+    recipe:1.2,       // 데미지 ×per lv
+    leashAm:1.2,leashDm:1.1,  // 범위/데미지
+    anger:1.2,        // 공속 ×per lv
+    cane:40,          // HP +per lv
+    torch:2,          // 자석 ×per lv
+    monhun:1.1,       // 보스 ×per lv (1.2→1.1 너프, 만렙 누적 2.49x→1.61x)
+    knife2:1.1,       // 데미지 ×per lv (1.15→1.1, jw 폭딜 빌드 캡)
+    coffee:1.15,      // 이동속도 ×per lv
+  },
+};
+
 // ═══ DEFINITIONS ═══
 const CHARS=[
   {id:'jh',name:'준형전자',sub:'조립의 신',color:'#4488cc',hp:130,spd:100,startWpn:'ram',pdesc:'방어 +10% · 🔧 위급시 자가수리',def:0.9},
@@ -657,27 +769,28 @@ const STREAMER_FORMS=[
   {id:'sleep',  name:'졸린 윤소민',emoji:'💤',col:'#666688',desc:'야간경비 졸음...'},
   {id:'hina',   name:'칸자키 히나',emoji:'👑',col:'#ff66bb',desc:'절대적 아이돌 ★ JACKPOT'},
 ];
-// 확률: 15% 꽝(sleep) + 6% 잭팟(hina) + 79% 5명 균등(각 ~15.8%)
+// 확률: BAL.rouletteProb 참조 (sleep + hina + 5명 균등)
 function pickStreamerForm(){
+  const P=BAL.rouletteProb;
   const r=Math.random();
-  if(r<0.15)return STREAMER_FORMS[5];   // 15% 꽝
-  if(r<0.21)return STREAMER_FORMS[6];   // 6% 잭팟
-  const idx=Math.floor((r-0.21)/0.158); // 나머지 79% → 5명 균등
+  if(r<P.sleep)return STREAMER_FORMS[5];
+  if(r<P.sleep+P.hina)return STREAMER_FORMS[6];
+  const idx=Math.floor((r-(P.sleep+P.hina))/P.each);
   return STREAMER_FORMS[Math.min(idx,4)];
 }
 const PASSIVES=[
   {id:'coffee', name:'☕ 기훈의 백다방 아아',desc:'이동속도 +15%',fn:p=>{p.spd*=1.15;p.bspd*=1.15}},
-  {id:'warrant',name:'🖥️ 준형전자 AS보증서',desc:'무적시간 +0.5초',fn:p=>p.iframes+=0.5},
-  {id:'pill',   name:'💊 기종의 허리진통제',desc:'비전투 시 초당 HP +1.5',fn:p=>p.regen+=1.5},
+  {id:'warrant',name:'🖥️ 준형전자 AS보증서',desc:'무적시간 +0.3초',fn:p=>p.iframes+=BAL.passive.warrant},
+  {id:'pill',   name:'💊 기종의 허리진통제',desc:'비전투 시 초당 HP +1.5',fn:p=>p.regen+=BAL.passive.pill},
   {id:'log',    name:'📋 소민의 순찰일지',desc:'경험치 +25%',fn:p=>p.xpm*=1.25},
   {id:'recipe', name:'🍖 종원의 비밀레시피',desc:'공격력 +20%',fn:p=>p.dm*=1.2},
   {id:'leash',  name:'🐕 뭉치 목줄',desc:'범위+20% 공격+10%',fn:p=>{p.am*=1.2;p.dm*=1.1}},
   {id:'anger',  name:'💢 최초의 분노',desc:'공격속도 +20%',fn:p=>p.as*=1.2},
   {id:'cane',   name:'🦯 기종의 지팡이',desc:'최대HP +40',fn:p=>{p.mhp+=40;p.hp=Math.min(p.hp+40,p.mhp)}},
   {id:'torch',  name:'🔦 소민의 야간조명',desc:'보석 흡수 범위 2배',fn:p=>p.magr*=2},
-  {id:'monhun', name:'🎮 기훈의 몬헌경험',desc:'보스 데미지 +20%',fn:p=>p.bdm*=1.2},
-  {id:'bark',   name:'🗣️ 뭉치의 짖음',desc:'크리티컬 +12%',fn:p=>p.crit+=0.12},
-  {id:'knife2', name:'🔪 종원의 칼솜씨',desc:'공격력 +15%',fn:p=>p.dm*=1.15},
+  {id:'monhun', name:'🎮 기훈의 몬헌경험',desc:'보스 데미지 +10%',fn:p=>p.bdm*=BAL.passive.monhun},  // 1.2→1.1 너프 (만렙 2.49x→1.61x)
+  {id:'bark',   name:'🗣️ 뭉치의 짖음',desc:'크리티컬 +12%',fn:p=>p.crit+=BAL.passive.bark},
+  {id:'knife2', name:'🔪 종원의 칼솜씨',desc:'공격력 +10%',fn:p=>p.dm*=BAL.passive.knife2},
 ];
 const WUP=[
   {id:'wdmg', name:'⚔️ 무기 강화',desc:'공격력 +25%',fn:p=>p.dm*=1.25},
@@ -754,10 +867,11 @@ function spawnPickup(x,y,type){
   const t=type||PICKUP_TYPES[Math.floor(Math.random()*PICKUP_TYPES.length)];
   pickups.push({x,y,t,life:18,ml:18,dead:false,fr:Math.random()*Math.PI*2});
 }
-// 신경주사 — 기종 휠체어 모드에서 사용. 화면 멀리(550~750px) 무작위 방향에 1개 스폰.
+// 신경주사 — BAL.char.gj.injDistMin/Max 거리 무작위 방향에 1개 스폰
 function spawnNerveInjection(p){
+  const B=BAL.char.gj;
   const ang=Math.random()*Math.PI*2;
-  const d=550+Math.random()*200;
+  const d=B.injDistMin+Math.random()*(B.injDistMax-B.injDistMin);
   const x=p.x+Math.cos(ang)*d, y=p.y+Math.sin(ang)*d;
   const pk={x,y,t:'injection',life:99999,ml:99999,dead:false,fr:Math.random()*Math.PI*2};
   pickups.push(pk);
@@ -813,7 +927,7 @@ class Player{
     this.facing={x:1,y:0};
     this.passives={};  // {id: lv}
     this.wpns=[{type:cd.startWpn,t:0,lv:1}];
-    this.flashT=0;this.bdm=1;this.crit=cd.id==='co'?0.2:0;
+    this.flashT=0;this.bdm=1;this.crit=cd.id==='co'?BAL.char.co.critBase:0;
     this.itemLog=[];
     this.dashT=0;this.dashCd=0;this.dashCdMax=3;
     this.companions=[];this.magrBoost=0;
@@ -858,7 +972,7 @@ class Player{
     if(dx||dy){const l=Math.hypot(dx,dy);dx/=l;dy/=l;this.facing={x:dx,y:dy}}
     // 대시 처리 + 졸음 시 이동속도 절반 + 휠체어 시 이동속도 +70%
     const sleepNerf=(this.streamerForm&&this.streamerForm.id==='sleep')?0.5:1;
-    const wheelSpdBoost=(this.cd.id==='gj'&&this.gjPhase==='wheelchair')?1.7:1;
+    const wheelSpdBoost=(this.cd.id==='gj'&&this.gjPhase==='wheelchair')?BAL.char.gj.wheelSpdMul:1;
     const dashSpd=(this.dashT>0?this.spd*4.5:this.spd)*sleepNerf*wheelSpdBoost;
     const mvX=this.dashT>0?this.facing.x:dx,mvY=this.dashT>0?this.facing.y:dy;
     this.x+=mvX*dashSpd*dt;this.y+=mvY*dashSpd*dt;
@@ -884,9 +998,9 @@ class Player{
     this.x=clamp(this.x,-1800,1800);this.y=clamp(this.y,-1800,1800);
     if(this.hitT>0)this.hitT-=dt;
     if(this.flashT>0)this.flashT-=dt;
-    // 최종원 주문 폭주 활성 시 발사 속도 ×2 / 기종 분노 시 ×2 / 휠체어 시 ×0.7
-    const rushAsMul=(this.cd.id==='jw'&&this.rushT>0)?2:1;
-    const gjAsMul=(this.cd.id==='gj'&&this.gjPhase==='rage')?2:(this.cd.id==='gj'&&this.gjPhase==='wheelchair')?0.7:1;
+    // 최종원 주문 폭주 활성 시 발사 속도 ×2 / 기종 분노/휠체어 — BAL 참조
+    const rushAsMul=(this.cd.id==='jw'&&this.rushT>0)?BAL.char.jw.rushAsMul:1;
+    const gjAsMul=(this.cd.id==='gj'&&this.gjPhase==='rage')?BAL.char.gj.rageAsMul:(this.cd.id==='gj'&&this.gjPhase==='wheelchair')?BAL.char.gj.wheelAsMul:1;
     this.wpns.forEach(w=>{
       w.t-=dt;
       if(w.t<=0){fireWpn(w.type,this,w.lv||1);w.t=(WDEFS[w.type]?.cd||1)*wlvAt(WLV.cdM,w.lv||1)/(this.as*rushAsMul*gjAsMul)}
@@ -895,7 +1009,7 @@ class Player{
     if(this.regenLockT>0)this.regenLockT-=dt;
     const wheelRegenLock=(this.cd.id==='gj'&&this.gjPhase==='wheelchair');
     if(this.regen>0&&this.regenLockT<=0&&!wheelRegenLock){this.regenT=Math.max(0,this.regenT-dt);if(this.regenT<=0){this.hp=Math.min(this.mhp,this.hp+this.regen*0.2);this.regenT=0.2}}
-    if(this.cd.id==='jw')this.dm=1+(gameTime/120)*0.7;
+    if(this.cd.id==='jw')this.dm=1+(gameTime/BAL.char.jw.lateScaleStart)*BAL.char.jw.lateScaleRate;
     // 캐릭터별 메카닉 타이머
     if(this.repairCd>0)this.repairCd-=dt;
     if(this.repairFx>0)this.repairFx-=dt;
@@ -933,17 +1047,18 @@ class Player{
       }
     }
   }
-  // 최종원 — 처치 1건 알림 (bumpCombo에서 호출)
+  // 최종원 — 처치 1건 알림 — BAL.char.jw 참조
   notifyKill(){
     if(this.cd.id!=='jw')return;
-    if(this.rushT>0)return; // 이미 폭주 중이면 무시
+    if(this.rushT>0)return;
+    const B=BAL.char.jw;
     this.rushKills++;
-    this.rushWnd=3;  // 3초 윈도우 갱신 (이전 5초에서 단축)
-    if(this.rushKills>=12){
-      this.rushT=5;  // 5초간 발동
+    this.rushWnd=B.rushWnd;
+    if(this.rushKills>=B.rushKills){
+      this.rushT=B.rushDur;
       this.rushKills=0;this.rushWnd=0;
       SFX.lvUp();SFX.phialReady();
-      notify('🍳 주문 폭주!','5초간 공속 ×2','#ff8844');
+      notify('🍳 주문 폭주!',`${B.rushDur}초간 공속 ×${B.rushAsMul}`,'#ff8844');
       spawnParts(this.x,this.y,'#ff8844',14);
       shake(0.15,3);
     }
@@ -955,14 +1070,14 @@ class Player{
     if(this.cd.id==='gj'&&this.gjPhase==='rage')return;
     const dmg=v*this.def;
     this.hp-=dmg;this.hitT=this.iframes;this.flashT=0.25;
-    this.regenLockT=2.0;  // 전투 중 회복 정지 (피격 후 2초)
+    this.regenLockT=BAL.regen.combatLockDur;  // 전투 중 회복 정지
     SFX.pHit();spawnParts(this.x,this.y,'#ff4444',8);
     showDmg(this.x,this.y-12,dmg,'#ff5566',true);
     shake(0.25,5);spark(this.x,this.y,'#ff6644',6);
-    // 최기종 — 누적 데미지 게이지 (정상 상태에서만 충전): 1.0 도달 시 분노 진입
+    // 최기종 — 누적 데미지 게이지 (정상 상태에서만 충전): painTrigger 도달 시 분노
     if(this.cd.id==='gj'&&this.gjPhase==='normal'&&this.hp>0){
-      this.discPain=Math.min(1,this.discPain+(dmg/this.mhp)*1.0);
-      if(this.discPain>=1)this.triggerRage();
+      this.discPain=Math.min(1,this.discPain+(dmg/this.mhp)*BAL.char.gj.painPerHit);
+      if(this.discPain>=BAL.char.gj.painTrigger)this.triggerRage();
     }
     if(this.hp<=0){
       // 준형전자 — AS 보증: HP 0 이하 도달 시 쿨다운 가능하면 자동 수리 (긴급)
@@ -978,29 +1093,30 @@ class Player{
       this.triggerASRepair(false);
     }
   }
-  // 준형전자 자가수리 — 무적 1.5초 + HP 35% 회복 + 60초 쿨다운
+  // 준형전자 자가수리 — BAL.char.jh 참조
   triggerASRepair(emergency){
-    const healAmt=this.mhp*(emergency?0.55:0.35);
+    const B=BAL.char.jh;
+    const healAmt=this.mhp*(emergency?B.healUrgentPct:B.healPct);
     this.hp=Math.min(this.mhp,Math.max(this.hp,0)+healAmt);
-    this.hitT=Math.max(this.hitT,1.5);  // 1.5초 무적
-    this.repairCd=60;
+    this.hitT=Math.max(this.hitT,B.healInvuln);
+    this.repairCd=B.repairCd;
     this.repairFx=1.2;
     SFX.lvUp();SFX.phialReady();
-    notify(emergency?'🔧 긴급 부팅!':'🔧 AS 보증 발동',`HP +${Math.round(healAmt)} · 1.5초 무적`,'#44aaff');
+    notify(emergency?'🔧 긴급 부팅!':'🔧 AS 보증 발동',`HP +${Math.round(healAmt)} · ${B.healInvuln}초 무적`,'#44aaff');
     spawnParts(this.x,this.y,'#44aaff',16);
     shake(0.2,4);
     showDmg(this.x,this.y-20,Math.round(healAmt),'#88ddff',true);
   }
-  // 최기종 분노 진입 — 1회 광역 폭발 + 6초 분노 모드 (광폭)
+  // 최기종 분노 진입 — BAL.char.gj 참조
   triggerRage(){
+    const B=BAL.char.gj;
     this.gjPhase='rage';
-    this.gjPhaseT=6;  // 6초 광폭
+    this.gjPhaseT=B.rageDur;
     this.discFx=0.8;
-    // 분노 진입 임팩트: 광역 폭발 (기존 디스크 폭발 효과 통합)
-    const bdmg=20*this.dm*5;  // 게임 후반엔 dm 비례
-    aoeHit(this.x,this.y,220,'#ff3366',bdmg,0.5,0,false,'disc_burst',0);
+    const bdmg=20*this.dm*B.rageBurstDmgMul;
+    aoeHit(this.x,this.y,B.rageBurstR,'#ff3366',bdmg,0.5,0,false,'disc_burst',0);
     SFX.bHit();SFX.boss();
-    notify('🔥 허리 부러짐 — 분노!','6초간 광폭 (dmg×2.5)','#ff3366');
+    notify('🔥 허리 부러짐 — 분노!',`${B.rageDur}초 광폭 (dmg×${B.rageDmgMul})`,'#ff3366');
     spawnParts(this.x,this.y,'#ff3366',24);
     spawnParts(this.x,this.y,'#ff66aa',16);
     shake(0.5,8);
@@ -1012,17 +1128,17 @@ class Player{
     this.discPain=0;
     notify('🦽 휠체어 모드','💉 신경주사 찾기 (멀리 스폰)','#88aaff');
     SFX.over();
-    // 화면 멀리 신경주사 1개 스폰
     spawnNerveInjection(this);
   }
   // 신경주사 픽업 → 정상 복귀
   exitWheelchair(){
+    const B=BAL.char.gj;
     this.gjPhase='normal';
     this.discPain=0;
     this.gjInjectionRef=null;
-    this.hp=Math.min(this.mhp,this.hp+this.mhp*0.3);  // HP 30% 회복 보너스
-    this.hitT=Math.max(this.hitT,2);  // 2초 무적
-    notify('💉 신경주사 회복','정상 복귀 · HP +30%','#88ff88');
+    this.hp=Math.min(this.mhp,this.hp+this.mhp*B.injHealPct);
+    this.hitT=Math.max(this.hitT,B.injInvuln);
+    notify('💉 신경주사 회복',`정상 복귀 · HP +${Math.round(B.injHealPct*100)}%`,'#88ff88');
     SFX.lvUp();SFX.phialReady();
     spawnParts(this.x,this.y,'#88ff88',20);
   }
@@ -1163,10 +1279,11 @@ class Player{
 function fireWpn(type,p,wlv){
   wlv=wlv||1;
   const dM=wlvAt(WLV.dmgM,wlv),pB=wlvAt(WLV.pierceB,wlv);
-  // 기종 모드별 데미지/범위 모디파이어
-  const gjRageMul=(p.cd.id==='gj'&&p.gjPhase==='rage')?2.5:1;
-  const gjWheelDmgMul=(p.cd.id==='gj'&&p.gjPhase==='wheelchair')?0.5:1;
-  const gjWheelAmMul=(p.cd.id==='gj'&&p.gjPhase==='wheelchair')?0.75:1;
+  // 기종 모드별 데미지/범위 모디파이어 — BAL.char.gj 참조
+  const gjB=BAL.char.gj;
+  const gjRageMul=(p.cd.id==='gj'&&p.gjPhase==='rage')?gjB.rageDmgMul:1;
+  const gjWheelDmgMul=(p.cd.id==='gj'&&p.gjPhase==='wheelchair')?gjB.wheelDmgMul:1;
+  const gjWheelAmMul=(p.cd.id==='gj'&&p.gjPhase==='wheelchair')?gjB.wheelAmMul:1;
   const dmg=18*p.dm*dM*(1+Math.max(0,p.lv-1)*0.04)*gjRageMul*gjWheelDmgMul;
   const am=p.am*gjWheelAmMul,pierce=p.pierce+pB; // 크기는 패시브만 영향, 레벨로는 안 커짐
   const t=p.nearest(),ang=t?Math.atan2(t.y-p.y,t.x-p.x):Math.atan2(p.facing.y,p.facing.x);
@@ -1226,7 +1343,7 @@ function fireWpn(type,p,wlv){
       if(!p.bouncingRams)p.bouncingRams=[];
       p.bouncingRams=p.bouncingRams.filter(r=>!r.dead);
       const wantCount=2;
-      const ramDmg=dmg*1.6;
+      const ramDmg=dmg*BAL.wpn.fullspec.dmgMul;
       const ramSpd=270+wlv*12;
       const ramSz=(10+wlv*0.3)*am;
       p.bouncingRams.forEach(r=>{
@@ -1265,13 +1382,14 @@ function fireWpn(type,p,wlv){
       if(form){
         applyStreamerLight(p,ang,dmg,am,pierce,wlv,form,'light');
       }else{
-        // 기본 손전등: 흰빛 빔 (틱 데미지 + 슬로우)
-        const lvCnt=wlvAt(WPROJ.light,wlv); // 1~3 단계로 빔이 좀 더 강해짐
+        // 기본 손전등 — BAL.wpn.light 참조
+        const LB=BAL.wpn.light;
+        const lvCnt=wlvAt(WPROJ.light,wlv);
         spawnBeam(p,ang,{
           col:'#ccffee',
-          len:170+lvCnt*12, halfAng:0.36+lvCnt*0.02,
-          life:0.85, tickInt:0.22,
-          dmg:dmg*0.78, slowDur:1.4, wt:'beam'
+          len:LB.lenBase+lvCnt*LB.lenPerLv, halfAng:LB.halfAngBase+lvCnt*LB.halfAngPerLv,
+          life:LB.life, tickInt:0.22,
+          dmg:dmg*LB.dmgMul, slowDur:LB.slowDur, wt:'beam'
         });
       }
       break;
@@ -1291,13 +1409,16 @@ function fireWpn(type,p,wlv){
           bigClick:true
         });
         // 360° 짧은 펄스 (진화 보너스)
-        aoeHit(p.x,p.y,90,'#00ff88',dmg*0.6,0.22,0,true,'flash',0);
+        aoeHit(p.x,p.y,BAL.wpn.nightwatch.pulseR,'#00ff88',dmg*BAL.wpn.nightwatch.pulseDmgMul,0.22,0,true,'flash',0);
       }
       break;
     }
-    case 'staff':
-      if(p.cd.id==='gj'&&p.gjPhase==='wheelchair')break;  // 휠체어 시 지팡이 비활성
-      aoeHit(p.x,p.y,120*am,'#cc88ff',dmg*2.5,0.5,pierce,false,'staff',wlvAt(WPROJ.staff,wlv));break;
+    case 'staff':{
+      if(p.cd.id==='gj'&&p.gjPhase==='wheelchair')break;
+      const SB=BAL.wpn.staff;
+      aoeHit(p.x,p.y,SB.r*am,'#cc88ff',dmg*SB.dmgMul,SB.life,pierce,false,'staff',wlvAt(WPROJ.staff,wlv));
+      break;
+    }
     case 'awakegj':{
       SFX.shoot();
       const cnt=wlvAt(WPROJ.awakegj,wlv);
@@ -1320,41 +1441,40 @@ function fireWpn(type,p,wlv){
       break;
     }
     case 'gsword':{
-      // 차지 액스: 페이얼 게이지 기반 자동 모드 전환
-      // 게이지 100% 차면 자동으로 도끼 모드, 5초간 유지 후 자동 복귀
+      // 차지 액스 — BAL.wpn.gsword 참조
+      const GB=BAL.wpn.gsword;
       if(p.cbMode==='sword'){
-        // 검 모드: 빠른 초승달 슬래시, 적 때리면 게이지 충전
         SFX.slash();
-        slashHit(p,ang,52*am,100,dmg*1.3,'#ff66bb',0.22,false,true);
+        slashHit(p,ang,GB.swordR*am,GB.swordSpan,dmg*GB.swordDmgMul,'#ff66bb',GB.swordLife,false,true);
       }else{
-        // 도끼 모드: 더 큰 초승달 강타 (게이지는 시간으로 자동 감소)
         SFX.bHit();
-        slashHit(p,ang,72*am,140,dmg*4.0,'#ee5588',0.32,false,false);
+        slashHit(p,ang,GB.axeR*am,GB.axeSpan,dmg*GB.axeDmgMul,'#ee5588',GB.axeLife,false,false);
         shake(0.12,3);
       }
       break;
     }
     case 'caff':{
-      // 초고출력 차지 액스 (진화): 충전 2배, 도끼 모드시 SAED 번개 3발
+      // 초고출력 차지 액스 (진화): 충전 2배, 도끼 모드시 SAED 번개 — BAL.wpn.caff 참조
+      const CB=BAL.wpn.caff;
       if(p.cbMode==='sword'){
         SFX.slash();
-        slashHit(p,ang,56*am,110,dmg*1.5,'#ff0088',0.22,true,true);
+        slashHit(p,ang,CB.swordR*am,CB.swordSpan,dmg*CB.swordDmgMul,'#ff0088',0.22,true,true);
       }else{
-        // SAED: 도끼 강타 + 앞으로 번개 3발 (쾅 쾅 쾅)
+        // SAED: 도끼 강타 + 앞으로 번개 N발 (쾅 쾅 쾅)
         SFX.bHit();
-        slashHit(p,ang,80*am,150,dmg*4.5,'#ff0088',0.35,true,false);
+        slashHit(p,ang,CB.axeR*am,CB.axeSpan,dmg*CB.axeDmgMul,'#ff0088',0.35,true,false);
         shake(0.15,4);
-        const bdmg=dmg*1.8;
-        // 번개 3발, 0.15초 간격으로 앞으로
-        [0,0.15,0.30].forEach((delay,i)=>{
+        const bdmg=dmg*CB.lightningDmgMul;
+        // 번개 N발 (BAL.lightningCount), BAL.lightningDelay초 간격으로 앞으로
+        for(let i=0;i<CB.lightningCount;i++){
           const dist_=70+i*55;
           const lx=p.x+Math.cos(ang)*dist_,ly=p.y+Math.sin(ang)*dist_;
           setTimeout(()=>{
             if(!player||player.hp<=0)return;
             spawnLightning(lx,ly,bdmg,true);
             SFX.thunder();
-          },delay*1000);
-        });
+          },i*CB.lightningDelay*1000);
+        }
       }
       break;
     }
@@ -1405,12 +1525,13 @@ function applyStreamerLight(p,ang,dmg,am,pierce,wlv,form,baseType){
       break;
     }
     case 'huya':{
-      // 어둠 마법: 좁은 보라색 레이저 (가장 김), 강한 단발 틱
+      // 어둠 마법: 좁은 보라색 레이저 — BAL.beam.huya 참조
+      const HB=BAL.beam.huya;
       spawnBeam(p,ang,{
         col:'#9966cc',
-        len:(265+lvCnt*12+evoLen), halfAng:0.15,
+        len:(HB.lenBase+lvCnt*HB.lenPerLv+evoLen), halfAng:HB.halfAng,
         life:0.95, tickInt:0.35*evoTick,
-        dmg:dmg*3.0, slowDur:1.6+evoSlow, wt:'beam_hy',
+        dmg:dmg*HB.dmgMul, slowDur:HB.slowDur+evoSlow, wt:'beam_hy',
         bigClick:true
       });
       break;
@@ -1452,8 +1573,8 @@ function applyStreamerLight(p,ang,dmg,am,pierce,wlv,form,baseType){
       break;
     }
     case 'sleep':{
-      // 졸음 (꽝): 30% 확률로 그냥 안 켜짐, 켜져도 짧고 약한 빔
-      if(Math.random()<0.3){
+      // 졸음 (꽝): 20% 확률로 그냥 안 켜짐 — BAL.beam.sleep 참조
+      if(Math.random()<BAL.beam.sleep.failChance){
         // 꽝! 불 안 켜짐
         showDmg(p.x,p.y-16,0,'#888888',false);
         spawnParts(p.x,p.y-8,'#666688',3);
@@ -1547,81 +1668,72 @@ function aoeHit(x,y,r,col,dmg,life,pierce,slow=false,wt='',visCnt=0){
           G.beginPath();G.arc(this.x,this.y,15+t*30,0,Math.PI*2);G.fill();
         }
       }else if(this.wt==='staff'||this.wt==='awakegj'){
-        // 지팡이 땅 내리치기 (위→아래 슬램) — 여러 지점 동시 타격
+        // 캐릭터 중심에서 사방으로 퍼져나가는 충격파 + 방사형 균열
         const evolved=this.wt==='awakegj';
-        const cnt=this.visCnt||4;
+        const baseR=this.r;
         G.translate(this.x,this.y);
-        // 슬램 진행도: t=0~0.4 위에서 내려옴, t=0.4~1 임팩트 후 잔상
-        const slamPhase=Math.min(1,t/0.4);
-        // 들고있는 각도: -100도(거의 수직 위) → 5도(약간 기울어진 수직 아래)
-        const slamRot=(-100+slamPhase*105)*Math.PI/180;
-        for(let i=0;i<cnt;i++){
-          G.save();
-          // 슬램 위치 (플레이어 주변 원형 배치)
-          G.rotate(Math.PI*2/cnt*i+0.3);
-          const dist=this.r*0.5;
-          G.translate(0,-dist);
-          G.globalAlpha=al*0.95;
-          // 슬램 회전 (지팡이가 위→아래로)
-          G.rotate(slamRot);
-          // 보라 오라 (awakegj)
-          if(evolved){
-            G.fillStyle=`rgba(255,140,255,${al*0.4})`;
-            G.beginPath();G.arc(0,-2,9,0,Math.PI*2);G.fill();
-          }
-          // 갈고리 손잡이 (위)
-          G.fillStyle='#5a3a18';G.fillRect(-7,-12,11,3);G.fillRect(-7,-12,3,7);
-          G.fillStyle='#7a4a28';G.fillRect(-7,-12,11,1);
-          G.fillStyle='#3a2010';G.fillRect(-5,-9,7,1);
-          // 샤프트
-          G.fillStyle='#5a3a18';G.fillRect(-2,-9,4,18);
-          G.fillStyle='#7a4a28';G.fillRect(-2,-9,1.5,18);
-          G.fillStyle='#3a2010';G.fillRect(1.5,-9,1.5,18);
-          // 오브 (awakegj)
-          if(evolved){
-            G.fillStyle='#ff88ff';G.beginPath();G.arc(-2,-14,3.5,0,Math.PI*2);G.fill();
-            G.fillStyle='#ffccff';G.beginPath();G.arc(-3,-15,1.5,0,Math.PI*2);G.fill();
-            G.fillStyle='#fff';G.fillRect(-3.5,-15.5,1,1);
-          }
-          // 마디
-          G.fillStyle='#3a2010';G.fillRect(-2,-2,4,1);G.fillRect(-2,4,4,1);
-          // 고무 다리 (땅 닿는 부분)
-          G.fillStyle='#1a1a1a';G.fillRect(-2.5,8,5,2);
-          G.restore();
-          // 임팩트 — 슬램 끝나는 순간 지면 균열 + 충격파
-          if(t>=0.35){
-            const impactT=Math.min(1,(t-0.35)/0.35);  // 0~1 임팩트 페이즈
-            G.save();
-            G.rotate(Math.PI*2/cnt*i+0.3);
-            G.translate(0,-dist+8);  // 지팡이 끝 근처
-            // 충격파 링
-            G.globalAlpha=al*(1-impactT)*0.85;
-            G.strokeStyle=evolved?'#ff66ff':'#cc88ff';
-            G.lineWidth=3*(1-impactT*0.5);
-            G.beginPath();G.arc(0,0,4+impactT*22,0,Math.PI*2);G.stroke();
-            // 내부 흰 코어
-            G.globalAlpha=al*(1-impactT)*0.6;
-            G.strokeStyle='#fff';G.lineWidth=1;
-            G.beginPath();G.arc(0,0,2+impactT*16,0,Math.PI*2);G.stroke();
-            // 균열 (사방으로 짧은 선)
-            G.globalAlpha=al*(1-impactT)*0.7;
-            G.strokeStyle=evolved?'#882288':'#553366';
-            G.lineWidth=1.5;
-            for(let j=0;j<6;j++){
-              const ja=j*Math.PI*2/6+impactT*0.5;
-              const jr1=3,jr2=jr1+impactT*14;
-              G.beginPath();
-              G.moveTo(Math.cos(ja)*jr1,Math.sin(ja)*jr1);
-              G.lineTo(Math.cos(ja)*jr2,Math.sin(ja)*jr2);
-              G.stroke();
-            }
-            G.restore();
+        // 중앙 임팩트 플래시 (시작 순간만)
+        if(t<0.2){
+          G.globalAlpha=al*(1-t*5)*0.85;
+          G.fillStyle='#fff';
+          G.beginPath();G.arc(0,0,8+t*30,0,Math.PI*2);G.fill();
+          G.globalAlpha=al*(1-t*5)*0.6;
+          G.fillStyle=evolved?'#ff88ff':'#cc88ff';
+          G.beginPath();G.arc(0,0,16+t*40,0,Math.PI*2);G.fill();
+        }
+        // 동심원 충격파 3겹 — 시간차로 퍼져나감
+        for(let i=0;i<3;i++){
+          const offset=i*0.18;
+          const waveT=t-offset;
+          if(waveT<0||waveT>1)continue;
+          const r=baseR*waveT;
+          // 외곽 굵은 링
+          G.globalAlpha=al*(1-waveT)*0.85;
+          G.strokeStyle=evolved?'#ff66ff':'#cc88ff';
+          G.lineWidth=4*(1-waveT*0.5);
+          G.beginPath();G.arc(0,0,r,0,Math.PI*2);G.stroke();
+          // 내부 흰 코어 링
+          G.globalAlpha=al*(1-waveT)*0.5;
+          G.strokeStyle='#ffffff';
+          G.lineWidth=1.5;
+          G.beginPath();G.arc(0,0,r-3,0,Math.PI*2);G.stroke();
+          // 첫 링은 연한 보라 채움
+          if(i===0){
+            G.globalAlpha=al*(1-waveT)*0.15;
+            G.fillStyle=evolved?'#ff88ff':'#cc88ff';
+            G.beginPath();G.arc(0,0,r,0,Math.PI*2);G.fill();
           }
         }
-        // 중앙 마법 임팩트 (전체 슬램 시작 순간의 모임 효과)
-        if(t<0.25){
-          G.globalAlpha=al*(1-t*4)*0.4;G.fillStyle=evolved?'#ff88ff':'#cc88ff';
-          G.beginPath();G.arc(0,0,10+t*15,0,Math.PI*2);G.fill();
+        // 방사형 균열 (사방으로 뻗어나가는 선)
+        const crackCount=evolved?10:8;
+        const crackT=Math.min(1,t*1.4);
+        for(let j=0;j<crackCount;j++){
+          const ja=j*Math.PI*2/crackCount+t*0.3;
+          const r1=10, r2=10+crackT*(baseR-10);
+          const wobble=Math.sin(j*7.3)*0.12;
+          const ax=Math.cos(ja+wobble), ay=Math.sin(ja+wobble);
+          G.globalAlpha=al*(1-crackT*0.7)*0.85;
+          G.strokeStyle=evolved?'#882288':'#553377';
+          G.lineWidth=2.5*(1-crackT*0.3);
+          G.beginPath();
+          G.moveTo(ax*r1, ay*r1);
+          G.lineTo(ax*r2, ay*r2);
+          G.stroke();
+          // 균열 끝 작은 점 (강조)
+          if(crackT>0.3){
+            G.globalAlpha=al*(1-crackT)*0.75;
+            G.fillStyle=evolved?'#ff88ff':'#cc88ff';
+            G.beginPath();
+            G.arc(ax*r2, ay*r2, 2.5+(1-crackT)*2, 0, Math.PI*2);
+            G.fill();
+          }
+        }
+        // 마지막 잔존 글로우 (페이드 아웃)
+        if(t>0.6){
+          const fadeT=(t-0.6)/0.4;
+          G.globalAlpha=al*(1-fadeT)*0.18;
+          G.fillStyle=evolved?'#ff88ff':'#cc88ff';
+          G.beginPath();G.arc(0,0,baseR,0,Math.PI*2);G.fill();
         }
       }
       G.restore();
@@ -2620,7 +2732,7 @@ class Companion{
   baseDmg(){
     const lv=this.getWpnLv();
     const dM=wlvAt(WLV.dmgM,lv);
-    return 24*player.dm*dM*(1+Math.max(0,player.lv-1)*0.04)*(this.evolved?1.4:1);
+    return 24*player.dm*dM*(1+Math.max(0,player.lv-1)*0.04)*(this.evolved?1.2:1);  // 진화 1.4→1.2 너프
   }
   doBark(){
     const lv=this.getWpnLv();
