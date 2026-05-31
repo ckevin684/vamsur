@@ -68,8 +68,15 @@ C:\Users\조규형\Documents\GitHub\vamsur\
 - 🔪 셰프 나이프 + 🍖 비밀레시피 → 🔥 풀코스
 - 🔦 손전등 + 📋 순찰일지 → 🌙 심야경계령
 - 🦯 지팡이 + 💊 허리진통제 → 💜 각성한 기종
-- 🐕 뭉치 + 🐕 뭉치 목줄 → 🐕 뭉치 언리쉬드
+- 🐕 뭉치 + 🦴 뭉치 간식 → 🐕 뭉치 언리쉬드
 - 🪓 차지 액스 + ☕ 백다방 아아 → ⚡ 개방의 검
+
+**패시브 아이템 (PASSIVES) — BAL 중앙화 + 단일 스탯 원칙**:
+- 각 패시브는 **딱 한 가지 스탯만** 올림 (다중 스탯 금지). 수치는 전부 `BAL.passive.*` 참조.
+- `WUP` 배열(무기 강화 카드)은 미사용 dead code라 **폐기됨**.
+- 🦴 **뭉치 간식** (id `leash`): 공격 범위 +20% (`BAL.passive.leashAm`). ※ 구 '🐕 뭉치 목줄'의 공격력 +10% 제거 → 단일 스탯화. 진화 재료는 그대로(mungchi+leash→unleash).
+- 🎯 **종원의 칼솜씨** (id `knife2`): 관통 +1 (`BAL.passive.knife2Pierce`). ※ 구 '공격력 +10%'에서 관통 효과로 변경.
+- 💥 **준형의 충격기** (id `bark`): 크리티컬 +12% (`BAL.passive.bark`). ※ 구 '🗣️ 뭉치의 짖음'에서 이름/컨셉만 변경(효과 동일).
 
 **🖥️ 램 무기 — 영구 1개 튕기기 (뱀서 King Bible 스타일)**:
 - **1개 영구 유지** (진화 fullspec: 2개). 매 발사마다 새로 안 만들고 갯수만 유지.
@@ -82,7 +89,7 @@ C:\Users\조규형\Documents\GitHub\vamsur\
 
 **크리티컬 시스템 (밸런스 조정 완료)**:
 - 최초 시작 크리: 20% (기존 30%에서 너프)
-- bark 패시브: 레벨당 +12% (기존 15%에서 너프), Lv5 max = +60%
+- bark 패시브(💥 준형의 충격기): 레벨당 +12% (기존 15%에서 너프), Lv5 max = +60%
 - 도달 가능 최대: 최초+max bark = 80%, 다른 캐릭+max bark = 60%
 - **100% 도달 불가능** — 풀 투자해도 80%까지만
 
@@ -342,7 +349,7 @@ C:\Users\조규형\Documents\GitHub\vamsur\
   3. AUDIO (tone/noise/SFX) + BGM 헬퍼
   4. HELPERS (dist/rnd/clamp/shade)
   5. SPRITES (sChar/sZombie/sBat/sSkel/sRusher/sTank/보스들)
-  6. DEFINITIONS (CHARS/WDEFS/WLV/WPROJ/EVOS/PASSIVES/WUP/STREAMER_FORMS)
+  6. DEFINITIONS (CHARS/WDEFS/WLV/WPROJ/EVOS/PASSIVES/STREAMER_FORMS)
   7. GAME STATE (전역 변수들)
   8. Player 클래스
   9. WEAPON FIRE (fireWpn + applyStreamerLight + 헬퍼)

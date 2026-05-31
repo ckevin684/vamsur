@@ -702,13 +702,24 @@ const BAL={
     warrant:0.3,      // 무적 +초 per lv (0.5→0.3, 만렙 +2.5→+1.5초)
     log:1.25,         // 경험치 ×per lv
     recipe:1.2,       // 데미지 ×per lv
-    leashAm:1.2,leashDm:1.1,  // 범위/데미지
+    leashAm:1.2,      // 뭉치 간식 — 공격 범위 ×per lv
     anger:1.2,        // 공속 ×per lv
     cane:40,          // HP +per lv
     torch:2,          // 자석 ×per lv
     monhun:1.1,       // 보스 ×per lv (1.2→1.1 너프, 만렙 누적 2.49x→1.61x)
-    knife2:1.1,       // 데미지 ×per lv (1.15→1.1, jw 폭딜 빌드 캡)
+    knife2Pierce:1,   // 종원의 칼솜씨 — 관통 +per lv
     coffee:1.15,      // 이동속도 ×per lv
+  },
+  // ━━━ 적 AI 튜닝 ━━━
+  enemy:{
+    skel:{           // 해골 — 사정거리 도달 시 그 자리에 고정, 정지 포탑처럼 사격
+      range:240,     // 플레이어가 이 거리 안에 들어오면 멈춰서 고정 (이후 계속 그 자리)
+      shootR:420,    // 이 거리 안이면 발사
+      fireMin:4,     // 발사 간격 최소 (초) — 여러 마리 박히면 투사체 과해서 늘림 (기존 2.5)
+      fireMax:7,     // 발사 간격 최대 (초) (기존 4.5)
+      projSpd:200,   // 투사체 속도
+      projSz:10,     // 투사체 크기 (가시성 ↑)
+    },
   },
 };
 
@@ -787,25 +798,20 @@ const PASSIVES=[
   {id:'pill',   name:'💊 기종의 허리진통제',desc:'비전투 시 초당 HP +1.5',fn:p=>p.regen+=BAL.passive.pill},
   {id:'log',    name:'📋 소민의 순찰일지',desc:'경험치 +25%',fn:p=>p.xpm*=1.25},
   {id:'recipe', name:'🍖 종원의 비밀레시피',desc:'공격력 +20%',fn:p=>p.dm*=1.2},
-  {id:'leash',  name:'🐕 뭉치 목줄',desc:'범위+20% 공격+10%',fn:p=>{p.am*=1.2;p.dm*=1.1}},
+  {id:'leash',  name:'🦴 뭉치 간식',desc:'공격 범위 +20%',fn:p=>p.am*=BAL.passive.leashAm},
   {id:'anger',  name:'💢 최초의 분노',desc:'공격속도 +20%',fn:p=>p.as*=1.2},
   {id:'cane',   name:'🦯 기종의 지팡이',desc:'최대HP +40',fn:p=>{p.mhp+=40;p.hp=Math.min(p.hp+40,p.mhp)}},
   {id:'torch',  name:'🔦 소민의 야간조명',desc:'보석 흡수 범위 2배',fn:p=>p.magr*=2},
   {id:'monhun', name:'🎮 기훈의 몬헌경험',desc:'보스 데미지 +10%',fn:p=>p.bdm*=BAL.passive.monhun},  // 1.2→1.1 너프 (만렙 2.49x→1.61x)
-  {id:'bark',   name:'🗣️ 뭉치의 짖음',desc:'크리티컬 +12%',fn:p=>p.crit+=BAL.passive.bark},
-  {id:'knife2', name:'🔪 종원의 칼솜씨',desc:'공격력 +10%',fn:p=>p.dm*=BAL.passive.knife2},
-];
-const WUP=[
-  {id:'wdmg', name:'⚔️ 무기 강화',desc:'공격력 +25%',fn:p=>p.dm*=1.25},
-  {id:'wspd', name:'⚡ 연사 강화',desc:'공격속도 +20%',fn:p=>p.as*=1.2},
-  {id:'warea',name:'💥 범위 강화',desc:'공격 범위 +25%',fn:p=>p.am*=1.25},
-  {id:'wpierce',name:'🎯 관통 강화',desc:'관통 +1',fn:p=>p.pierce+=1},
+  {id:'bark',   name:'💥 준형의 충격기',desc:'크리티컬 +12%',fn:p=>p.crit+=BAL.passive.bark},
+  {id:'knife2', name:'🎯 종원의 칼솜씨',desc:'관통 +1',fn:p=>p.pierce+=BAL.passive.knife2Pierce},
 ];
 
 // ═══ GAME STATE ═══
 let state='title',player=null,enemies=[],projs=[],gems=[],boss=null;
 let titleFr=0,hovTitleBtn=-1,settingsOpen=false,hovSetBtn=-1,dragSlider=null;
 let gameTime=0,spawnT=0,bossIdx=0,bossActive=false;
+let godMode=false;  // 디버그 무적 — 콘솔에서 godMode=true 또는 게임 중 ` (백틱) 키로 토글
 let upgradeChoices=[],hovUI=-1,hovChar=-1,lastTs=0;
 let parts=[],killCount=0,afr=0,afrT=0;
 let shakeT=0,shakeM=0,dmgTexts=[],hitSparks=[];
@@ -914,6 +920,7 @@ document.addEventListener('keydown',e=>{
   iac();keys[e.key]=true;keys[e.code]=true;
   if((e.key==='p'||e.key==='P'||e.key==='Escape')&&state==='playing'){paused=!paused;e.preventDefault()}
   if(e.code==='Space'&&state==='playing'&&!paused){if(player)player.tryDash();e.preventDefault()}
+  if(e.key==='`'||e.code==='Backquote'){godMode=!godMode;notify(godMode?'🛡️ 무적 ON':'무적 OFF','디버그','#ffdd44');e.preventDefault()}
 });
 document.addEventListener('keyup',e=>{keys[e.key]=false;keys[e.code]=false});
 // 윈도우 포커스 잃으면 자동 일시정지
@@ -1078,6 +1085,7 @@ class Player{
   }
   nearest(){let n=null,md=99999;(boss?[...enemies,boss]:enemies).forEach(e=>{const d=dist(this,e);if(d<md){md=d;n=e}});return n}
   takeDmg(v){
+    if(godMode)return;  // 디버그 무적
     if(this.hitT>0)return;
     // 최기종 분노 모드 무적
     if(this.cd.id==='gj'&&this.gjPhase==='rage')return;
@@ -2444,7 +2452,8 @@ class Enemy{
     }else{ // skeleton
       this.hp=this.mhp=(60+w*12)*hs*em;this.spd=(50+w*2)*(elite?1.1:1);
       this.dmg=(15+w*1.5)*em;this.col='#cccccc';this.sz=14*(elite?1.3:1);this.xv=6*(elite?3:1);
-      this.sT=rnd(2,4);
+      this.sT=rnd(BAL.enemy.skel.fireMin,BAL.enemy.skel.fireMax);
+      this.planted=false;  // 사정거리 도달 시 true → 그 자리에 고정
     }
     if(elite)SFX.elite();
   }
@@ -2459,19 +2468,42 @@ class Enemy{
       this.zT-=dt;if(this.zT<=0){this.zD*=-1;this.zT=rnd(0.3,0.7)}
       const px=-dy/d,py=dx/d;dx+=px*this.zD*60;dy+=py*this.zD*60;
     }
-    const len=Math.hypot(dx,dy)||1;
-    this.x+=dx/len*this.spd*sm*dt;this.y+=dy/len*this.spd*sm*dt;
-    // 넉백 적용
-    if(this.kvx||this.kvy){this.x+=this.kvx*dt;this.y+=this.kvy*dt;this.kvx*=0.82;this.kvy*=0.82;if(Math.abs(this.kvx)<2)this.kvx=0;if(Math.abs(this.kvy)<2)this.kvy=0}
+    // 해골 — 플레이어가 사정거리에 들어오면 그 자리에 고정 (이후 안 움직이고 사격만)
+    let mvSpd=this.spd;
+    if(this.type==='skeleton'){
+      if(this.planted||d<=BAL.enemy.skel.range)this.planted=true;  // 한번 박히면 계속 고정
+      if(this.planted)mvSpd=0;
+    }
+    if(mvSpd>0){const len=Math.hypot(dx,dy)||1;this.x+=dx/len*mvSpd*sm*dt;this.y+=dy/len*mvSpd*sm*dt;}
+    // 넉백 적용 (박힌 해골은 넉백 무시 — 그 자리에 고정)
+    if(this.planted){this.kvx=0;this.kvy=0;}
+    else if(this.kvx||this.kvy){this.x+=this.kvx*dt;this.y+=this.kvy*dt;this.kvx*=0.82;this.kvy*=0.82;if(Math.abs(this.kvx)<2)this.kvx=0;if(Math.abs(this.kvy)<2)this.kvy=0}
     if(this.type==='skeleton'&&this.sT!==undefined){
       this.sT-=dt;
-      if(this.sT<=0&&d<360){
+      const SB=BAL.enemy.skel;
+      if(this.sT<=0&&d<SB.shootR){
         const a=Math.atan2(player.y-this.y,player.x-this.x);
-        const pb={x:this.x,y:this.y,vx:Math.cos(a)*185,vy:Math.sin(a)*185,pdmg:this.dmg*0.6,life:2.5,sz:7,col:'#aaaaff',dead:false,
+        const pb={x:this.x,y:this.y,vx:Math.cos(a)*SB.projSpd,vy:Math.sin(a)*SB.projSpd,pdmg:this.dmg*0.6,life:2.5,sz:SB.projSz,dead:false,
           update(dt2){this.x+=this.vx*dt2;this.y+=this.vy*dt2;this.life-=dt2;if(this.life<=0){this.dead=true;return}if(dist(this,player)<this.sz+12){player.takeDmg(this.pdmg);this.dead=true}},
-          draw(){G.fillStyle=this.col;G.fillRect(this.x-this.sz/2,this.y-this.sz/2,this.sz,this.sz)}
+          draw(){
+            G.save();G.translate(this.x,this.y);
+            const ph=0.6+0.4*Math.sin(this.life*18);
+            // 외곽 글로우 (펄스)
+            G.globalAlpha=0.45*ph;G.fillStyle='#7aa0ff';
+            G.beginPath();G.arc(0,0,this.sz*1.7,0,Math.PI*2);G.fill();
+            G.globalAlpha=1;G.rotate(Math.atan2(this.vy,this.vx));
+            // 모션 스트릭 (뒤로 늘어진 잔상)
+            G.globalAlpha=0.4;G.fillStyle='#aaccff';
+            G.fillRect(-this.sz*1.6,-this.sz*0.18,this.sz*1.6,this.sz*0.36);
+            // 어두운 외곽 + 흰 코어 (마름모)
+            G.globalAlpha=1;G.rotate(Math.PI/4);const s=this.sz;
+            G.fillStyle='#1a2240';G.fillRect(-s/2-1.5,-s/2-1.5,s+3,s+3);
+            G.fillStyle='#dfe8ff';G.fillRect(-s/2,-s/2,s,s);
+            G.fillStyle='#ffffff';G.fillRect(-s/2,-s/2,s*0.5,s*0.5);
+            G.restore();
+          }
         };
-        projs.push(pb);this.sT=rnd(2.5,4.5);
+        projs.push(pb);this.sT=rnd(SB.fireMin,SB.fireMax);
       }
     }
     if(d<this.sz+13&&this.ct<=0){player.takeDmg(this.dmg);this.ct=0.8}
@@ -4566,6 +4598,14 @@ function render(){
   drawCombo();
   drawNotifs();
   if(boss)boss.drawAnn();
+  // 디버그 무적 배지 (켜져 있는 동안 항상 표시)
+  if(godMode){
+    const gp=0.6+0.4*Math.sin(gameTime*6);
+    G.save();G.globalAlpha=gp;G.fillStyle='#ffdd44';
+    G.font='bold 13px Courier New';G.textAlign='center';G.textBaseline='top';
+    G.fillText('🛡️ GOD MODE (` 토글)',LW/2,30);
+    G.textBaseline='alphabetic';G.restore();
+  }
   // 윤소민 룰렛 + 결과 카드
   drawRouletteAnim();
   drawResultCard();
@@ -4707,7 +4747,7 @@ const RECIPES=[
   ['🔪 칼','🍖 레시피','🔥 풀코스','knife','recipe'],
   ['🔦 손전등','📋 일지','🌙 경계령','light','log'],
   ['🦯 지팡이','💊 진통제','💜 기종','staff','pill'],
-  ['🐕 뭉치','🐕 목줄','🐕 언리쉬드','mungchi','leash'],
+  ['🐕 뭉치','🦴 간식','🐕 언리쉬드','mungchi','leash'],
   ['🪓 슬액','☕ 아아','⚔ 개방','gsword','coffee'],
 ];
 function drawPauseOverlay(){
