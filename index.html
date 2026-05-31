@@ -621,10 +621,12 @@ const BAL={
       lateScaleStart:120,  // 시간 데미지 스케일링 시작 (초)
       lateScaleRate:0.4,   // 스케일링 속도 (1+t*0.4) — 0.7→0.4 너프 (10분 dm 4.5→3.0)
     },
-    gj:{ // 최기종 — 분노/휠체어
-      painPerHit:1.5,      // 누적 비율 (1.0→1.5 — 3~4 hit으로 분노 발동, 더 다이내믹)
+    gj:{ // 최기종 — 분노/휠체어 (이동 기반 게이지 시스템)
+      painPerMove:0.017,   // 이동 중 매초 누적 (1/0.017 ≈ 60s 이동 시 1회 분노)
+      painDecayStill:0.015,// 가만히 있을 때 자연 감소 (66s에 완전 빠짐 — 잠깐 쉬어서 빼는 전략 가능)
       painTrigger:1.0,     // 분노 발동 임계
-      painDecay:0.04,      // 자연 감소 속도 (per sec)
+      painPerHit:0,        // (deprecated, 사용 안함 — 피격 누적 제거)
+      painDecay:0,         // (deprecated)
       rageDur:6,           // 분노 지속 (초)
       rageDmgMul:2.5,      // 분노 데미지 배율
       rageAsMul:2,         // 분노 공속 배율
@@ -638,6 +640,7 @@ const BAL={
       injDistMax:750,      // 신경주사 스폰 최대 거리
       injHealPct:0.3,      // 픽업 시 HP 회복
       injInvuln:2,         // 픽업 후 무적
+      injPickupR:36,       // 픽업 인식 거리 (이전 spd*0.4=28px → 닿아도 못 먹는 경우 발생 → 36px 고정)
     },
     co:{ // 최초 — 컴패니언
       critBase:0.2,        // 시작 크리 확률
@@ -714,7 +717,7 @@ const CHARS=[
   {id:'jh',name:'준형전자',sub:'조립의 신',color:'#4488cc',hp:130,spd:100,startWpn:'ram',pdesc:'방어 +10% · 🔧 위급시 자가수리',def:0.9},
   {id:'jw',name:'최종원',sub:'셰프',color:'#dd6622',hp:100,spd:110,startWpn:'knife',pdesc:'시간↑공격↑ · 🍳 8콤보→폭주',def:1.0},
   {id:'sm',name:'윤소민',sub:'심야경비+버튜버',color:'#33aa66',hp:110,spd:128,startWpn:'light',pdesc:'이동 +15% · 🎰 변신 룰렛',def:1.0},
-  {id:'gj',name:'최기종',sub:'허리디스크레전드',color:'#9955cc',hp:160,spd:70,startWpn:'staff',pdesc:'공격+40% · 누적 데미지→분노→휠체어→💉신경주사',def:0.8},
+  {id:'gj',name:'최기종',sub:'허리디스크레전드',color:'#9955cc',hp:160,spd:70,startWpn:'staff',pdesc:'공격+40% · 이동→허리부담↑→💥분노→🦽휠체어→💉',def:0.8},
   {id:'co',name:'최초',sub:'뭉치 주인',color:'#cc8800',hp:100,spd:120,startWpn:'mungchi',pdesc:'크리 +20% · 🐕 뭉치 컴패니언',def:1.0},
   {id:'gh',name:'황기훈',sub:'몬헌마스터',color:'#cc3377',hp:110,spd:105,startWpn:'gsword',pdesc:'보스 +25% · 🪓 페이얼/SAED',def:1.0},
 ];
@@ -868,8 +871,11 @@ function spawnPickup(x,y,type){
   pickups.push({x,y,t,life:18,ml:18,dead:false,fr:Math.random()*Math.PI*2});
 }
 // 신경주사 — BAL.char.gj.injDistMin/Max 거리 무작위 방향에 1개 스폰
+// 기존 살아있는 신경주사가 있으면 정리 후 새로 스폰 (이전 사이클 잔존물 방지)
 function spawnNerveInjection(p){
   const B=BAL.char.gj;
+  // 기존 신경주사 픽업 모두 dead 처리 (stranded 방지)
+  pickups.forEach(pk=>{if(pk.t==='injection')pk.dead=true});
   const ang=Math.random()*Math.PI*2;
   const d=B.injDistMin+Math.random()*(B.injDistMax-B.injDistMin);
   const x=p.x+Math.cos(ang)*d, y=p.y+Math.sin(ang)*d;
@@ -1022,11 +1028,18 @@ class Player{
       }
       if(this.rushT>0)this.rushT-=dt;
     }
-    // 최기종 — 누적 게이지 자연 감소 + 분노 타이머 + 휠체어 신경주사 추적
+    // 최기종 — 이동 기반 게이지 + 분노 타이머 + 휠체어 신경주사 추적
     if(this.cd.id==='gj'){
-      // 정상 상태에서 게이지 자연 감소 (오래 안 맞으면 천천히 빠짐)
-      if(this.gjPhase==='normal'&&this.discPain>0&&this.hitT<=0){
-        this.discPain=Math.max(0,this.discPain-dt*0.04);
+      // 정상 상태에서 이동 기반 게이지 (움직이면 누적 / 멈추면 천천히 감소)
+      if(this.gjPhase==='normal'){
+        const gjB=BAL.char.gj;
+        const isMoving=!!(dx||dy)||this.dashT>0;
+        if(isMoving){
+          this.discPain=Math.min(1,this.discPain+gjB.painPerMove*dt);
+          if(this.discPain>=gjB.painTrigger)this.triggerRage();
+        }else if(this.discPain>0){
+          this.discPain=Math.max(0,this.discPain-gjB.painDecayStill*dt);
+        }
       }
       // 분노 카운트다운 → 종료 시 휠체어 진입
       if(this.gjPhase==='rage'){
@@ -1036,11 +1049,11 @@ class Player{
       // 휠체어 모드에서 신경주사 픽업 체크 (gjInjectionRef를 가까이 가서 만나면 발동)
       if(this.gjPhase==='wheelchair'&&this.gjInjectionRef){
         const ref=this.gjInjectionRef;
-        if(ref.dead||!ref){
+        if(ref.dead){
           // 어디론가 사라졌으면 새로 스폰
           spawnNerveInjection(this);
-        }else if(dist(this,ref)<this.spd*0.4){
-          // 가까이 가면 픽업
+        }else if(dist(this,ref)<BAL.char.gj.injPickupR){
+          // 가까이 가면 픽업 (BAL.injPickupR 거리, 기본 36px)
           ref.dead=true;
           this.exitWheelchair();
         }
@@ -1074,11 +1087,7 @@ class Player{
     SFX.pHit();spawnParts(this.x,this.y,'#ff4444',8);
     showDmg(this.x,this.y-12,dmg,'#ff5566',true);
     shake(0.25,5);spark(this.x,this.y,'#ff6644',6);
-    // 최기종 — 누적 데미지 게이지 (정상 상태에서만 충전): painTrigger 도달 시 분노
-    if(this.cd.id==='gj'&&this.gjPhase==='normal'&&this.hp>0){
-      this.discPain=Math.min(1,this.discPain+(dmg/this.mhp)*BAL.char.gj.painPerHit);
-      if(this.discPain>=BAL.char.gj.painTrigger)this.triggerRage();
-    }
+    // (피격 기반 누적 제거 — 이동 기반으로 변경됨, player.update에서 처리)
     if(this.hp<=0){
       // 준형전자 — AS 보증: HP 0 이하 도달 시 쿨다운 가능하면 자동 수리 (긴급)
       if(this.cd.id==='jh'&&this.repairCd<=0){
