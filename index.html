@@ -1705,7 +1705,7 @@ function aoeHit(x,y,r,col,dmg,life,pierce,slow=false,wt='',visCnt=0){
           G.globalAlpha=al*(1-waveT)*0.5;
           G.strokeStyle='#ffffff';
           G.lineWidth=1.5;
-          G.beginPath();G.arc(0,0,r-3,0,Math.PI*2);G.stroke();
+          G.beginPath();G.arc(0,0,Math.max(0,r-3),0,Math.PI*2);G.stroke();
           // 첫 링은 연한 보라 채움
           if(i===0){
             G.globalAlpha=al*(1-waveT)*0.15;
