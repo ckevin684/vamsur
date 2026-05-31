@@ -622,8 +622,8 @@ const BAL={
       lateScaleRate:0.4,   // 스케일링 속도 (1+t*0.4) — 0.7→0.4 너프 (10분 dm 4.5→3.0)
     },
     gj:{ // 최기종 — 분노/휠체어 (이동 기반 게이지 시스템)
-      painPerMove:0.017,   // 이동 중 매초 누적 (1/0.017 ≈ 60s 이동 시 1회 분노)
-      painDecayStill:0.015,// 가만히 있을 때 자연 감소 (66s에 완전 빠짐 — 잠깐 쉬어서 빼는 전략 가능)
+      painPerMove:0.022,   // 이동 중 매초 누적 (1/0.022 ≈ 45s 이동 시 1회 분노 — 후반 보장)
+      painDecayStill:0.018,// 가만히 있을 때 자연 감소 (55s에 완전 빠짐 — 잠깐 쉬어서 빼는 전략 가능)
       painTrigger:1.0,     // 분노 발동 임계
       painPerHit:0,        // (deprecated, 사용 안함 — 피격 누적 제거)
       painDecay:0,         // (deprecated)
@@ -677,7 +677,7 @@ const BAL={
   beam:{
     shibuki:{dmgMul:1.4, lenBase:175, lenPerLv:10, halfAng:0.42, slowDur:1.2, burstChance:0.15, burstDmgMul:1.8},
     riko:{dmgMul:0.9, count:3, arc:0.28, lenBase:200, lenPerLv:10, halfAng:0.22, slowDur:0.8},
-    huya:{dmgMul:2.4, lenBase:265, lenPerLv:12, halfAng:0.15, slowDur:1.6},  // 3.0→2.4 너프 (단발 어둠 마법)
+    huya:{dmgMul:2.0, lenBase:265, lenPerLv:12, halfAng:0.15, slowDur:1.6},  // 3.0→2.4→2.0 (다른 dm 캡과 균형)
     lize:{dmgMul:1.4, lenBase:185, lenPerLv:10, halfAng:0.40, slowDur:2.0, healChance:0.6, healAmt:3},
     tabi:{dmgMul:1.0, lenBase:170, lenPerLv:10, halfAng:0.40, slowDur:1.2, noteDmgMul:0.95},
     sleep:{failChance:0.2, dmgMul:0.45, lenBase:115, lenPerLv:5, halfAng:0.32, slowDur:0.6},  // 0.3→0.2 (UX 개선)
@@ -687,7 +687,7 @@ const BAL={
   // ━━━ 회복 시스템 ━━━
   regen:{
     tickInterval:0.2,    // 매 0.2초마다 회복 틱
-    combatLockDur:1.5,   // 피격 후 회복 잠금 시간 (2.0→1.5, 회복 약간 더 사용성)
+    combatLockDur:1.2,   // 피격 후 회복 잠금 시간 (1.5→1.2, 회복 사용성 더 회복)
   },
   // ━━━ 룰렛 확률 ━━━
   rouletteProb:{
@@ -699,14 +699,14 @@ const BAL={
   passive:{
     pill:1.5,         // HP 회복 +per lv
     bark:0.12,        // 크리 +per lv
-    warrant:0.3,      // 무적 +초 per lv (0.5→0.3, 만렙 +2.5→+1.5초)
+    warrant:0.3,      // 무적 +초 per lv
     log:1.25,         // 경험치 ×per lv
-    recipe:1.2,       // 데미지 ×per lv
-    leashAm:1.2,      // 뭉치 간식 — 공격 범위 ×per lv
+    recipe:1.22,      // 데미지 ×per lv (1.2→1.22, 단일 dm 소스 보강)
+    leashAm:1.22,     // 뭉치 간식 — 공격 범위 ×per lv (1.2→1.22, 단일 스탯 가치 ↑)
     anger:1.2,        // 공속 ×per lv
     cane:40,          // HP +per lv
     torch:2,          // 자석 ×per lv
-    monhun:1.1,       // 보스 ×per lv (1.2→1.1 너프, 만렙 누적 2.49x→1.61x)
+    monhun:1.07,      // 보스 ×per lv (1.1→1.07, 황기훈 보스 폭딜 추가 캡)
     knife2Pierce:1,   // 종원의 칼솜씨 — 관통 +per lv
     coffee:1.15,      // 이동속도 ×per lv
   },
