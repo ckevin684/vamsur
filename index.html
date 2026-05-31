@@ -79,20 +79,8 @@ function playBgm(category){
 function stopBgm(){if(bgmAudio){try{bgmAudio.pause()}catch(e){}bgmAudio=null}bgmCategory=''}
 function setBgmVol(v){bgmVol=Math.max(0,Math.min(1,v));if(bgmAudio)bgmAudio.volume=bgmVol}
 
-// 실제 뭉치 짖음 SFX (사용자 영상에서 추출, 5개 클립 랜덤 재생)
-const BARK_FILES=['bgm/sfx/mungchi_bark1.mp3','bgm/sfx/mungchi_bark2.mp3','bgm/sfx/mungchi_bark3.mp3','bgm/sfx/mungchi_bark4.mp3','bgm/sfx/mungchi_bark5.mp3'];
-const BARK_POOL=BARK_FILES.map(f=>{const a=new Audio(encodeURI(f));a.preload='auto';return a});
-let barkIdx=0;
-function playBark(){
-  // 풀에서 다음 오디오 선택 (라운드 로빈으로 동시 재생 가능)
-  const a=BARK_POOL[barkIdx];
-  barkIdx=(barkIdx+1)%BARK_POOL.length;
-  try{
-    a.currentTime=0;
-    a.volume=sfxVol*0.7;  // SFX 볼륨에 맞춤
-    a.play().catch(()=>{});
-  }catch(e){}
-}
+// 뭉치 짖음 (절차적 SFX) — mp3 파일 없으면 두 번 연속 bHit 사운드로 폴백
+function playBark(){SFX.bHit();SFX.bHit()}
 
 // ═══ HELPERS ═══
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -614,7 +602,7 @@ const CHARS=[
   {id:'jh',name:'준형전자',sub:'조립의 신',color:'#4488cc',hp:130,spd:100,startWpn:'ram',pdesc:'방어 +10% · 🔧 위급시 자가수리',def:0.9},
   {id:'jw',name:'최종원',sub:'셰프',color:'#dd6622',hp:100,spd:110,startWpn:'knife',pdesc:'시간↑공격↑ · 🍳 8콤보→폭주',def:1.0},
   {id:'sm',name:'윤소민',sub:'심야경비+버튜버',color:'#33aa66',hp:110,spd:128,startWpn:'light',pdesc:'이동 +15% · 🎰 변신 룰렛',def:1.0},
-  {id:'gj',name:'최기종',sub:'허리디스크레전드',color:'#9955cc',hp:160,spd:70,startWpn:'staff',pdesc:'공격+40% 속도-30% · 💥 디스크 폭발',def:0.8},
+  {id:'gj',name:'최기종',sub:'허리디스크레전드',color:'#9955cc',hp:160,spd:70,startWpn:'staff',pdesc:'공격+40% · 누적 데미지→분노→휠체어→💉신경주사',def:0.8},
   {id:'co',name:'최초',sub:'뭉치 주인',color:'#cc8800',hp:100,spd:120,startWpn:'mungchi',pdesc:'크리 +20% · 🐕 뭉치 컴패니언',def:1.0},
   {id:'gh',name:'황기훈',sub:'몬헌마스터',color:'#cc3377',hp:110,spd:105,startWpn:'gsword',pdesc:'보스 +25% · 🪓 페이얼/SAED',def:1.0},
 ];
@@ -680,7 +668,7 @@ function pickStreamerForm(){
 const PASSIVES=[
   {id:'coffee', name:'☕ 기훈의 백다방 아아',desc:'이동속도 +15%',fn:p=>{p.spd*=1.15;p.bspd*=1.15}},
   {id:'warrant',name:'🖥️ 준형전자 AS보증서',desc:'무적시간 +0.5초',fn:p=>p.iframes+=0.5},
-  {id:'pill',   name:'💊 기종의 허리진통제',desc:'초당 HP 회복 +3',fn:p=>p.regen+=3},
+  {id:'pill',   name:'💊 기종의 허리진통제',desc:'비전투 시 초당 HP +1.5',fn:p=>p.regen+=1.5},
   {id:'log',    name:'📋 소민의 순찰일지',desc:'경험치 +25%',fn:p=>p.xpm*=1.25},
   {id:'recipe', name:'🍖 종원의 비밀레시피',desc:'공격력 +20%',fn:p=>p.dm*=1.2},
   {id:'leash',  name:'🐕 뭉치 목줄',desc:'범위+20% 공격+10%',fn:p=>{p.am*=1.2;p.dm*=1.1}},
@@ -766,6 +754,15 @@ function spawnPickup(x,y,type){
   const t=type||PICKUP_TYPES[Math.floor(Math.random()*PICKUP_TYPES.length)];
   pickups.push({x,y,t,life:18,ml:18,dead:false,fr:Math.random()*Math.PI*2});
 }
+// 신경주사 — 기종 휠체어 모드에서 사용. 화면 멀리(550~750px) 무작위 방향에 1개 스폰.
+function spawnNerveInjection(p){
+  const ang=Math.random()*Math.PI*2;
+  const d=550+Math.random()*200;
+  const x=p.x+Math.cos(ang)*d, y=p.y+Math.sin(ang)*d;
+  const pk={x,y,t:'injection',life:99999,ml:99999,dead:false,fr:Math.random()*Math.PI*2};
+  pickups.push(pk);
+  p.gjInjectionRef=pk;
+}
 function applyPickup(pk){
   if(pk.dead)return;  // 중복 적용 방지
   pk.dead=true;
@@ -812,7 +809,7 @@ class Player{
     this.def=cd.def;this.lv=1;this.xp=0;this.xpn=15;
     this.dm=cd.id==='gj'?1.4:1;this.as=1;this.am=1;this.xpm=1;
     this.pierce=0;this.regen=0;this.iframes=1.2;
-    this.hitT=0;this.regenT=0;this.magr=80;
+    this.hitT=0;this.regenT=0;this.regenLockT=0;this.magr=80;
     this.facing={x:1,y:0};
     this.passives={};  // {id: lv}
     this.wpns=[{type:cd.startWpn,t:0,lv:1}];
@@ -840,9 +837,12 @@ class Player{
     this.rushT=0;           // 활성 시간 (>0이면 발동 중)
     this.rushKills=0;       // 5초 윈도우 내 누적 킬
     this.rushWnd=0;         // 윈도우 카운트다운
-    // 최기종 — 💥 디스크 폭발 (피격 통증 게이지 100% 도달 시 자동 발동)
-    this.discPain=0;        // 0~1, 1 도달 시 발동
-    this.discFx=0;          // 발동 시 시각 이펙트 시간
+    // 최기종 — 💥 분노/휠체어/신경주사 사이클 (discPain 누적 → 분노 → 휠체어)
+    this.discPain=0;          // 0~1, 1 도달 시 분노 진입
+    this.discFx=0;            // 분노 진입 시 시각 이펙트 (광역 폭발)
+    this.gjPhase='normal';    // 'normal' | 'rage' | 'wheelchair'
+    this.gjPhaseT=0;          // 분노 잔여 시간
+    this.gjInjectionRef=null; // 현재 화면에 떠 있는 신경주사 (휠체어 모드 시 1개)
   }
   tryDash(){
     if(this.dashCd>0)return;
@@ -856,9 +856,10 @@ class Player{
     if(keys['ArrowUp']||keys['w']||keys['KeyW'])dy-=1;
     if(keys['ArrowDown']||keys['s']||keys['KeyS'])dy+=1;
     if(dx||dy){const l=Math.hypot(dx,dy);dx/=l;dy/=l;this.facing={x:dx,y:dy}}
-    // 대시 처리 + 졸음 시 이동속도 절반
+    // 대시 처리 + 졸음 시 이동속도 절반 + 휠체어 시 이동속도 +70%
     const sleepNerf=(this.streamerForm&&this.streamerForm.id==='sleep')?0.5:1;
-    const dashSpd=(this.dashT>0?this.spd*4.5:this.spd)*sleepNerf;
+    const wheelSpdBoost=(this.cd.id==='gj'&&this.gjPhase==='wheelchair')?1.7:1;
+    const dashSpd=(this.dashT>0?this.spd*4.5:this.spd)*sleepNerf*wheelSpdBoost;
     const mvX=this.dashT>0?this.facing.x:dx,mvY=this.dashT>0?this.facing.y:dy;
     this.x+=mvX*dashSpd*dt;this.y+=mvY*dashSpd*dt;
     if(this.dashT>0){this.dashT-=dt;if(Math.random()<0.6)spawnParts(this.x,this.y,this.cd.color,1)}
@@ -883,13 +884,17 @@ class Player{
     this.x=clamp(this.x,-1800,1800);this.y=clamp(this.y,-1800,1800);
     if(this.hitT>0)this.hitT-=dt;
     if(this.flashT>0)this.flashT-=dt;
-    // 최종원 주문 폭주 활성 시 발사 속도 ×2
+    // 최종원 주문 폭주 활성 시 발사 속도 ×2 / 기종 분노 시 ×2 / 휠체어 시 ×0.7
     const rushAsMul=(this.cd.id==='jw'&&this.rushT>0)?2:1;
+    const gjAsMul=(this.cd.id==='gj'&&this.gjPhase==='rage')?2:(this.cd.id==='gj'&&this.gjPhase==='wheelchair')?0.7:1;
     this.wpns.forEach(w=>{
       w.t-=dt;
-      if(w.t<=0){fireWpn(w.type,this,w.lv||1);w.t=(WDEFS[w.type]?.cd||1)*wlvAt(WLV.cdM,w.lv||1)/(this.as*rushAsMul)}
+      if(w.t<=0){fireWpn(w.type,this,w.lv||1);w.t=(WDEFS[w.type]?.cd||1)*wlvAt(WLV.cdM,w.lv||1)/(this.as*rushAsMul*gjAsMul)}
     });
-    if(this.regen>0){this.regenT=Math.max(0,this.regenT-dt);if(this.regenT<=0){this.hp=Math.min(this.mhp,this.hp+this.regen*0.2);this.regenT=0.2}}
+    // HP 회복 — 비전투 시에만 작동 (피격 후 regenLockT 2초간 잠금, 휠체어 시 잠금)
+    if(this.regenLockT>0)this.regenLockT-=dt;
+    const wheelRegenLock=(this.cd.id==='gj'&&this.gjPhase==='wheelchair');
+    if(this.regen>0&&this.regenLockT<=0&&!wheelRegenLock){this.regenT=Math.max(0,this.regenT-dt);if(this.regenT<=0){this.hp=Math.min(this.mhp,this.hp+this.regen*0.2);this.regenT=0.2}}
     if(this.cd.id==='jw')this.dm=1+(gameTime/120)*0.7;
     // 캐릭터별 메카닉 타이머
     if(this.repairCd>0)this.repairCd-=dt;
@@ -903,9 +908,29 @@ class Player{
       }
       if(this.rushT>0)this.rushT-=dt;
     }
-    // 최기종 — 통증 게이지 자연 감소 (오래 안 맞으면 천천히 빠짐)
-    if(this.cd.id==='gj'&&this.discPain>0&&this.hitT<=0){
-      this.discPain=Math.max(0,this.discPain-dt*0.04);
+    // 최기종 — 누적 게이지 자연 감소 + 분노 타이머 + 휠체어 신경주사 추적
+    if(this.cd.id==='gj'){
+      // 정상 상태에서 게이지 자연 감소 (오래 안 맞으면 천천히 빠짐)
+      if(this.gjPhase==='normal'&&this.discPain>0&&this.hitT<=0){
+        this.discPain=Math.max(0,this.discPain-dt*0.04);
+      }
+      // 분노 카운트다운 → 종료 시 휠체어 진입
+      if(this.gjPhase==='rage'){
+        this.gjPhaseT-=dt;
+        if(this.gjPhaseT<=0)this.enterWheelchair();
+      }
+      // 휠체어 모드에서 신경주사 픽업 체크 (gjInjectionRef를 가까이 가서 만나면 발동)
+      if(this.gjPhase==='wheelchair'&&this.gjInjectionRef){
+        const ref=this.gjInjectionRef;
+        if(ref.dead||!ref){
+          // 어디론가 사라졌으면 새로 스폰
+          spawnNerveInjection(this);
+        }else if(dist(this,ref)<this.spd*0.4){
+          // 가까이 가면 픽업
+          ref.dead=true;
+          this.exitWheelchair();
+        }
+      }
     }
   }
   // 최종원 — 처치 1건 알림 (bumpCombo에서 호출)
@@ -926,15 +951,18 @@ class Player{
   nearest(){let n=null,md=99999;(boss?[...enemies,boss]:enemies).forEach(e=>{const d=dist(this,e);if(d<md){md=d;n=e}});return n}
   takeDmg(v){
     if(this.hitT>0)return;
+    // 최기종 분노 모드 무적
+    if(this.cd.id==='gj'&&this.gjPhase==='rage')return;
     const dmg=v*this.def;
     this.hp-=dmg;this.hitT=this.iframes;this.flashT=0.25;
+    this.regenLockT=2.0;  // 전투 중 회복 정지 (피격 후 2초)
     SFX.pHit();spawnParts(this.x,this.y,'#ff4444',8);
     showDmg(this.x,this.y-12,dmg,'#ff5566',true);
     shake(0.25,5);spark(this.x,this.y,'#ff6644',6);
-    // 최기종 — 디스크 폭발: 통증 게이지 충전 (받은 데미지의 mhp 대비 비율 × 2.5)
-    if(this.cd.id==='gj'&&this.hp>0){
-      this.discPain=Math.min(1,this.discPain+(dmg/this.mhp)*2.5);
-      if(this.discPain>=1)this.triggerDiscBurst();
+    // 최기종 — 누적 데미지 게이지 (정상 상태에서만 충전): 1.0 도달 시 분노 진입
+    if(this.cd.id==='gj'&&this.gjPhase==='normal'&&this.hp>0){
+      this.discPain=Math.min(1,this.discPain+(dmg/this.mhp)*1.0);
+      if(this.discPain>=1)this.triggerRage();
     }
     if(this.hp<=0){
       // 준형전자 — AS 보증: HP 0 이하 도달 시 쿨다운 가능하면 자동 수리 (긴급)
@@ -963,17 +991,40 @@ class Player{
     shake(0.2,4);
     showDmg(this.x,this.y-20,Math.round(healAmt),'#88ddff',true);
   }
-  // 최기종 디스크 폭발 — 광역 폭딜 + 0.8초 무적, 게이지 리셋
-  triggerDiscBurst(){
-    this.discPain=0;
-    this.hitT=Math.max(this.hitT,0.8);
-    this.discFx=0.6;
-    const bdmg=20*this.dm*4;  // 베이스 데미지 × 4 (게임 후반엔 dm이 커지므로 비례)
-    aoeHit(this.x,this.y,180,'#cc66ff',bdmg,0.45,0,true,'disc_burst',0);
+  // 최기종 분노 진입 — 1회 광역 폭발 + 6초 분노 모드 (광폭)
+  triggerRage(){
+    this.gjPhase='rage';
+    this.gjPhaseT=6;  // 6초 광폭
+    this.discFx=0.8;
+    // 분노 진입 임팩트: 광역 폭발 (기존 디스크 폭발 효과 통합)
+    const bdmg=20*this.dm*5;  // 게임 후반엔 dm 비례
+    aoeHit(this.x,this.y,220,'#ff3366',bdmg,0.5,0,false,'disc_burst',0);
     SFX.bHit();SFX.boss();
-    notify('💥 디스크 폭발!','허리 작살남','#cc66ff');
-    spawnParts(this.x,this.y,'#cc66ff',20);
-    shake(0.3,6);
+    notify('🔥 허리 부러짐 — 분노!','6초간 광폭 (dmg×2.5)','#ff3366');
+    spawnParts(this.x,this.y,'#ff3366',24);
+    spawnParts(this.x,this.y,'#ff66aa',16);
+    shake(0.5,8);
+  }
+  // 분노 종료 → 휠체어 진입
+  enterWheelchair(){
+    this.gjPhase='wheelchair';
+    this.gjPhaseT=0;
+    this.discPain=0;
+    notify('🦽 휠체어 모드','💉 신경주사 찾기 (멀리 스폰)','#88aaff');
+    SFX.over();
+    // 화면 멀리 신경주사 1개 스폰
+    spawnNerveInjection(this);
+  }
+  // 신경주사 픽업 → 정상 복귀
+  exitWheelchair(){
+    this.gjPhase='normal';
+    this.discPain=0;
+    this.gjInjectionRef=null;
+    this.hp=Math.min(this.mhp,this.hp+this.mhp*0.3);  // HP 30% 회복 보너스
+    this.hitT=Math.max(this.hitT,2);  // 2초 무적
+    notify('💉 신경주사 회복','정상 복귀 · HP +30%','#88ff88');
+    SFX.lvUp();SFX.phialReady();
+    spawnParts(this.x,this.y,'#88ff88',20);
   }
   gainXp(v){
     this.xp+=v*this.xpm;
@@ -992,7 +1043,23 @@ class Player{
   draw(){
     const fl=this.flashT>0&&Math.floor(this.hitT*14)%2===0;
     if(this.hitT>0&&Math.floor(this.hitT*14)%2===1)return;
+    // 분노 모드 빨간 오라 (캐릭터 뒤에 그리기)
+    if(this.cd.id==='gj'&&this.gjPhase==='rage'){
+      const pulse=0.5+0.5*Math.sin(gameTime*12);
+      G.save();
+      G.globalAlpha=0.5+pulse*0.3;
+      G.fillStyle='#ff2244';
+      G.beginPath();G.arc(this.x,this.y,22+pulse*4,0,Math.PI*2);G.fill();
+      G.globalAlpha=0.3;
+      G.fillStyle='#ff6688';
+      G.beginPath();G.arc(this.x,this.y,32+pulse*6,0,Math.PI*2);G.fill();
+      G.restore();
+    }
     G.save();G.translate(this.x,this.y);
+    // 기종 분노 시 캐릭터 90도 꺾임 (허리 부러진 느낌)
+    if(this.cd.id==='gj'&&this.gjPhase==='rage'){
+      G.rotate(Math.PI/2);
+    }
     const sx=this.facing.x<0?-0.72:0.72;
     G.scale(sx,0.72);G.translate(-this.x,-this.y);
     sChar(this.x,this.y,this.cd,afr,fl);
@@ -1034,14 +1101,13 @@ class Player{
       G.fillStyle='#ff8844';G.fillRect(this.x-12,this.y-30,24*(this.rushT/5),3);
       G.restore();
     }
-    // 최기종 통증 게이지 (피격 누적 시): 머리 위 보라 바
-    if(this.cd.id==='gj'&&this.discPain>0){
+    // 최기종 정상 상태 통증 게이지 (머리 위 보라 바)
+    if(this.cd.id==='gj'&&this.gjPhase==='normal'&&this.discPain>0){
       G.save();
       const w=22,h=4,bx=this.x-w/2,by=this.y-26;
       G.fillStyle='rgba(20,10,30,0.85)';G.fillRect(bx,by,w,h);
       const col=this.discPain>=0.85?'#ff66cc':'#9966cc';
       G.fillStyle=col;G.fillRect(bx,by,w*this.discPain,h);
-      // 가득 차기 직전 글로우
       if(this.discPain>=0.85){
         const p=0.5+0.5*Math.sin(gameTime*18);
         G.globalAlpha=p*0.7;
@@ -1049,13 +1115,45 @@ class Player{
       }
       G.restore();
     }
-    // 최기종 디스크 폭발 직후: 보라 슬램 링
+    // 분노 진입 임팩트: 큰 빨간 슬램 링
     if(this.cd.id==='gj'&&this.discFx>0){
-      const t=1-this.discFx/0.6;
+      const t=1-this.discFx/0.8;
       G.save();
       G.globalAlpha=(1-t)*0.9;
-      G.strokeStyle='#cc66ff';G.lineWidth=4-t*2;
-      G.beginPath();G.arc(this.x,this.y,30+t*150,0,Math.PI*2);G.stroke();
+      G.strokeStyle='#ff3366';G.lineWidth=5-t*3;
+      G.beginPath();G.arc(this.x,this.y,40+t*180,0,Math.PI*2);G.stroke();
+      G.strokeStyle='#fff';G.lineWidth=2-t;
+      G.beginPath();G.arc(this.x,this.y,30+t*160,0,Math.PI*2);G.stroke();
+      G.restore();
+    }
+    // 휠체어 모드: 캐릭터 아래에 휠체어 그림
+    if(this.cd.id==='gj'&&this.gjPhase==='wheelchair'){
+      G.save();
+      const cx=this.x,cy=this.y+8;
+      // 프레임 (회색)
+      G.fillStyle='#555';G.fillRect(cx-9,cy-2,18,3);  // 좌석 가로 프레임
+      G.fillStyle='#444';G.fillRect(cx+7,cy-12,2,12); // 등받이 (오른쪽)
+      G.fillStyle='#666';G.fillRect(cx-9,cy-12,2,12); // 등받이 (왼쪽)
+      // 큰 바퀴 (양쪽)
+      G.fillStyle='#1a1a1a';
+      G.beginPath();G.arc(cx-7,cy+5,7,0,Math.PI*2);G.fill();
+      G.beginPath();G.arc(cx+7,cy+5,7,0,Math.PI*2);G.fill();
+      G.fillStyle='#333';
+      G.beginPath();G.arc(cx-7,cy+5,4,0,Math.PI*2);G.fill();
+      G.beginPath();G.arc(cx+7,cy+5,4,0,Math.PI*2);G.fill();
+      // 바퀴 살 (회전 효과)
+      const spin=gameTime*4;
+      G.strokeStyle='#888';G.lineWidth=1;
+      [0,Math.PI/3,2*Math.PI/3].forEach(a=>{
+        G.beginPath();G.moveTo(cx-7+Math.cos(a+spin)*5,cy+5+Math.sin(a+spin)*5);
+        G.lineTo(cx-7-Math.cos(a+spin)*5,cy+5-Math.sin(a+spin)*5);G.stroke();
+        G.beginPath();G.moveTo(cx+7+Math.cos(a-spin)*5,cy+5+Math.sin(a-spin)*5);
+        G.lineTo(cx+7-Math.cos(a-spin)*5,cy+5-Math.sin(a-spin)*5);G.stroke();
+      });
+      // 작은 앞 바퀴
+      G.fillStyle='#222';
+      G.beginPath();G.arc(cx-5,cy+9,2,0,Math.PI*2);G.fill();
+      G.beginPath();G.arc(cx+5,cy+9,2,0,Math.PI*2);G.fill();
       G.restore();
     }
   }
@@ -1065,8 +1163,12 @@ class Player{
 function fireWpn(type,p,wlv){
   wlv=wlv||1;
   const dM=wlvAt(WLV.dmgM,wlv),pB=wlvAt(WLV.pierceB,wlv);
-  const dmg=18*p.dm*dM*(1+Math.max(0,p.lv-1)*0.04);
-  const am=p.am,pierce=p.pierce+pB; // 크기는 패시브만 영향, 레벨로는 안 커짐
+  // 기종 모드별 데미지/범위 모디파이어
+  const gjRageMul=(p.cd.id==='gj'&&p.gjPhase==='rage')?2.5:1;
+  const gjWheelDmgMul=(p.cd.id==='gj'&&p.gjPhase==='wheelchair')?0.5:1;
+  const gjWheelAmMul=(p.cd.id==='gj'&&p.gjPhase==='wheelchair')?0.75:1;
+  const dmg=18*p.dm*dM*(1+Math.max(0,p.lv-1)*0.04)*gjRageMul*gjWheelDmgMul;
+  const am=p.am*gjWheelAmMul,pierce=p.pierce+pB; // 크기는 패시브만 영향, 레벨로는 안 커짐
   const t=p.nearest(),ang=t?Math.atan2(t.y-p.y,t.x-p.x):Math.atan2(p.facing.y,p.facing.x);
   // 부채꼴 발사 헬퍼
   const fan=(n,spread,sp,life,col,sz,extraP,wt,dmgMul)=>{
@@ -1092,9 +1194,16 @@ function fireWpn(type,p,wlv){
       // 능력치 동기화 (레벨업 시 즉시 반영)
       p.bouncingRams.forEach(r=>{
         r.dmg=ramDmg; r.sz=ramSz; r.col='#44aaff'; r.fancy=false;
-        // 속도 재조정 (현재 방향 유지)
         const cur=Math.hypot(r.vx,r.vy)||1;
-        r.vx=r.vx/cur*ramSpd; r.vy=r.vy/cur*ramSpd; r.spdBase=ramSpd;
+        // 속도가 수직/수평에 너무 치우쳤거나 0에 가까우면 재랜덤화 (자가 치유)
+        if(Math.abs(r.vx)<ramSpd*0.3||Math.abs(r.vy)<ramSpd*0.3){
+          const q=Math.floor(Math.random()*4);
+          const a=q*Math.PI/2+rnd(Math.PI/7,Math.PI/2-Math.PI/7);
+          r.vx=Math.cos(a)*ramSpd; r.vy=Math.sin(a)*ramSpd;
+        }else{
+          r.vx=r.vx/cur*ramSpd; r.vy=r.vy/cur*ramSpd;
+        }
+        r.spdBase=ramSpd;
       });
       // 부족하면 새로 추가
       while(p.bouncingRams.length<wantCount){
@@ -1123,7 +1232,14 @@ function fireWpn(type,p,wlv){
       p.bouncingRams.forEach(r=>{
         r.dmg=ramDmg; r.sz=ramSz; r.col='#00eeff'; r.fancy=true;
         const cur=Math.hypot(r.vx,r.vy)||1;
-        r.vx=r.vx/cur*ramSpd; r.vy=r.vy/cur*ramSpd; r.spdBase=ramSpd;
+        if(Math.abs(r.vx)<ramSpd*0.3||Math.abs(r.vy)<ramSpd*0.3){
+          const q=Math.floor(Math.random()*4);
+          const a=q*Math.PI/2+rnd(Math.PI/7,Math.PI/2-Math.PI/7);
+          r.vx=Math.cos(a)*ramSpd; r.vy=Math.sin(a)*ramSpd;
+        }else{
+          r.vx=r.vx/cur*ramSpd; r.vy=r.vy/cur*ramSpd;
+        }
+        r.spdBase=ramSpd;
       });
       while(p.bouncingRams.length<wantCount){
         const r=spawnBouncingRam(p,{
@@ -1180,7 +1296,8 @@ function fireWpn(type,p,wlv){
       break;
     }
     case 'staff':
-      aoeHit(p.x,p.y,120*am,'#cc88ff',dmg*2.5,0.5,pierce,true,'staff',wlvAt(WPROJ.staff,wlv));break;
+      if(p.cd.id==='gj'&&p.gjPhase==='wheelchair')break;  // 휠체어 시 지팡이 비활성
+      aoeHit(p.x,p.y,120*am,'#cc88ff',dmg*2.5,0.5,pierce,false,'staff',wlvAt(WPROJ.staff,wlv));break;
     case 'awakegj':{
       SFX.shoot();
       const cnt=wlvAt(WPROJ.awakegj,wlv);
@@ -1430,52 +1547,81 @@ function aoeHit(x,y,r,col,dmg,life,pierce,slow=false,wt='',visCnt=0){
           G.beginPath();G.arc(this.x,this.y,15+t*30,0,Math.PI*2);G.fill();
         }
       }else if(this.wt==='staff'||this.wt==='awakegj'){
-        // 지팡이가 회전하며 휘둘러짐 (레벨에 따라 개수↑)
+        // 지팡이 땅 내리치기 (위→아래 슬램) — 여러 지점 동시 타격
         const evolved=this.wt==='awakegj';
         const cnt=this.visCnt||4;
         G.translate(this.x,this.y);
-        G.rotate(t*Math.PI*1.2);
+        // 슬램 진행도: t=0~0.4 위에서 내려옴, t=0.4~1 임팩트 후 잔상
+        const slamPhase=Math.min(1,t/0.4);
+        // 들고있는 각도: -100도(거의 수직 위) → 5도(약간 기울어진 수직 아래)
+        const slamRot=(-100+slamPhase*105)*Math.PI/180;
         for(let i=0;i<cnt;i++){
           G.save();
-          G.rotate(Math.PI*2/cnt*i);
-          G.translate(0,-this.r*0.55);
-          G.globalAlpha=al*0.9;
+          // 슬램 위치 (플레이어 주변 원형 배치)
+          G.rotate(Math.PI*2/cnt*i+0.3);
+          const dist=this.r*0.5;
+          G.translate(0,-dist);
+          G.globalAlpha=al*0.95;
+          // 슬램 회전 (지팡이가 위→아래로)
+          G.rotate(slamRot);
           // 보라 오라 (awakegj)
           if(evolved){
             G.fillStyle=`rgba(255,140,255,${al*0.4})`;
             G.beginPath();G.arc(0,-2,9,0,Math.PI*2);G.fill();
           }
           // 갈고리 손잡이 (위)
-          G.fillStyle='#5a3a18';
-          G.fillRect(-7,-12,11,3);
-          G.fillRect(-7,-12,3,7);
+          G.fillStyle='#5a3a18';G.fillRect(-7,-12,11,3);G.fillRect(-7,-12,3,7);
           G.fillStyle='#7a4a28';G.fillRect(-7,-12,11,1);
           G.fillStyle='#3a2010';G.fillRect(-5,-9,7,1);
-          // 샤프트 (긴 막대)
+          // 샤프트
           G.fillStyle='#5a3a18';G.fillRect(-2,-9,4,18);
           G.fillStyle='#7a4a28';G.fillRect(-2,-9,1.5,18);
           G.fillStyle='#3a2010';G.fillRect(1.5,-9,1.5,18);
           // 오브 (awakegj)
           if(evolved){
-            G.fillStyle='#ff88ff';
-            G.beginPath();G.arc(-2,-14,3.5,0,Math.PI*2);G.fill();
-            G.fillStyle='#ffccff';
-            G.beginPath();G.arc(-3,-15,1.5,0,Math.PI*2);G.fill();
-            G.fillStyle='#fff';
-            G.fillRect(-3.5,-15.5,1,1);
+            G.fillStyle='#ff88ff';G.beginPath();G.arc(-2,-14,3.5,0,Math.PI*2);G.fill();
+            G.fillStyle='#ffccff';G.beginPath();G.arc(-3,-15,1.5,0,Math.PI*2);G.fill();
+            G.fillStyle='#fff';G.fillRect(-3.5,-15.5,1,1);
           }
-          // 마디 (지팡이 손잡이 부분)
-          G.fillStyle='#3a2010';
-          G.fillRect(-2,-2,4,1);G.fillRect(-2,4,4,1);
-          // 고무 다리 (아래 끝)
-          G.fillStyle='#1a1a1a';
-          G.fillRect(-2.5,8,5,2);
+          // 마디
+          G.fillStyle='#3a2010';G.fillRect(-2,-2,4,1);G.fillRect(-2,4,4,1);
+          // 고무 다리 (땅 닿는 부분)
+          G.fillStyle='#1a1a1a';G.fillRect(-2.5,8,5,2);
           G.restore();
+          // 임팩트 — 슬램 끝나는 순간 지면 균열 + 충격파
+          if(t>=0.35){
+            const impactT=Math.min(1,(t-0.35)/0.35);  // 0~1 임팩트 페이즈
+            G.save();
+            G.rotate(Math.PI*2/cnt*i+0.3);
+            G.translate(0,-dist+8);  // 지팡이 끝 근처
+            // 충격파 링
+            G.globalAlpha=al*(1-impactT)*0.85;
+            G.strokeStyle=evolved?'#ff66ff':'#cc88ff';
+            G.lineWidth=3*(1-impactT*0.5);
+            G.beginPath();G.arc(0,0,4+impactT*22,0,Math.PI*2);G.stroke();
+            // 내부 흰 코어
+            G.globalAlpha=al*(1-impactT)*0.6;
+            G.strokeStyle='#fff';G.lineWidth=1;
+            G.beginPath();G.arc(0,0,2+impactT*16,0,Math.PI*2);G.stroke();
+            // 균열 (사방으로 짧은 선)
+            G.globalAlpha=al*(1-impactT)*0.7;
+            G.strokeStyle=evolved?'#882288':'#553366';
+            G.lineWidth=1.5;
+            for(let j=0;j<6;j++){
+              const ja=j*Math.PI*2/6+impactT*0.5;
+              const jr1=3,jr2=jr1+impactT*14;
+              G.beginPath();
+              G.moveTo(Math.cos(ja)*jr1,Math.sin(ja)*jr1);
+              G.lineTo(Math.cos(ja)*jr2,Math.sin(ja)*jr2);
+              G.stroke();
+            }
+            G.restore();
+          }
         }
-        // 중앙 마법 임팩트
-        if(t<0.3){
-          G.globalAlpha=al*(1-t*3)*0.6;G.fillStyle=evolved?'#ff88ff':'#cc88ff';
-          G.beginPath();G.arc(0,0,12+t*20,0,Math.PI*2);G.fill();
+        // 중앙 마법 임팩트 (전체 슬램 시작 순간의 모임 효과)
+        if(t<0.25){
+          G.globalAlpha=al*(1-t*4)*0.4;G.fillStyle=evolved?'#ff88ff':'#cc88ff';
+          G.beginPath();G.arc(0,0,10+t*15,0,Math.PI*2);G.fill();
         }
       }
       G.restore();
@@ -1621,7 +1767,11 @@ function spawnLightning(x,y,dmg,evolved){
 function spawnBouncingRam(p,opts){
   const o=opts||{};
   const sp=o.speed||230;
-  const ang=Math.random()*Math.PI*2;
+  // 초기 각도: 수직/수평에 너무 가깝지 않게 (vx, vy 모두 일정 크기 보장)
+  // 사분면 1개 선택 → 그 안에서 25°~65° 사이 (대각선 영역) → 우연한 회전으로 부호 결정
+  const quadrant=Math.floor(Math.random()*4);
+  const angInQ=rnd(Math.PI/7, Math.PI/2-Math.PI/7);  // ~25°~65°
+  const ang=quadrant*Math.PI/2+angInQ;
   const ram={
     x:p.x,y:p.y,
     vx:Math.cos(ang)*sp, vy:Math.sin(ang)*sp, spdBase:sp,
@@ -1634,7 +1784,7 @@ function spawnBouncingRam(p,opts){
     fancy:!!o.fancy,
     trail:[],         // 잔상 추적 (최근 위치들)
     trailT:0,         // 잔상 갱신 타이머
-    hitMap:new Map(), // enemy -> last hit gameTime
+    hitMap:new WeakMap(), // enemy -> last hit gameTime (WeakMap → 적 GC 시 자동 정리, 메모리 누수 방지)
     isAoe:true, // Proj.draw 우회 (custom draw 사용)
     update(dt){
       if(!this.persistent){
@@ -1648,14 +1798,14 @@ function spawnBouncingRam(p,opts){
         this.trail.push({x:this.x,y:this.y});
         if(this.trail.length>8)this.trail.shift(); // 최대 8개
       }
-      // 이동
+      // 자체 이동
       this.x+=this.vx*dt;
       this.y+=this.vy*dt;
       // 화면 가시 영역 (카메라가 플레이어 따라가니까 항상 화면 안에 머무름)
-      const pad=18;
+      const pad=24;
       const minX=player.x-LW/2+pad, maxX=player.x+LW/2-pad;
       const minY=player.y-LH/2+pad, maxY=player.y+LH/2-pad;
-      // 반사
+      // 반사 (clamp + 부호 뒤집기)
       if(this.x<minX){this.x=minX;this.vx=Math.abs(this.vx)}
       else if(this.x>maxX){this.x=maxX;this.vx=-Math.abs(this.vx)}
       if(this.y<minY){this.y=minY;this.vy=Math.abs(this.vy)}
@@ -2222,10 +2372,8 @@ class Enemy{
     this.dead=true;killCount++;bumpCombo();
     gems.push(new Gem(this.x,this.y,this.xv));
     spawnParts(this.x,this.y,this.col,this.elite?14:7);
-    // 핏자국
-    const bloodCol=this.type==='zombie'?'#3a7733':this.type==='bat'?'#4a2266':this.type==='rusher'?'#88224a':this.type==='tank'?'#3a2244':'#7a7a7a';
-    addDecal(this.x,this.y+8,bloodCol);
-    if(this.elite){shake(0.15,3);if(Math.random()<0.15)spawnPickup(this.x,this.y);addDecal(this.x+rnd(-10,10),this.y+rnd(-5,15),bloodCol);}
+    // 잔해/핏자국 데칼 제거 — 가시성 확보 (파티클만 잠깐 보이고 사라짐)
+    if(this.elite){shake(0.15,3);if(Math.random()<0.15)spawnPickup(this.x,this.y);}
   }
   draw(){
     const h=this.flash>0;
@@ -2342,9 +2490,10 @@ class Boss{
   hurt(v,crit){this.hp-=v;this.flash=0.08;SFX.bHit();spawnParts(this.x,this.y,this.col,4);showDmg(this.x+rnd(-12,12),this.y-this.sz/2-4,v,crit?'#ffee22':'#ffaa44',true,crit);if(this.hp<=0)this.die()}
   die(){
     this.dead=true;bossActive=false;boss=null;player.gainXp(this.bxp);
+    killCount++;bumpCombo();  // 보스 처치도 처치수/콤보에 카운트 (최종원 폭주 트리거에도 기여)
     for(let i=0;i<12;i++)gems.push(new Gem(this.x+rnd(-40,40),this.y+rnd(-40,40),10));
     spawnParts(this.x,this.y,this.col,30);shake(0.6,10);spark(this.x,this.y,this.col,20);
-    addDecal(this.x,this.y+15,'#5a1a1a');addDecal(this.x+rnd(-20,20),this.y+rnd(0,25),'#5a1a1a');
+    // 보스 사망 데칼도 제거 (가시성)
     // 보스 처치 보상 픽업 (회복은 확실, 나머지는 확률)
     spawnPickup(this.x,this.y,'heal');
     if(Math.random()<0.4)spawnPickup(this.x+25,this.y+10,'bomb');
@@ -2686,6 +2835,45 @@ class Companion{
   }
 }
 // 페이얼 게이지: 화면 좌하단 고정 위치 (콤보 카운터 위) — 머리 위 UI 혼잡 회피
+// 신경주사 화살표 (휠체어 모드, 신경주사가 화면 밖에 있으면 화면 가장자리에 방향 표시)
+function drawNerveInjectionArrow(){
+  if(!player||player.cd.id!=='gj'||player.gjPhase!=='wheelchair')return;
+  const inj=player.gjInjectionRef;
+  if(!inj||inj.dead)return;
+  // 플레이어 기준 상대 위치
+  const dx=inj.x-player.x, dy=inj.y-player.y;
+  const d=Math.hypot(dx,dy);
+  const visW=LW/2-30, visH=LH/2-30;
+  // 화면 안에 있으면 화살표 표시 안 함 (그냥 픽업 보임)
+  if(Math.abs(dx)<visW&&Math.abs(dy)<visH)return;
+  // 화면 가장자리 위치 계산
+  const a=Math.atan2(dy,dx);
+  const cosA=Math.cos(a),sinA=Math.sin(a);
+  // 직사각형 가장자리 클리핑
+  const tX=visW/Math.abs(cosA),tY=visH/Math.abs(sinA);
+  const t=Math.min(tX,tY);
+  const ex=cosA*t, ey=sinA*t;
+  const sx=LW/2+ex, sy=LH/2+ey;
+  G.save();
+  G.translate(sx,sy);
+  G.rotate(a);
+  // 화살표 (펄스)
+  const pulse=0.5+0.5*Math.sin(gameTime*5);
+  G.globalAlpha=0.7+pulse*0.3;
+  G.fillStyle='#88ffaa';
+  G.beginPath();G.moveTo(15,0);G.lineTo(-6,-9);G.lineTo(-3,0);G.lineTo(-6,9);G.closePath();G.fill();
+  G.strokeStyle='#aaffcc';G.lineWidth=1.5;G.stroke();
+  G.restore();
+  // 거리 텍스트
+  G.save();
+  G.fillStyle='#88ffaa';G.font='bold 11px Courier New';G.textAlign='center';
+  G.textBaseline='middle';
+  // 화살표 안쪽으로 라벨 배치
+  const lx=sx-cosA*22, ly=sy-sinA*22;
+  G.fillText(`💉 ${Math.round(d)}`,lx,ly);
+  G.textBaseline='alphabetic';
+  G.restore();
+}
 function drawPhialGauge(){
   if(!player)return;
   const w=player.wpns.find(w=>w.type==='gsword'||w.type==='caff');
@@ -3331,101 +3519,116 @@ function drawBar(x,y,w,h,pct,bgC1,bgC2,c1,c2,c3,label,labCol){
 }
 function drawHUD(){
   const p=player;
-  // 좌측 패널
+  // 좌측 패널 (높이 확장 — 한글 폰트 메트릭 여유)
   G.save();
   // 패널 배경
-  const grd=G.createLinearGradient(0,0,0,86);
+  const grd=G.createLinearGradient(0,0,0,92);
   grd.addColorStop(0,'rgba(20,20,30,0.85)');grd.addColorStop(1,'rgba(10,10,15,0.85)');
-  G.fillStyle=grd;G.fillRect(8,8,250,82);
-  G.strokeStyle=p.cd.color;G.lineWidth=2;G.strokeRect(9,9,248,80);
-  G.strokeStyle='rgba(255,255,255,0.15)';G.lineWidth=1;G.strokeRect(11,11,244,76);
+  G.fillStyle=grd;G.fillRect(8,8,250,90);
+  G.strokeStyle=p.cd.color;G.lineWidth=2;G.strokeRect(9,9,248,88);
+  G.strokeStyle='rgba(255,255,255,0.15)';G.lineWidth=1;G.strokeRect(11,11,244,84);
   // 초상화 영역 구분선
-  G.strokeStyle='rgba(255,255,255,0.08)';G.lineWidth=1;G.beginPath();G.moveTo(46,14);G.lineTo(46,84);G.stroke();
+  G.strokeStyle='rgba(255,255,255,0.08)';G.lineWidth=1;G.beginPath();G.moveTo(46,14);G.lineTo(46,92);G.stroke();
   // 캐릭터 미니 초상화
-  G.save();G.translate(28,52);G.scale(0.55,0.55);
+  G.save();G.translate(28,56);G.scale(0.55,0.55);
   sChar(0,0,p.cd,Math.floor(gameTime*4),false);
   G.restore();
-  // 캐릭터 이름 / 레벨
+  // 캐릭터 이름 / 레벨 — 한글 윗 부분 잘리지 않게 y 조정
   G.fillStyle=p.cd.color;G.font='bold 12px Courier New';G.textAlign='left';
-  G.fillText(p.cd.name,52,24);
-  G.fillStyle='#888';G.font='9px Courier New';G.fillText(p.cd.sub,52,36);
+  G.fillText(p.cd.name,52,27);
+  G.fillStyle='#888';G.font='9px Courier New';G.fillText(p.cd.sub,52,39);
   G.fillStyle='#ffdd66';G.font='bold 10px Courier New';
-  G.fillText(`Lv.${p.lv}`,52,48);
+  G.fillText(`Lv.${p.lv}`,52,51);
   // HP 바 (위험 시 깜빡임)
   const hpct=p.hp/p.mhp;
   const danger=hpct<0.25,blnk=danger&&Math.floor(gameTime*8)%2===0;
-  drawBar(100,40,148,11,hpct,'#3a0a0a','#1a0505',
+  drawBar(100,43,148,11,hpct,'#3a0a0a','#1a0505',
     blnk?'#ffff66':'#ff6644',
     blnk?'#ffdd22':'#ee2222',
     blnk?'#ffaa11':'#aa1111',
     `${Math.ceil(p.hp)}/${p.mhp}`,danger?'#ffff88':'#fff');
-  G.fillStyle='#aaa';G.font='9px Courier New';G.textAlign='left';G.fillText('HP',86,49);
+  G.fillStyle='#aaa';G.font='9px Courier New';G.textAlign='left';G.fillText('HP',86,52);
   // XP 바
-  drawBar(100,56,148,9,p.xp/p.xpn,'#0a1a3a','#050a1a','#66bbff','#2288ff','#0055cc',`${Math.floor(p.xp)}/${p.xpn}`,'#cce6ff');
-  G.fillStyle='#aaa';G.font='9px Courier New';G.fillText('XP',86,64);
+  drawBar(100,59,148,9,p.xp/p.xpn,'#0a1a3a','#050a1a','#66bbff','#2288ff','#0055cc',`${Math.floor(p.xp)}/${p.xpn}`,'#cce6ff');
+  G.fillStyle='#aaa';G.font='9px Courier New';G.fillText('XP',86,67);
   // 처치 수 (하단)
   G.fillStyle='#888';G.font='9px Courier New';
-  G.fillText(`💀 ${killCount} · 콤보최대 ${comboMax}`,52,76);
+  G.fillText(`💀 ${killCount} · 콤보최대 ${comboMax}`,52,80);
   // 대시 쿨다운 표시
-  const ready=p.dashCd<=0,dashX=12,dashY=82;
+  const ready=p.dashCd<=0,dashX=12,dashY=92;
   G.fillStyle='rgba(0,0,0,0.6)';G.fillRect(dashX,dashY-9,32,10);
   G.fillStyle=ready?'#88ddff':'#444';G.fillRect(dashX,dashY-9,32*(ready?1:1-p.dashCd/p.dashCdMax),10);
   G.fillStyle=ready?'#000':'#888';G.font='bold 8px Courier New';G.textAlign='center';
   G.fillText(ready?'⚡ SPACE':`${p.dashCd.toFixed(1)}s`,dashX+16,dashY-1);
-  // 캐릭터별 메카닉 인디케이터 (대시 옆)
-  const mX=48,mY=82;
+  // 캐릭터별 메카닉 인디케이터 (대시 옆, 폭 확장 — 텍스트 잘림 방지)
+  const mX=50,mW=56,mY=92;
   if(p.cd.id==='jh'){
     // AS 보증 쿨다운
     const r=p.repairCd<=0;
-    G.fillStyle='rgba(0,0,0,0.6)';G.fillRect(mX,mY-9,38,10);
-    G.fillStyle=r?'#44ccff':'#234';G.fillRect(mX,mY-9,38*(r?1:1-p.repairCd/60),10);
+    G.fillStyle='rgba(0,0,0,0.6)';G.fillRect(mX,mY-9,mW,10);
+    G.fillStyle=r?'#44ccff':'#234';G.fillRect(mX,mY-9,mW*(r?1:1-p.repairCd/60),10);
     G.fillStyle=r?'#001':'#88aacc';G.font='bold 8px Courier New';G.textAlign='center';
-    G.fillText(r?'🔧 AS':`🔧 ${Math.ceil(p.repairCd)}s`,mX+19,mY-1);
+    G.fillText(r?'🔧 AS':`🔧 ${Math.ceil(p.repairCd)}s`,mX+mW/2,mY-1);
   }else if(p.cd.id==='jw'){
     // 주문 폭주: 활성 시 잔여 시간 / 대기 중 콤보 카운트
     const active=p.rushT>0;
-    G.fillStyle='rgba(0,0,0,0.6)';G.fillRect(mX,mY-9,38,10);
+    G.fillStyle='rgba(0,0,0,0.6)';G.fillRect(mX,mY-9,mW,10);
     if(active){
-      G.fillStyle='#ff8844';G.fillRect(mX,mY-9,38*(p.rushT/5),10);
+      G.fillStyle='#ff8844';G.fillRect(mX,mY-9,mW*(p.rushT/5),10);
       G.fillStyle='#000';G.font='bold 8px Courier New';G.textAlign='center';
-      G.fillText(`🍳 ${p.rushT.toFixed(1)}s`,mX+19,mY-1);
+      G.fillText(`🍳 ${p.rushT.toFixed(1)}s`,mX+mW/2,mY-1);
     }else{
       const frac=Math.min(1,p.rushKills/12);
-      G.fillStyle='#552';G.fillRect(mX,mY-9,38*frac,10);
+      G.fillStyle='#552';G.fillRect(mX,mY-9,mW*frac,10);
       G.fillStyle='#ffaa66';G.font='bold 8px Courier New';G.textAlign='center';
-      G.fillText(`🍳 ${p.rushKills}/12`,mX+19,mY-1);
+      G.fillText(`🍳 ${p.rushKills}/12`,mX+mW/2,mY-1);
     }
   }else if(p.cd.id==='gj'){
-    // 통증 게이지
-    G.fillStyle='rgba(0,0,0,0.6)';G.fillRect(mX,mY-9,38,10);
-    const c=p.discPain>=0.85?'#ff66cc':'#9966cc';
-    G.fillStyle=c;G.fillRect(mX,mY-9,38*p.discPain,10);
-    G.fillStyle='#fff';G.font='bold 8px Courier New';G.textAlign='center';
-    G.fillText(`💥 ${Math.round(p.discPain*100)}%`,mX+19,mY-1);
+    // 기종 phase별 표시
+    G.fillStyle='rgba(0,0,0,0.6)';G.fillRect(mX,mY-9,mW,10);
+    if(p.gjPhase==='rage'){
+      // 분노 카운트다운 바
+      const t=Math.max(0,p.gjPhaseT/6);
+      G.fillStyle='#ff3366';G.fillRect(mX,mY-9,mW*t,10);
+      G.fillStyle='#fff';G.font='bold 8px Courier New';G.textAlign='center';
+      G.fillText(`🔥 ${p.gjPhaseT.toFixed(1)}s`,mX+mW/2,mY-1);
+    }else if(p.gjPhase==='wheelchair'){
+      // 휠체어 모드 — 신경주사 찾기 안내
+      const bl=Math.sin(gameTime*4)*0.5+0.5;
+      G.fillStyle=`rgba(136,170,255,${0.6+bl*0.4})`;G.fillRect(mX,mY-9,mW,10);
+      G.fillStyle='#001';G.font='bold 8px Courier New';G.textAlign='center';
+      G.fillText('🦽 💉 찾기',mX+mW/2,mY-1);
+    }else{
+      // 정상 — 누적 게이지
+      const c=p.discPain>=0.85?'#ff66cc':'#9966cc';
+      G.fillStyle=c;G.fillRect(mX,mY-9,mW*p.discPain,10);
+      G.fillStyle='#fff';G.font='bold 8px Courier New';G.textAlign='center';
+      G.fillText(`💥 ${Math.round(p.discPain*100)}%`,mX+mW/2,mY-1);
+    }
   }
   // 윤소민 변신 인디케이터 (현재 변신 + 다음 룰렛까지 카운트다운)
   if(p.cd.id==='sm'){
-    const sIX=260,sIY=12,sIW=140,sIH=24;
+    const sIX=260,sIY=10,sIW=140,sIH=30;  // 높이 24→30 (한글 위 잘림 방지)
     G.fillStyle='rgba(0,0,0,0.7)';G.fillRect(sIX,sIY,sIW,sIH);
     const form=p.streamerForm,col=form?form.col:'#888';
     G.strokeStyle=col;G.lineWidth=1.5;G.strokeRect(sIX,sIY,sIW,sIH);
     G.fillStyle=col;G.font='bold 11px Courier New';G.textAlign='left';
     if(form){
-      G.fillText(form.emoji+' '+form.name,sIX+6,sIY+15);
+      G.fillText(form.emoji+' '+form.name,sIX+6,sIY+18);
     }else{
       G.fillStyle='#888';
-      G.fillText('🎤 윤소민 (평소)',sIX+6,sIY+15);
+      G.fillText('🎤 윤소민 (평소)',sIX+6,sIY+18);
     }
     // 다음 룰렛까지 카운트다운 바
     G.fillStyle='#222';G.fillRect(sIX,sIY+sIH,sIW,3);
     const t=(p.rouletteT>0||p.awaitingClick)?1:(p.streamerT/30);
     const barCol=p.awaitingClick?'#ffff66':(p.rouletteT>0?'#ffaa44':col);
     G.fillStyle=barCol;G.fillRect(sIX,sIY+sIH,sIW*t,3);
-    // 시간 텍스트
+    // 시간 텍스트 (서브)
     G.fillStyle='#aaa';G.font='8px Courier New';G.textAlign='right';
-    if(p.awaitingClick)G.fillText('👆 클릭하여 변신',sIX+sIW-4,sIY+11);
-    else if(p.rouletteT>0)G.fillText('🎰 룰렛 돌아가는 중',sIX+sIW-4,sIY+11);
-    else G.fillText(`다음 변신 ${Math.ceil(p.streamerT)}s`,sIX+sIW-4,sIY+11);
+    if(p.awaitingClick)G.fillText('👆 클릭하여 변신',sIX+sIW-4,sIY+27);
+    else if(p.rouletteT>0)G.fillText('🎰 룰렛 돌아가는 중',sIX+sIW-4,sIY+27);
+    else G.fillText(`다음 변신 ${Math.ceil(p.streamerT)}s`,sIX+sIW-4,sIY+27);
   }
   G.restore();
   // 중앙 - 시계
@@ -3439,21 +3642,21 @@ function drawHUD(){
   G.fillStyle='#ffdd88';G.fillText(`${mm}:${ss}`,LW/2,32);
   G.fillStyle='#888';G.font='bold 9px Courier New';G.fillText(`💀 ${killCount}`,LW/2,45);
   G.restore();
-  // 우측 - 무기 슬롯 (4칸 고정 그리드)
+  // 우측 - 무기 슬롯 (4칸 고정 그리드, 한글 잘림 방지 위해 패널 확장)
   G.save();
-  const wsX=LW-148,wsY=8,wsH=14+W_SLOTS*16;
+  const wsX=LW-148,wsY=8,wsH=22+W_SLOTS*16;
   G.fillStyle='rgba(20,20,30,0.85)';G.fillRect(wsX,wsY,140,wsH);
   G.strokeStyle='#444';G.lineWidth=1;G.strokeRect(wsX,wsY,140,wsH);
-  G.fillStyle='#ff8866';G.font='bold 9px Courier New';G.textAlign='left';G.fillText(`⚔ 무기 ${p.wpns.length}/${W_SLOTS}`,wsX+6,wsY+11);
+  G.fillStyle='#ff8866';G.font='bold 9px Courier New';G.textAlign='left';G.fillText(`⚔ 무기 ${p.wpns.length}/${W_SLOTS}`,wsX+6,wsY+14);
   for(let i=0;i<W_SLOTS;i++){
-    const w=p.wpns[i],wy=wsY+18+i*16;
-    G.fillStyle='rgba(0,0,0,0.5)';G.fillRect(wsX+4,wy-9,132,14);
-    if(!w){G.fillStyle='#222';G.fillRect(wsX+4,wy-9,132,14);G.fillStyle='#444';G.font='9px Courier New';G.fillText('빈 슬롯',wsX+8,wy);continue}
+    const w=p.wpns[i],wy=wsY+27+i*16;
+    G.fillStyle='rgba(0,0,0,0.5)';G.fillRect(wsX+4,wy-10,132,15);
+    if(!w){G.fillStyle='#222';G.fillRect(wsX+4,wy-10,132,15);G.fillStyle='#444';G.font='9px Courier New';G.fillText('빈 슬롯',wsX+8,wy);continue}
     const wd=WDEFS[w.type];if(!wd)continue;
-    G.fillStyle=wd.col+'33';G.fillRect(wsX+4,wy-9,132,14);
+    G.fillStyle=wd.col+'33';G.fillRect(wsX+4,wy-10,132,15);
     // 쿨다운 진행도
     const maxCd=wd.cd*wlvAt(WLV.cdM,w.lv)/p.as,cdP=Math.max(0,Math.min(1,1-w.t/maxCd));
-    G.fillStyle=wd.col;G.fillRect(wsX+4,wy+3,132*cdP,2);
+    G.fillStyle=wd.col;G.fillRect(wsX+4,wy+4,132*cdP,2);
     // 이름
     const maxed=wd.evolved||w.lv>=W_MAX_LV;
     G.fillStyle=wd.evolved?'#ffdd44':(maxed?'#ffaa44':'#eee');G.font='bold 9px Courier New';
@@ -3464,18 +3667,18 @@ function drawHUD(){
     G.textAlign='left';
   }
   // 아이템 슬롯
-  const isX=wsX,isY=wsY+wsH+6,isH=14+P_SLOTS*16,pIds=Object.keys(p.passives);
+  const isX=wsX,isY=wsY+wsH+6,isH=22+P_SLOTS*16,pIds=Object.keys(p.passives);
   G.fillStyle='rgba(20,20,30,0.85)';G.fillRect(isX,isY,140,isH);
   G.strokeStyle='#444';G.lineWidth=1;G.strokeRect(isX,isY,140,isH);
-  G.fillStyle='#88ccff';G.font='bold 9px Courier New';G.textAlign='left';G.fillText(`🎁 아이템 ${pIds.length}/${P_SLOTS}`,isX+6,isY+11);
+  G.fillStyle='#88ccff';G.font='bold 9px Courier New';G.textAlign='left';G.fillText(`🎁 아이템 ${pIds.length}/${P_SLOTS}`,isX+6,isY+14);
   for(let i=0;i<P_SLOTS;i++){
-    const id=pIds[i],iy=isY+18+i*16;
-    G.fillStyle='rgba(0,0,0,0.5)';G.fillRect(isX+4,iy-9,132,14);
-    if(!id){G.fillStyle='#222';G.fillRect(isX+4,iy-9,132,14);G.fillStyle='#444';G.font='9px Courier New';G.fillText('빈 슬롯',isX+8,iy);continue}
+    const id=pIds[i],iy=isY+27+i*16;
+    G.fillStyle='rgba(0,0,0,0.5)';G.fillRect(isX+4,iy-10,132,15);
+    if(!id){G.fillStyle='#222';G.fillRect(isX+4,iy-10,132,15);G.fillStyle='#444';G.font='9px Courier New';G.fillText('빈 슬롯',isX+8,iy);continue}
     const ps=PASSIVES.find(x=>x.id===id),lv=p.passives[id];
     if(!ps)continue;
     const maxed=lv>=P_MAX_LV;
-    G.fillStyle=(maxed?'#88ccff33':'#88ccff15');G.fillRect(isX+4,iy-9,132,14);
+    G.fillStyle=(maxed?'#88ccff33':'#88ccff15');G.fillRect(isX+4,iy-10,132,15);
     G.fillStyle=maxed?'#88ddff':'#ccc';G.font='bold 9px Courier New';
     G.fillText(ps.name.slice(0,12),isX+8,iy);
     G.fillStyle=maxed?'#88ddff':'#aaa';G.font='bold 8px Courier New';G.textAlign='right';
@@ -4020,20 +4223,38 @@ c.addEventListener('mousemove',e=>{
     }
     return;
   }
+  // 일시정지 중 볼륨 슬라이더 드래깅
+  if(paused&&state==='playing'&&dragSlider){
+    const v=Math.max(0,Math.min(1,(m.x-dragSlider.x)/dragSlider.w));
+    if(dragSlider.id==='bgm')setBgmVol(v);
+    else if(dragSlider.id==='sfx')sfxVol=v;
+  }
   if(state==='title')hovTitleBtn=getTitleBtnAt(m.x,m.y);
   if(state==='select')hovChar=getCharAt(m.x,m.y);
   if(state==='levelup')hovUI=getUpgradeAt(m.x,m.y);
 });
 c.addEventListener('mousedown',e=>{
-  if(!settingsOpen)return;
   const m=getMouse(e);
-  const sl=getSliderAt(m.x,m.y);
-  if(sl){
-    dragSlider=sl;
-    const v=Math.max(0,Math.min(1,(m.x-sl.x)/sl.w));
-    if(sl.id==='bgm')setBgmVol(v);
-    else if(sl.id==='sfx')sfxVol=v;
-    else if(sl.id==='scale'){canvasScale=0.5+v*2.5;canvasAutoFit=false;applyCanvasScale()}
+  if(settingsOpen){
+    const sl=getSliderAt(m.x,m.y);
+    if(sl){
+      dragSlider=sl;
+      const v=Math.max(0,Math.min(1,(m.x-sl.x)/sl.w));
+      if(sl.id==='bgm')setBgmVol(v);
+      else if(sl.id==='sfx')sfxVol=v;
+      else if(sl.id==='scale'){canvasScale=0.5+v*2.5;canvasAutoFit=false;applyCanvasScale()}
+    }
+    return;
+  }
+  // 일시정지 중 볼륨 슬라이더 클릭/드래그 시작
+  if(paused&&state==='playing'){
+    const psl=getPauseSliderAt(m.x,m.y);
+    if(psl){
+      dragSlider=psl;
+      const v=Math.max(0,Math.min(1,(m.x-psl.x)/psl.w));
+      if(psl.id==='bgm')setBgmVol(v);
+      else if(psl.id==='sfx')sfxVol=v;
+    }
   }
 });
 c.addEventListener('mouseup',()=>{dragSlider=null});
@@ -4052,6 +4273,7 @@ c.addEventListener('click',e=>{
     player.streamerForm=player.rouletteResult;
     player.streamerT=30;
     player.awaitingClick=false;
+    paused=false;  // 룰렛 중 실수로 P 눌러도 클릭 시 자동으로 일시정지 해제
     SFX.lvUp();
     if(player.streamerForm.id==='sleep')SFX.over();
     return;
@@ -4116,7 +4338,13 @@ function update(dt){
   hitSparks=hitSparks.filter(s=>!s.dead);
   if(shakeT>0){shakeT-=dt;if(shakeT<=0)shakeM=0}
   // 픽업
-  pickups.forEach(pk=>{pk.life-=dt;pk.fr+=dt*3;if(pk.life<=0){pk.dead=true;return}if(dist(pk,player)<player.magr*0.5){const a=Math.atan2(player.y-pk.y,player.x-pk.x);pk.x+=Math.cos(a)*180*dt;pk.y+=Math.sin(a)*180*dt}if(dist(pk,player)<16)applyPickup(pk)});
+  pickups.forEach(pk=>{
+    pk.life-=dt;pk.fr+=dt*3;
+    if(pk.life<=0){pk.dead=true;return}
+    if(pk.t==='injection')return;  // 신경주사는 자석 흡수/자동 픽업 안 됨 (직접 가서 받아야)
+    if(dist(pk,player)<player.magr*0.5){const a=Math.atan2(player.y-pk.y,player.x-pk.x);pk.x+=Math.cos(a)*180*dt;pk.y+=Math.sin(a)*180*dt}
+    if(dist(pk,player)<16)applyPickup(pk);
+  });
   pickups=pickups.filter(pk=>!pk.dead);
   // 콤보 타이머
   if(comboT>0){comboT-=dt;if(comboT<=0)combo=0}
@@ -4197,8 +4425,22 @@ function render(){
   }
   // 피격 빨간 오버레이
   if(player&&player.flashT>0){G.fillStyle=`rgba(200,0,0,${player.flashT*0.45})`;G.fillRect(0,0,LW,LH)}
+  // 기종 분노/휠체어 화면 비네팅
+  if(player&&player.cd.id==='gj'){
+    if(player.gjPhase==='rage'){
+      const p=0.5+0.5*Math.sin(gameTime*10);
+      const vg=G.createRadialGradient(LW/2,LH/2,LH*0.2,LW/2,LH/2,LH*0.65);
+      vg.addColorStop(0,'rgba(255,0,68,0)');vg.addColorStop(1,`rgba(255,40,80,${0.35+p*0.2})`);
+      G.fillStyle=vg;G.fillRect(0,0,LW,LH);
+    }else if(player.gjPhase==='wheelchair'){
+      const vg=G.createRadialGradient(LW/2,LH/2,LH*0.3,LW/2,LH/2,LH*0.7);
+      vg.addColorStop(0,'rgba(40,80,160,0)');vg.addColorStop(1,'rgba(80,120,200,0.25)');
+      G.fillStyle=vg;G.fillRect(0,0,LW,LH);
+    }
+  }
   drawHUD();
   drawPhialGauge();  // 차지 액스 페이얼 게이지 (좌하단 HUD)
+  drawNerveInjectionArrow();  // 신경주사 화살표 (휠체어 모드)
   drawMinimap();
   drawCombo();
   drawNotifs();
@@ -4236,6 +4478,26 @@ function drawPickup(pk){
     const fl=Math.sin(pk.fr*4)*0.5+0.5;
     G.fillStyle=fl>0.5?'#ffaa00':'#ff5500';G.fillRect(pk.x-1,pk.y-12+bob,2,3);
     G.fillStyle='#fff';G.fillRect(pk.x,pk.y-11+bob,1,1);
+  }else if(pk.t==='injection'){
+    // 💉 신경주사 — 펄스하는 흰빛 + 주사기 형태
+    const pulse=0.5+0.5*Math.sin(pk.fr*2);
+    G.globalAlpha=0.6+pulse*0.4;
+    G.fillStyle='#88ffaa';
+    G.beginPath();G.arc(pk.x,pk.y+bob,14+pulse*4,0,Math.PI*2);G.fill();
+    G.globalAlpha=0.9;
+    G.fillStyle='#aaffcc';
+    G.beginPath();G.arc(pk.x,pk.y+bob,8,0,Math.PI*2);G.fill();
+    G.globalAlpha=1;
+    // 주사기 몸체 (수직)
+    G.fillStyle='#fff';G.fillRect(pk.x-2,pk.y-6+bob,4,10);
+    G.fillStyle='#88ccff';G.fillRect(pk.x-1,pk.y-5+bob,2,8);  // 액체
+    // 플런저
+    G.fillStyle='#cccccc';G.fillRect(pk.x-3,pk.y-8+bob,6,2);
+    G.fillStyle='#888';G.fillRect(pk.x-2,pk.y-9+bob,4,1);
+    // 바늘
+    G.fillStyle='#ddd';G.fillRect(pk.x-0.5,pk.y+4+bob,1,4);
+    // 십자가 (의료)
+    G.fillStyle='#ff4444';G.fillRect(pk.x-3,pk.y-2+bob,6,1);G.fillRect(pk.x-0.5,pk.y-4+bob,1,5);
   }
   // 깜빡이는 곧 사라짐 표시
   if(pk.life<4&&Math.floor(pk.life*5)%2===0){G.globalAlpha=0.4;G.fillStyle='#fff';G.fillRect(pk.x-8,pk.y-9+bob,16,16);}
@@ -4303,17 +4565,17 @@ function drawNotifs(){
   notifs.forEach((n,i)=>{
     const fade=n.life<0.5?n.life*2:Math.min(1,(n.ml-n.life)*4);
     const slide=Math.min(1,(n.ml-n.life)*5);
-    const x=LW-10-(1-slide)*40,y=baseY+i*36;
+    const x=LW-10-(1-slide)*40,y=baseY+i*40;  // 36→40 더 여유
     G.globalAlpha=fade*0.95;
-    // 배경
-    G.fillStyle='rgba(0,0,0,0.85)';G.fillRect(x-180,y-20,180,32);
-    G.fillStyle=n.col;G.fillRect(x-180,y-20,3,32);
-    G.fillStyle=n.col+'33';G.fillRect(x-177,y-20,177,32);
-    // 텍스트
+    // 배경 (높이 32→36 — 한글 위 잘림 방지)
+    G.fillStyle='rgba(0,0,0,0.85)';G.fillRect(x-180,y-22,180,36);
+    G.fillStyle=n.col;G.fillRect(x-180,y-22,3,36);
+    G.fillStyle=n.col+'33';G.fillRect(x-177,y-22,177,36);
+    // 텍스트 (제목과 부제 y 조정)
     G.fillStyle=n.col;G.font='bold 11px Courier New';G.textAlign='left';
-    G.fillText(n.title,x-170,y-8);
+    G.fillText(n.title,x-170,y-6);
     G.fillStyle='#ccc';G.font='9px Courier New';
-    G.fillText(n.sub,x-170,y+4);
+    G.fillText(n.sub,x-170,y+8);
   });
   G.restore();
 }
@@ -4334,7 +4596,7 @@ function drawPauseOverlay(){
   G.fillStyle='#000';G.fillText('⏸ PAUSED',LW/2+2,58);
   G.fillStyle='#ffdd66';G.fillText('⏸ PAUSED',LW/2,56);
   G.fillStyle='#aaa';G.font='11px Courier New';
-  G.fillText('P / ESC 재개  ·  SPACE 대시',LW/2,76);
+  G.fillText('P / ESC 재개  ·  슬라이더로 볼륨 조절',LW/2,76);
   // 두 컬럼 빌드 표시 (압축)
   const colW=300,leftX=LW/2-colW-10,rightX=LW/2+10;
   const colH=240,colY=90;
@@ -4408,10 +4670,35 @@ function drawPauseOverlay(){
     G.fillStyle=col1;G.fillText('→',x+200,y);
     G.fillStyle=col2;G.fillText(r[2],x+218,y);
   });
+  // ━━━ 볼륨 슬라이더 ━━━ (ESC로 일시정지 후 조절 가능)
+  const sliderY1=448, sliderY2=478, sliderSx=LW/2-140, sliderSw=280;
+  // 섹션 라벨
+  G.fillStyle='#aaa';G.font='9px Courier New';G.textAlign='center';
+  G.fillText('━━━ 🔉 볼륨 조절 ━━━',LW/2,sliderY1-12);
+  // BGM 슬라이더
+  G.fillStyle='#fff';G.font='bold 10px Courier New';G.textAlign='left';
+  G.fillText('🎵 BGM',sliderSx,sliderY1-2);
+  G.fillStyle='#aaa';G.textAlign='right';G.fillText(`${Math.round(bgmVol*100)}%`,sliderSx+sliderSw,sliderY1-2);
+  drawVolSlider(sliderSx,sliderY1+4,sliderSw,bgmVol,'#ff8844','bgm');
+  // SFX 슬라이더
+  G.fillStyle='#fff';G.font='bold 10px Courier New';G.textAlign='left';
+  G.fillText('🔊 효과음',sliderSx,sliderY2-2);
+  G.fillStyle='#aaa';G.textAlign='right';G.fillText(`${Math.round(sfxVol*100)}%`,sliderSx+sliderSw,sliderY2-2);
+  drawVolSlider(sliderSx,sliderY2+4,sliderSw,sfxVol,'#44aaff','sfx');
   // 하단 통계
   G.fillStyle='#888';G.font='10px Courier New';G.textAlign='center';
   G.fillText(`Lv.${player.lv} · ${killCount} 처치 · 최대 콤보 ${comboMax} · 생존 ${String(Math.floor(gameTime/60)).padStart(2,'0')}:${String(Math.floor(gameTime%60)).padStart(2,'0')}`,LW/2,LH-12);
   G.restore();
+}
+// 일시정지 화면 볼륨 슬라이더 클릭 감지
+function getPauseSliderAt(mx,my){
+  if(!paused||state!=='playing')return null;
+  const sx=LW/2-140, sw=280;
+  if(mx>=sx-10&&mx<=sx+sw+10){
+    if(my>=448&&my<=460)return {id:'bgm',x:sx,w:sw};
+    if(my>=478&&my<=490)return {id:'sfx',x:sx,w:sw};
+  }
+  return null;
 }
 
 function loop(ts){const dt=Math.min((ts-lastTs)/1000,0.05);lastTs=ts;update(dt);render();requestAnimationFrame(loop)}
