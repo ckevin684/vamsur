@@ -814,7 +814,7 @@ let gameTime=0,spawnT=0,bossIdx=0,bossActive=false;
 let hitStop=0;  // 히트스톱 — 큰 타격 순간 게임 잠깐 정지 (타격감 juice)
 
 // ═══ 메타 진행 (영구 업그레이드 — localStorage, VS 스타일) ═══
-const META_DEFAULTS={gold:0, up:{hp:0,dmg:0,spd:0,xp:0,crit:0,armor:0}, roulette:0};
+const META_DEFAULTS={gold:0, up:{hp:0,dmg:0,spd:0,xp:0,crit:0,armor:0,revive:0}, roulette:0};
 const META_UPGRADES=[
   {id:'hp',   name:'❤️ 체력 강화', desc:'최대 HP +8%/Lv',   max:5, cost:l=>40+l*40, eff:l=>1+l*0.08},
   {id:'dmg',  name:'⚔️ 공격 강화', desc:'데미지 +5%/Lv',     max:5, cost:l=>50+l*55, eff:l=>1+l*0.05},
@@ -822,6 +822,7 @@ const META_UPGRADES=[
   {id:'xp',   name:'📘 경험치 강화', desc:'경험치 +8%/Lv',    max:5, cost:l=>45+l*45, eff:l=>1+l*0.08},
   {id:'crit', name:'🎯 크리 강화', desc:'크리율 +3%/Lv',      max:5, cost:l=>55+l*50, eff:l=>l*0.03},
   {id:'armor',name:'🛡️ 방어 강화', desc:'받는 피해 -4%/Lv',  max:5, cost:l=>55+l*55, eff:l=>1-l*0.04},
+  {id:'revive',name:'💗 부활',     desc:'사망 시 HP50% 부활(판당)', max:2, cost:l=>250+l*350, eff:l=>l},
 ];
 const ROULETTE_COST=300;
 function loadMeta(){
@@ -834,6 +835,7 @@ function saveMeta(){ try{ localStorage.setItem('vamsur_meta',JSON.stringify(META
 let META=loadMeta();
 let runGold=0;       // 이번 판에서 번 골드
 let runBanked=false; // 판 종료 시 1회만 적립
+let runRevives=0;    // 이번 판 사용한 부활 횟수
 function bankRun(){ if(runBanked)return; META.gold+=Math.floor(runGold); saveMeta(); runBanked=true; }
 function rouletteOn(p){ return !!p && (p.cd.id==='sm' || META.roulette); }
 // 룰렛 변신 — 소민 외 캐릭(해금 시)에게 전 무기 데미지 배율 부여 (소민은 빔 변신이 정체성이라 제외)
@@ -1143,6 +1145,15 @@ class Player{
       // 준형전자 — AS 보증: HP 0 이하 도달 시 쿨다운 가능하면 자동 수리 (긴급)
       if(this.cd.id==='jh'&&this.repairCd<=0){
         this.triggerASRepair(true);
+        return;
+      }
+      // 부활 메타: 남은 부활이 있으면 HP 50% 회복 + 주변 적 넉백 정리
+      if(runRevives<(META.up.revive||0)){
+        runRevives++;
+        this.hp=this.mhp*0.5;this.hitT=Math.max(this.hitT,2.8);this.regenLockT=0;
+        (boss?[...enemies,boss]:enemies).forEach(e=>{if(dist(e,this)<170){const a=Math.atan2(e.y-this.y,e.x-this.x);e.kvx+=Math.cos(a)*420;e.kvy+=Math.sin(a)*420;}});
+        notify('💗 부활!',`HP 50% 회복 (${runRevives}/${META.up.revive})`,'#ff66aa');
+        spawnParts(this.x,this.y,'#ff66aa',26);shake(0.45,9);hitStop=Math.max(hitStop,0.12);SFX.lvUp();SFX.phialReady();
         return;
       }
       this.hp=0;SFX.over();state='dead';shake(0.6,12);
@@ -4576,7 +4587,7 @@ function spawnEnemies(dt){
 function startGame(cd){
   player=new Player(cd);enemies=[];projs=[];gems=[];parts=[];boss=null;
   applyMetaUpgrades(player);  // 영구 업그레이드 적용
-  runGold=0;runBanked=false;  // 이번 판 골드 초기화
+  runGold=0;runBanked=false;runRevives=0;  // 이번 판 골드/부활 초기화
   gameTime=0;spawnT=0;bossIdx=0;bossActive=false;killCount=0;afr=0;afrT=0;
   dmgTexts=[];hitSparks=[];notifs=[];pickups=[];decals=[];lvUpBursts=[];
   shakeT=0;shakeM=0;combo=0;comboT=0;comboMax=0;paused=false;pendingLvUps=0;
