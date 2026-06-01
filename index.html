@@ -623,7 +623,7 @@ const BAL={
     },
     gj:{ // 최기종 — 분노/휠체어 (이동 기반 게이지 시스템)
       painPerMove:0.022,   // 이동 중 매초 누적 (1/0.022 ≈ 45s 이동 시 1회 분노 — 후반 보장)
-      painDecayStill:0.018,// 가만히 있을 때 자연 감소 (55s에 완전 빠짐 — 잠깐 쉬어서 빼는 전략 가능)
+      painDecayStill:0.009,// 가만히 있을 때 자연 감소 (0.018→0.009, 가만히 있어도 게이지 천천히만 빠짐)
       painTrigger:1.0,     // 분노 발동 임계
       painPerHit:0,        // (deprecated, 사용 안함 — 피격 누적 제거)
       painDecay:0,         // (deprecated)
@@ -635,7 +635,11 @@ const BAL={
       wheelDmgMul:0.5,     // 휠체어 데미지 배율
       wheelAsMul:0.7,      // 휠체어 공속 배율
       wheelAmMul:1.0,      // 휠체어 범위 배율 — 0.75→1.0 디버프 제거 (4개 디버프로 충분)
-      wheelSpdMul:1.7,     // 휠체어 이동속도 배율
+      wheelSpdMul:1.7,     // 휠체어 이동속도 배율 (완치 시에도 유지 = 질주)
+      curedWheelDmgMul:1.0,// 완치(완치된 기종이=awakegj): 데미지 안 변함 (이속만 변함)
+      curedWheelAsMul:1.0, // 완치: 공속 안 변함
+      curedWheelSpdMul:2.4,// 완치 질주: 이속 ×2.4 (무적 난동)
+      curedDrainRate:0.125,// 완치 질주 게이지 닳는 속도 (풀1.0→0이 ~8초 = 기본 휠체어 ~2배)
       injDistMin:550,      // 신경주사 스폰 최소 거리
       injDistMax:750,      // 신경주사 스폰 최대 거리
       injHealPct:0.3,      // 픽업 시 HP 회복
@@ -686,8 +690,9 @@ const BAL={
   },
   // ━━━ 회복 시스템 ━━━
   regen:{
+    base:1.2,            // 모든 캐릭 기본 체젠 (HP/초, 비전투 시) — 진통제 없어도 최소 회복
     tickInterval:0.2,    // 매 0.2초마다 회복 틱
-    combatLockDur:1.2,   // 피격 후 회복 잠금 시간 (1.5→1.2, 회복 사용성 더 회복)
+    combatLockDur:1.0,   // 피격 후 회복 잠금 시간 (1.2→1.0, 회복 기회 ↑)
   },
   // ━━━ 룰렛 확률 ━━━
   rouletteProb:{
@@ -715,9 +720,9 @@ const BAL={
     skel:{           // 해골 — 사정거리 도달 시 그 자리에 고정, 정지 포탑처럼 사격
       range:240,     // 플레이어가 이 거리 안에 들어오면 멈춰서 고정 (이후 계속 그 자리)
       shootR:420,    // 이 거리 안이면 발사
-      fireMin:4,     // 발사 간격 최소 (초) — 여러 마리 박히면 투사체 과해서 늘림 (기존 2.5)
-      fireMax:7,     // 발사 간격 최대 (초) (기존 4.5)
-      projSpd:200,   // 투사체 속도
+      fireMin:4.5,   // 발사 간격 최소 (초) — 4→4.5 (투사체 수 ↓)
+      fireMax:8,     // 발사 간격 최대 (초) — 7→8
+      projSpd:150,   // 투사체 속도 — 200→150 (플레이어 100~128 대비 회피 가능하게)
       projSz:10,     // 투사체 크기 (가시성 ↑)
     },
   },
@@ -742,14 +747,15 @@ const WDEFS={
   fullspec: {name:'⚡ 준형전자 풀스펙',cd:0.55, col:'#00eeff', evolved:true},
   fullcourse:{name:'🔥 풀코스',       cd:0.45, col:'#ff5500', evolved:true},
   nightwatch:{name:'🌙 심야경계령',   cd:0.75, col:'#00ff88', evolved:true},
-  awakegj:  {name:'💜 각성한 기종',   cd:1.3,  col:'#ff88ff', evolved:true},
+  awakegj:  {name:'💪 완치된 기종이', cd:1.0,  col:'#ff88ff', evolved:true},  // 각성한 기종 → 완치된 기종이 (허리디스크 완치 컨셉)
   unleash:  {name:'🐕 뭉치 언리쉬드', cd:0.45, col:'#ffcc00', evolved:true},
   caff:     {name:'⚔ 개방의 검',       cd:0.7,  col:'#ff0088', evolved:true},
 };
 const EVOS={ram:{need:'warrant',res:'fullspec'},knife:{need:'recipe',res:'fullcourse'},light:{need:'log',res:'nightwatch'},staff:{need:'pill',res:'awakegj'},mungchi:{need:'leash',res:'unleash'},gsword:{need:'coffee',res:'caff'}};
+const EVO_ITEM={};for(const _w in EVOS)EVO_ITEM[EVOS[_w].need]=_w;  // 아이템id→진화시킬 무기id (역참조, 진화 재료 표시용)
 const BASE_WPNS=['ram','knife','light','staff','mungchi','gsword'];
 // 무기 레벨 시스템 (Lv.1 ~ Lv.8, 진화무기는 별도 처리)
-const W_MAX_LV=8,P_MAX_LV=5,W_SLOTS=4,P_SLOTS=4;
+const W_MAX_LV=8,P_MAX_LV=5,W_SLOTS=4,P_SLOTS=6;  // 아이템 슬롯 4→6 (뱀서식 빌드 자유도)
 const WLV={
   dmgM:  [1.00,1.18,1.36,1.56,1.78,2.00,2.25,2.55],  // 데미지 배율
   cdM:   [1.00,0.95,0.90,0.85,0.80,0.75,0.70,0.65],  // 쿨다운 배율
@@ -763,7 +769,7 @@ const WPROJ={
   nightwatch: [4,4,4,4,6,6,6,8],
   gsword:     [1,1,1,1,2,2,2,3],
   caff:       [3,3,3,4,4,4,5,5],
-  awakegj:    [2,2,3,3,4,4,5,6],
+  awakegj:    [3,3,4,4,5,5,6,7],  // 투사체 수 ↑ (각성기종 버프)
   // 컴패니언/AOE도 시각 카운트
   mungchi:    [1,2,3,4,5,5,6,6],
   unleash:    [3,4,5,6,7,7,8,8],
@@ -816,13 +822,13 @@ let hitStop=0;  // 히트스톱 — 큰 타격 순간 게임 잠깐 정지 (타�
 // ═══ 메타 진행 (영구 업그레이드 — localStorage, VS 스타일) ═══
 const META_DEFAULTS={gold:0, up:{hp:0,dmg:0,spd:0,xp:0,crit:0,armor:0,revive:0}, roulette:0};
 const META_UPGRADES=[
-  {id:'hp',   name:'❤️ 체력 강화', desc:'최대 HP +8%/Lv',   max:5, cost:l=>40+l*40, eff:l=>1+l*0.08},
-  {id:'dmg',  name:'⚔️ 공격 강화', desc:'데미지 +5%/Lv',     max:5, cost:l=>50+l*55, eff:l=>1+l*0.05},
-  {id:'spd',  name:'👟 이동 강화', desc:'이동속도 +4%/Lv',   max:5, cost:l=>35+l*35, eff:l=>1+l*0.04},
-  {id:'xp',   name:'📘 경험치 강화', desc:'경험치 +8%/Lv',    max:5, cost:l=>45+l*45, eff:l=>1+l*0.08},
-  {id:'crit', name:'🎯 크리 강화', desc:'크리율 +3%/Lv',      max:5, cost:l=>55+l*50, eff:l=>l*0.03},
-  {id:'armor',name:'🛡️ 방어 강화', desc:'받는 피해 -4%/Lv',  max:5, cost:l=>55+l*55, eff:l=>1-l*0.04},
-  {id:'revive',name:'💗 부활',     desc:'사망 시 HP50% 부활(판당)', max:2, cost:l=>250+l*350, eff:l=>l},
+  {id:'hp',   name:'❤️ 체력 강화', desc:'최대 HP',   max:5, cost:l=>40+l*40, eff:l=>1+l*0.08, fmt:l=>'+'+Math.round(l*8)+'%'},
+  {id:'dmg',  name:'⚔️ 공격 강화', desc:'데미지',     max:5, cost:l=>50+l*55, eff:l=>1+l*0.05, fmt:l=>'+'+Math.round(l*5)+'%'},
+  {id:'spd',  name:'👟 이동 강화', desc:'이동속도',   max:5, cost:l=>35+l*35, eff:l=>1+l*0.04, fmt:l=>'+'+Math.round(l*4)+'%'},
+  {id:'xp',   name:'📘 경험치 강화', desc:'경험치',    max:5, cost:l=>45+l*45, eff:l=>1+l*0.08, fmt:l=>'+'+Math.round(l*8)+'%'},
+  {id:'crit', name:'🎯 크리 강화', desc:'크리율',      max:5, cost:l=>55+l*50, eff:l=>l*0.03, fmt:l=>'+'+Math.round(l*3)+'%'},
+  {id:'armor',name:'🛡️ 방어 강화', desc:'받는 피해',  max:5, cost:l=>55+l*55, eff:l=>1-l*0.04, fmt:l=>'-'+Math.round(l*4)+'%'},
+  {id:'revive',name:'💗 부활',     desc:'사망 시 HP50% 부활(판당)', max:2, cost:l=>250+l*350, eff:l=>l, fmt:l=>l+'회'},
 ];
 const ROULETTE_COST=300;
 function loadMeta(){
@@ -979,7 +985,7 @@ class Player{
     this.spd=cd.spd;this.bspd=cd.spd;
     this.def=cd.def;this.lv=1;this.xp=0;this.xpn=15;
     this.dm=cd.id==='gj'?1.3:1;this.as=1;this.am=1;this.xpm=1;this.metaDmg=1;  // gj 1.4→1.3 (3축 중 2축 압도 완화)
-    this.pierce=0;this.regen=0;this.iframes=1.2;
+    this.pierce=0;this.regen=BAL.regen.base;this.iframes=1.2;  // 기본 체젠 (진통제는 추가분)
     this.hitT=0;this.regenT=0;this.regenLockT=0;this.magr=80;
     this.facing={x:1,y:0};
     this.passives={};  // {id: lv}
@@ -1029,7 +1035,7 @@ class Player{
     if(dx||dy){const l=Math.hypot(dx,dy);dx/=l;dy/=l;this.facing={x:dx,y:dy}}
     // 대시 처리 + 졸음 시 이동속도 절반 + 휠체어 시 이동속도 +70%
     const sleepNerf=(this.streamerForm&&this.streamerForm.id==='sleep')?0.5:1;
-    const wheelSpdBoost=(this.cd.id==='gj'&&this.gjPhase==='wheelchair')?BAL.char.gj.wheelSpdMul:1;
+    const wheelSpdBoost=(this.cd.id==='gj'&&this.gjPhase==='wheelchair')?(this.curedGj()?BAL.char.gj.curedWheelSpdMul:BAL.char.gj.wheelSpdMul):1;
     const dashSpd=(this.dashT>0?this.spd*4.5:this.spd)*sleepNerf*wheelSpdBoost;
     const mvX=this.dashT>0?this.facing.x:dx,mvY=this.dashT>0?this.facing.y:dy;
     this.x+=mvX*dashSpd*dt;this.y+=mvY*dashSpd*dt;
@@ -1057,7 +1063,7 @@ class Player{
     if(this.flashT>0)this.flashT-=dt;
     // 최종원 주문 폭주 활성 시 발사 속도 ×2 / 기종 분노/휠체어 — BAL 참조
     const rushAsMul=(this.cd.id==='jw'&&this.rushT>0)?BAL.char.jw.rushAsMul:1;
-    const gjAsMul=(this.cd.id==='gj'&&this.gjPhase==='rage')?BAL.char.gj.rageAsMul:(this.cd.id==='gj'&&this.gjPhase==='wheelchair')?BAL.char.gj.wheelAsMul:1;
+    const gjAsMul=(this.cd.id==='gj'&&this.gjPhase==='rage')?BAL.char.gj.rageAsMul:(this.cd.id==='gj'&&this.gjPhase==='wheelchair')?(this.curedGj()?BAL.char.gj.curedWheelAsMul:BAL.char.gj.wheelAsMul):1;
     this.wpns.forEach(w=>{
       w.t-=dt;
       if(w.t<=0){fireWpn(w.type,this,w.lv||1);w.t=(WDEFS[w.type]?.cd||1)*wlvAt(WLV.cdM,w.lv||1)/(this.as*rushAsMul*gjAsMul)}
@@ -1087,7 +1093,7 @@ class Player{
         const isMoving=!!(dx||dy)||this.dashT>0;
         if(isMoving){
           this.discPain=Math.min(1,this.discPain+gjB.painPerMove*dt);
-          if(this.discPain>=gjB.painTrigger)this.triggerRage();
+          if(this.discPain>=gjB.painTrigger){if(this.curedGj())this.enterWheelchair();else this.triggerRage();}  // 완치는 분노 건너뛰고 바로 질주
         }else if(this.discPain>0){
           this.discPain=Math.max(0,this.discPain-gjB.painDecayStill*dt);
         }
@@ -1097,17 +1103,23 @@ class Player{
         this.gjPhaseT-=dt;
         if(this.gjPhaseT<=0)this.enterWheelchair();
       }
-      // 휠체어 모드에서 신경주사 픽업 체크 (gjInjectionRef를 가까이 가서 만나면 발동)
-      if(this.gjPhase==='wheelchair'&&this.gjInjectionRef){
-        const ref=this.gjInjectionRef;
-        if(ref.dead){
-          // 어디론가 사라졌으면 새로 스폰
-          spawnNerveInjection(this);
-        }else if(dist(this,ref)<BAL.char.gj.injPickupR){
-          // 가까이 가면 픽업 (BAL.injPickupR 거리, 기본 36px)
-          ref.dead=true;
+      // 완치 질주(awakegj): 무적 난동 — 닿는 적 즉사(보스X), 게이지 닳으며 지속
+      if(this.gjPhase==='wheelchair'&&this.curedGj()){
+        const gjB2=BAL.char.gj;
+        enemies.forEach(e=>{if(!e.dead&&dist(this,e)<e.sz+18)e.hurt(e.hp+9999,false)});  // 닿는 적 즉사
+        this.discPain=Math.max(0,this.discPain-gjB2.curedDrainRate*dt);                  // 게이지 닳음
+        const ref=this.gjInjectionRef;                                                   // 질주 중 주사 먹으면 영구성장
+        if(ref&&!ref.dead&&dist(this,ref)<gjB2.injPickupR*2){ref.dead=true;this.gjInjectionRef=null;this.gainPermStat()}
+        if(this.discPain<=0){
+          if(this.gjInjectionRef){this.gjInjectionRef.dead=true;this.gjInjectionRef=null}  // 안 먹은 주사 소멸
           this.exitWheelchair();
         }
+      }
+      // 기본 휠체어: 신경주사 픽업 → 정상 복귀(회복)
+      else if(this.gjPhase==='wheelchair'&&this.gjInjectionRef){
+        const ref=this.gjInjectionRef;
+        if(ref.dead)spawnNerveInjection(this);
+        else if(dist(this,ref)<BAL.char.gj.injPickupR){ref.dead=true;this.exitWheelchair()}
       }
     }
   }
@@ -1132,7 +1144,7 @@ class Player{
     if(godMode)return;  // 디버그 무적
     if(this.hitT>0)return;
     // 최기종 분노 모드 무적
-    if(this.cd.id==='gj'&&this.gjPhase==='rage')return;
+    if(this.cd.id==='gj'&&(this.gjPhase==='rage'||(this.gjPhase==='wheelchair'&&this.curedGj())))return;  // 분노/완치질주 무적
     const dmg=v*this.def;
     this.hp-=dmg;this.hitT=this.iframes;this.flashT=0.25;
     if(dmg>this.mhp*0.18)hitStop=Math.max(hitStop,0.08);  // 큰 피격 시 짧은 정지(oof)
@@ -1193,13 +1205,35 @@ class Player{
     shake(0.5,8);
   }
   // 분노 종료 → 휠체어 진입
+  curedGj(){return this.cd.id==='gj'&&this.wpns.some(w=>w.type==='awakegj')}  // 완치(staff 진화) 여부
   enterWheelchair(){
     this.gjPhase='wheelchair';
-    this.gjPhaseT=0;
-    this.discPain=0;
-    notify('🦽 휠체어 모드','💉 신경주사 찾기 (멀리 스폰)','#88aaff');
-    SFX.over();
-    spawnNerveInjection(this);
+    if(this.curedGj()){
+      // 완치 질주: 게이지(discPain) 유지 → 닳으며 지속. 무적 난동 + 주사 보상(주우면 영구성장).
+      notify('🏃 완치 질주!','무적 난동 · 💉 주사=영구 성장','#ffcc44');
+      SFX.lvUp();SFX.phialReady();
+      spawnNerveInjection(this);
+    }else{
+      this.discPain=0;
+      this.gjPhaseT=0;
+      notify('🦽 휠체어 모드','💉 신경주사 찾기 (멀리 스폰)','#88aaff');
+      SFX.over();
+      spawnNerveInjection(this);
+    }
+  }
+  // 영구 성장 (완치 질주 중 주사 픽업) — 판 내 영구, 랜덤 대폭
+  gainPermStat(){
+    const opts=[
+      ['❤️ 최대HP +20',()=>{this.mhp+=20;this.hp+=20}],
+      ['⚔️ 공격력 +5%',()=>{this.dm*=1.05}],
+      ['⚡ 공속 +5%',()=>{this.as*=1.05}],
+      ['👟 이동속도 +5',()=>{this.spd+=5;this.bspd+=5}],
+      ['🎯 크리 +3%',()=>{this.crit+=0.03}],
+      ['💥 범위 +5%',()=>{this.am*=1.05}],
+    ];
+    const o=opts[Math.floor(Math.random()*opts.length)];o[1]();
+    notify('💉 영구 성장!',o[0],'#ffcc44');
+    spawnParts(this.x,this.y,'#ffcc44',18);SFX.phialReady();
   }
   // 신경주사 픽업 → 정상 복귀
   exitWheelchair(){
@@ -1207,11 +1241,13 @@ class Player{
     this.gjPhase='normal';
     this.discPain=0;
     this.gjInjectionRef=null;
-    this.hp=Math.min(this.mhp,this.hp+this.mhp*B.injHealPct);
     this.hitT=Math.max(this.hitT,B.injInvuln);
-    notify('💉 신경주사 회복',`정상 복귀 · HP +${Math.round(B.injHealPct*100)}%`,'#88ff88');
-    SFX.lvUp();SFX.phialReady();
-    spawnParts(this.x,this.y,'#88ff88',20);
+    if(!this.curedGj()){  // 기본 기종만 회복 (완치는 보상이 주사 영구성장이라 회복 없음)
+      this.hp=Math.min(this.mhp,this.hp+this.mhp*B.injHealPct);
+      notify('💉 신경주사 회복',`HP +${Math.round(B.injHealPct*100)}%`,'#88ff88');
+      SFX.lvUp();SFX.phialReady();
+    }
+    spawnParts(this.x,this.y,'#88ff88',12);
   }
   gainXp(v){
     this.xp+=v*this.xpm;
@@ -1325,8 +1361,8 @@ class Player{
       G.beginPath();G.arc(this.x,this.y,30+t*160,0,Math.PI*2);G.stroke();
       G.restore();
     }
-    // 휠체어 모드: 캐릭터 아래에 휠체어 그림
-    if(this.cd.id==='gj'&&this.gjPhase==='wheelchair'){
+    // 휠체어 모드: 캐릭터 아래에 휠체어 그림 (완치 질주는 휠체어 없이 달리므로 제외)
+    if(this.cd.id==='gj'&&this.gjPhase==='wheelchair'&&!this.curedGj()){
       G.save();
       const cx=this.x,cy=this.y+8;
       // 프레임 (회색)
@@ -1365,7 +1401,7 @@ function fireWpn(type,p,wlv){
   // 기종 모드별 데미지/범위 모디파이어 — BAL.char.gj 참조
   const gjB=BAL.char.gj;
   const gjRageMul=(p.cd.id==='gj'&&p.gjPhase==='rage')?gjB.rageDmgMul:1;
-  const gjWheelDmgMul=(p.cd.id==='gj'&&p.gjPhase==='wheelchair')?gjB.wheelDmgMul:1;
+  const gjWheelDmgMul=(p.cd.id==='gj'&&p.gjPhase==='wheelchair')?(p.curedGj()?gjB.curedWheelDmgMul:gjB.wheelDmgMul):1;
   const gjWheelAmMul=(p.cd.id==='gj'&&p.gjPhase==='wheelchair')?gjB.wheelAmMul:1;
   const dmg=18*p.dm*dM*(1+Math.max(0,p.lv-1)*0.04)*gjRageMul*gjWheelDmgMul*streamerBuff(p);
   const am=p.am*gjWheelAmMul,pierce=p.pierce+pB; // 크기는 패시브만 영향, 레벨로는 안 커짐
@@ -1507,16 +1543,16 @@ function fireWpn(type,p,wlv){
       const cnt=wlvAt(WPROJ.awakegj,wlv);
       for(let i=0;i<cnt;i++){
         const a=ang+Math.PI*2/cnt*i;
-        const pr=new Proj(p.x,p.y,Math.cos(a)*300,Math.sin(a)*300,dmg*3,1.5,'#ff88ff',18*am,pierce+2,'awakegj');
+        const pr=new Proj(p.x,p.y,Math.cos(a)*300,Math.sin(a)*300,dmg*3.4,1.5,'#ff88ff',20*am,pierce+2,'awakegj');  // dmg ×3→×3.4 (약하다 피드백 버프, 과조정 방지)
         pr.boom=true;pr.bA=a;pr.bT=0;projs.push(pr);
       }
       break;
     }
     case 'mungchi':
     case 'unleash':{
-      // 컴패니언: 마릿수 고정 (mungchi=1, unleash=2), 레벨업은 데미지+스킬 빈도
+      // 컴패니언: 항상 1마리 (진화 언리쉬드는 옆에 붙어 계속 짖기 — 강아지 고증)
       const evolved=type==='unleash';
-      const wantCount=evolved?2:1;
+      const wantCount=1;
       if(!p.companions)p.companions=[];
       p.companions.forEach(c=>c.evolved=evolved);
       while(p.companions.length<wantCount)p.companions.push(new Companion(p,evolved));
@@ -2531,7 +2567,7 @@ class Enemy{
     this.x=x;this.y=y;this.type=type;this.dead=false;
     this.flash=0;this.slow=0;this.ct=0;this.elite=elite;
     this.kvx=0;this.kvy=0;
-    const w=Math.floor(gameTime/30),hs=1+gameTime*0.015,em=elite?2.2:1;
+    const w=Math.floor(gameTime/30),hs=1+gameTime*0.013,em=elite?2.2:1;  // 0.015→0.013 (후반 체력 곡선 완화)
     if(type==='zombie'){
       this.hp=this.mhp=(35+w*8)*hs*em;this.spd=(38+w*1.5)*(elite?1.2:1);
       this.dmg=(10+w)*em;this.col='#44bb44';this.sz=12*(elite?1.3:1);this.xv=3*(elite?3:1);
@@ -2552,9 +2588,9 @@ class Enemy{
       this.hp=this.mhp=(12+w*3)*hs*em;this.spd=(112+w*2)*(elite?1.15:1);
       this.dmg=(6+w*0.4)*em;this.col='#bbe066';this.sz=7*(elite?1.3:1);this.xv=1*(elite?3:1);
     }else if(type==='bomber'){
-      this.hp=this.mhp=(26+w*6)*hs*em;this.spd=(96+w*2)*(elite?1.15:1);
+      this.hp=this.mhp=(26+w*6)*hs*em;this.spd=(70+w*1.1)*(elite?1.15:1);  // 96+w*2→70+w*1.1 (플레이어보다 느리게 = 회피 가능)
       this.dmg=(8+w*0.6)*em;this.col='#ff7733';this.sz=11*(elite?1.3:1);this.xv=3*(elite?3:1);
-      this.bombDmg=(20+w*1.5);this.bombR=72;  // 자폭 데미지(엘리트 배수 제외)/반경
+      this.bombDmg=(16+w*1.0);this.bombR=62;  // 폭발 20+w*1.5→16+w*1.0, 반경 72→62 (떼거리 즉사 완화)
     }else{ // skeleton
       this.hp=this.mhp=(60+w*12)*hs*em;this.spd=(50+w*2)*(elite?1.1:1);
       this.dmg=(15+w*1.5)*em;this.col='#cccccc';this.sz=14*(elite?1.3:1);this.xv=6*(elite?3:1);
@@ -2960,7 +2996,7 @@ class Companion{
   doBark(){
     const lv=this.getWpnLv();
     const r=90+lv*8+(this.evolved?30:0);
-    const dmg=this.baseDmg()*1.4;
+    const dmg=this.baseDmg()*(this.evolved?2.4:1.4);  // 진화는 짖기만 하므로 데미지↑(물기 상실 보상)
     let hits=0;
     (boss?[...enemies,boss]:enemies).forEach(e=>{
       if(dist(this,e)<r+e.sz){
@@ -2996,6 +3032,16 @@ class Companion{
     this.lookT-=dt;
     this.returnT-=dt;
     const lv=this.getWpnLv();
+    // 진화(언리쉬드): 플레이어 옆에 딱 붙어 계속 짖기만 — 안 물고 짖음(강아지 고증)
+    if(this.evolved){
+      const tx=player.x-16, ty=player.y+8;
+      const dx=tx-this.x,dy=ty-this.y,d=Math.hypot(dx,dy);
+      if(d>1){const s=Math.min(d,400*dt);this.x+=dx/d*s;this.y+=dy/d*s;}
+      this.facing={x:1,y:0};
+      this.barkT-=dt;
+      if(this.barkT<=0){this.doBark();this.barkT=0.85;}  // 계속 짖기
+      return;
+    }
     // 짖기 (Lv 3+) - 복귀 중에도 발동, 진화 시 Lv 2+로 더 일찍
     const barkMinLv=this.evolved?2:3;
     if(lv>=barkMinLv){
@@ -3637,10 +3683,12 @@ function triggerLvUp(){
     if((w.lv||1)>=W_MAX_LV)return;
     if(WDEFS[w.type].evolved)return; // 진화무기는 더 안 오름
     const wd=WDEFS[w.type],next=(w.lv||1)+1;
+    const curM=WLV.dmgM[(w.lv||1)-1],nextM=WLV.dmgM[next-1];  // 누적 데미지 배율
+    const pc=WPROJ[w.type], projTxt=(pc&&pc[next-1]>pc[(w.lv||1)-1])?` · 발사 ${pc[(w.lv||1)-1]}→${pc[next-1]}`:'';
     wpnPool.push({
       tag:'무기 ⬆',
       name:`${wd.name}`,
-      desc:`Lv.${w.lv||1} → Lv.${next}${next===W_MAX_LV?' (MAX)':''}`,
+      desc:`데미지 ×${curM.toFixed(2)}→×${nextM.toFixed(2)}${projTxt}${next===W_MAX_LV?' (MAX)':''}`,
       lvBadge:`Lv.${next}`,
       fn:()=>{w.lv=next;if(next===W_MAX_LV)notify('⚔ 무기 MAX',wd.name+' 진화 준비','#ff8844')}
     });
@@ -3680,7 +3728,7 @@ function triggerLvUp(){
     itmPool.push({
       tag:'아이템 ⬆',
       name:ps.name,
-      desc:`${ps.desc} (Lv.${lv} → Lv.${next}${next===P_MAX_LV?' MAX':''})`,
+      desc:`${ps.desc}${EVO_ITEM[id]?' · ✨'+WDEFS[EVO_ITEM[id]].name.split(' ')[0]+'진화':''} (Lv.${lv}→${next}${next===P_MAX_LV?' MAX':''})`,
       lvBadge:`Lv.${next}`,
       fn:()=>{player.passives[id]=next;ps.fn(player);if(next===P_MAX_LV)notify('🎁 아이템 MAX',ps.name,'#88ccff')}
     });
@@ -3692,7 +3740,7 @@ function triggerLvUp(){
       itmPool.push({
         tag:'아이템 NEW',
         name:p.name,
-        desc:p.desc,
+        desc:`${p.desc}${EVO_ITEM[p.id]?' · ✨'+WDEFS[EVO_ITEM[p.id]].name.split(' ')[0]+'진화':''}`,
         lvBadge:'NEW',
         fn:()=>{player.passives[p.id]=1;p.fn(player)}
       });
@@ -4163,6 +4211,12 @@ function renderShop(){
     else{name='🎰 룰렛 해금';desc='소민 외 모든 캐릭터도 변신 룰렛 사용 가능';lv=META.roulette?1:0;max=1;owned=!!META.roulette;cost=ROULETTE_COST;buyable=!owned&&META.gold>=cost;}
     G.textAlign='left';G.fillStyle='#fff';G.font='bold 14px Courier New';G.fillText(name,bx+12,by+17);
     G.fillStyle='#9aa';G.font='11px Courier New';G.fillText(desc,bx+12,by+33);
+    // 누적 총 증가량 (금색 강조: 현재 → 다음) — 사용자가 총량을 볼 수 있게
+    if(r.kind==='up'){
+      const u=r.u, dw=G.measureText(desc).width;
+      G.fillStyle='#ffcc66';
+      G.fillText('· '+(owned?`${u.fmt(lv)} (MAX)`:`${u.fmt(lv)} → ${u.fmt(lv+1)}`), bx+18+dw, by+33);
+    }
     const pipX=bx+300;for(let i=0;i<max;i++){G.fillStyle=i<lv?'#ffcc44':'#333';G.fillRect(pipX+i*14,by+13,10,10);}
     const btnX=bx+bw-108,btnY=by+5,btnW=100,btnH=bh-10;
     if(owned){G.fillStyle='#1a3a1a';G.fillRect(btnX,btnY,btnW,btnH);G.fillStyle='#88dd88';G.font='bold 12px Courier New';G.textAlign='center';G.fillText('보유완료',btnX+btnW/2,btnY+btnH/2+4);}
@@ -4557,7 +4611,7 @@ function renderResult(win){
 // ═══ SPAWN ═══
 function spawnEnemies(dt){
   spawnT-=dt;if(spawnT>0)return;
-  const wave=Math.floor(gameTime/30),cnt=Math.min(3+wave*2,22);
+  const wave=Math.floor(gameTime/30),cnt=Math.min(3+wave*2,15);  // 동시 스폰 22→18→15 (물량 벽 완화: 강빌드 처치속도 ~20/s와 균형)
   for(let i=0;i<cnt;i++){
     const a=Math.random()*Math.PI*2,r=310+Math.random()*110;
     const ex=player.x+Math.cos(a)*r,ey=player.y+Math.sin(a)*r;
@@ -4565,22 +4619,22 @@ function spawnEnemies(dt){
     let type='zombie';
     if(gameTime>=60)type=rv<0.55?'zombie':'bat';
     if(gameTime>=120)type=rv<0.4?'zombie':rv<0.6?'bat':rv<0.85?'rusher':'zombie';
-    if(gameTime>=200)type=rv<0.28?'zombie':rv<0.46?'bat':rv<0.64?'rusher':rv<0.8?'skeleton':rv<0.92?'splitter':'zombie';
+    if(gameTime>=200)type=rv<0.3?'zombie':rv<0.5?'bat':rv<0.7?'rusher':rv<0.8?'skeleton':rv<0.92?'splitter':'zombie';  // 해골 16%→10%
     if(gameTime>=300){
       // 후반: 탱커/분열형/자폭형 추가 (VS 참고)
-      if(rv<0.18)type='zombie';
-      else if(rv<0.34)type='bat';
-      else if(rv<0.48)type='rusher';
-      else if(rv<0.62)type='skeleton';
-      else if(rv<0.72)type='tank';
-      else if(rv<0.84)type='splitter';
-      else if(rv<0.94)type='bomber';
+      if(rv<0.2)type='zombie';
+      else if(rv<0.36)type='bat';
+      else if(rv<0.5)type='rusher';
+      else if(rv<0.59)type='skeleton';   // 14%→9%
+      else if(rv<0.71)type='tank';
+      else if(rv<0.86)type='splitter';   // 12%→15%
+      else if(rv<0.92)type='bomber';     // 10%→6% (떼거리 완화)
       else type='zombie';
     }
     const elite=Math.random()<0.08;
     enemies.push(new Enemy(ex,ey,type,elite));
   }
-  spawnT=Math.max(0.4,2.2-wave*0.15);
+  spawnT=Math.max(0.5,2.2-wave*0.15);  // 스폰 간격 하한 0.4→0.5 (밀도 완화)
 }
 
 // ═══ MAIN ═══
@@ -4679,6 +4733,7 @@ c.addEventListener('click',e=>{
     player.streamerT=30;
     player.awaitingClick=false;
     paused=false;  // 룰렛 중 실수로 P 눌러도 클릭 시 자동으로 일시정지 해제
+    for(const k in keys)keys[k]=false;  // 룰렛 중 눌린 키 초기화 (클릭 후 이동 고정 버그 방지)
     SFX.lvUp();
     if(player.streamerForm.id==='sleep')SFX.over();
     return;
