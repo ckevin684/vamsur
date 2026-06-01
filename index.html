@@ -728,7 +728,7 @@ const CHARS=[
   {id:'jh',name:'준형전자',sub:'조립의 신',color:'#4488cc',hp:130,spd:100,startWpn:'ram',pdesc:'방어 +10% · 🔧 위급시 자가수리',def:0.9},
   {id:'jw',name:'최종원',sub:'셰프',color:'#dd6622',hp:100,spd:110,startWpn:'knife',pdesc:'시간↑공격↑ · 🍳 8콤보→폭주',def:1.0},
   {id:'sm',name:'윤소민',sub:'심야경비+버튜버',color:'#33aa66',hp:110,spd:128,startWpn:'light',pdesc:'이동 +15% · 🎰 변신 룰렛',def:1.0},
-  {id:'gj',name:'최기종',sub:'허리디스크레전드',color:'#9955cc',hp:160,spd:70,startWpn:'staff',pdesc:'공격+40% · 이동→허리부담↑→💥분노→🦽휠체어→💉',def:0.85},
+  {id:'gj',name:'최기종',sub:'허리디스크레전드',color:'#9955cc',hp:160,spd:70,startWpn:'staff',pdesc:'공격+30% · 이동→허리부담↑→💥분노→🦽휠체어→💉',def:0.85},
   {id:'co',name:'최초',sub:'뭉치 주인',color:'#cc8800',hp:100,spd:120,startWpn:'mungchi',pdesc:'크리 +20% · 🐕 뭉치 컴패니언',def:1.0},
   {id:'gh',name:'황기훈',sub:'몬헌마스터',color:'#cc3377',hp:110,spd:105,startWpn:'gsword',pdesc:'보스 +25% · 🪓 페이얼/SAED',def:1.0},
 ];
@@ -978,7 +978,7 @@ class Player{
     this.hp=cd.hp;this.mhp=cd.hp;
     this.spd=cd.spd;this.bspd=cd.spd;
     this.def=cd.def;this.lv=1;this.xp=0;this.xpn=15;
-    this.dm=cd.id==='gj'?1.4:1;this.as=1;this.am=1;this.xpm=1;this.metaDmg=1;
+    this.dm=cd.id==='gj'?1.3:1;this.as=1;this.am=1;this.xpm=1;this.metaDmg=1;  // gj 1.4→1.3 (3축 중 2축 압도 완화)
     this.pierce=0;this.regen=0;this.iframes=1.2;
     this.hitT=0;this.regenT=0;this.regenLockT=0;this.magr=80;
     this.facing={x:1,y:0};
