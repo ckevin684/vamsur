@@ -1176,6 +1176,18 @@ class Player{
   draw(){
     const fl=this.flashT>0&&Math.floor(this.hitT*14)%2===0;
     if(this.hitT>0&&Math.floor(this.hitT*14)%2===1)return;
+    // 플레이어 발밑 식별 링 — 난전에서 내 위치 항상 보이게 (VS 스타일)
+    {
+      const rp=0.5+0.5*Math.sin(gameTime*4);
+      G.save();
+      G.globalAlpha=0.4+rp*0.25;
+      G.strokeStyle=this.cd.color;G.lineWidth=2.5;
+      G.beginPath();G.ellipse(this.x,this.y+15,17,6.5,0,0,Math.PI*2);G.stroke();
+      G.globalAlpha=0.28;
+      G.strokeStyle='#ffffff';G.lineWidth=1;
+      G.beginPath();G.ellipse(this.x,this.y+15,13,5,0,0,Math.PI*2);G.stroke();
+      G.restore();
+    }
     // 분노 모드 빨간 오라 (캐릭터 뒤에 그리기)
     if(this.cd.id==='gj'&&this.gjPhase==='rage'){
       const pulse=0.5+0.5*Math.sin(gameTime*12);
@@ -2667,6 +2679,18 @@ class Boss{
       G.beginPath();G.arc(t.x,t.y,t.r*p,0,Math.PI*2);G.fill();
       G.restore();
     });
+    // 보스 식별 아우라 — 호드 속에서 보스가 항상 눈에 띄게
+    {
+      const ap=0.5+0.5*Math.sin(gameTime*3);
+      G.save();
+      G.globalAlpha=0.22+ap*0.18;
+      G.strokeStyle=this.phase===2?'#ff2222':'#ffcc00';G.lineWidth=3;
+      G.beginPath();G.arc(this.x,this.y,this.sz*0.92+ap*3,0,Math.PI*2);G.stroke();
+      G.globalAlpha=0.3;
+      G.strokeStyle='#000';G.lineWidth=1.5;
+      G.beginPath();G.ellipse(this.x,this.y+this.sz*0.55,this.sz*0.8,this.sz*0.3,0,0,Math.PI*2);G.stroke();
+      G.restore();
+    }
     this.bp.forEach(p=>{if(!p.dead){G.fillStyle=p.col;G.fillRect(p.x-p.sz/2,p.y-p.sz/2,p.sz,p.sz)}});
     if(this.pf>0){G.globalAlpha=Math.sin(this.pf*10)*0.3;G.fillStyle='#ff0000';G.fillRect(this.x-this.sz,this.y-this.sz,this.sz*2,this.sz*2);G.globalAlpha=1}
     G.save();G.translate(this.x,this.y);G.scale(0.8,0.8);G.translate(-this.x,-this.y);
