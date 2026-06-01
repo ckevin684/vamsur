@@ -812,6 +812,46 @@ let state='title',player=null,enemies=[],projs=[],gems=[],boss=null;
 let titleFr=0,hovTitleBtn=-1,settingsOpen=false,hovSetBtn=-1,dragSlider=null;
 let gameTime=0,spawnT=0,bossIdx=0,bossActive=false;
 let hitStop=0;  // 히트스톱 — 큰 타격 순간 게임 잠깐 정지 (타격감 juice)
+
+// ═══ 메타 진행 (영구 업그레이드 — localStorage, VS 스타일) ═══
+const META_DEFAULTS={gold:0, up:{hp:0,dmg:0,spd:0,xp:0,crit:0,armor:0}, roulette:0};
+const META_UPGRADES=[
+  {id:'hp',   name:'❤️ 체력 강화', desc:'최대 HP +8%/Lv',   max:5, cost:l=>40+l*40, eff:l=>1+l*0.08},
+  {id:'dmg',  name:'⚔️ 공격 강화', desc:'데미지 +5%/Lv',     max:5, cost:l=>50+l*55, eff:l=>1+l*0.05},
+  {id:'spd',  name:'👟 이동 강화', desc:'이동속도 +4%/Lv',   max:5, cost:l=>35+l*35, eff:l=>1+l*0.04},
+  {id:'xp',   name:'📘 경험치 강화', desc:'경험치 +8%/Lv',    max:5, cost:l=>45+l*45, eff:l=>1+l*0.08},
+  {id:'crit', name:'🎯 크리 강화', desc:'크리율 +3%/Lv',      max:5, cost:l=>55+l*50, eff:l=>l*0.03},
+  {id:'armor',name:'🛡️ 방어 강화', desc:'받는 피해 -4%/Lv',  max:5, cost:l=>55+l*55, eff:l=>1-l*0.04},
+];
+const ROULETTE_COST=300;
+function loadMeta(){
+  try{ const r=JSON.parse(localStorage.getItem('vamsur_meta'));
+    if(r&&typeof r==='object') return Object.assign({},META_DEFAULTS,r,{up:Object.assign({},META_DEFAULTS.up,r.up||{})});
+  }catch(e){}
+  return JSON.parse(JSON.stringify(META_DEFAULTS));
+}
+function saveMeta(){ try{ localStorage.setItem('vamsur_meta',JSON.stringify(META)); }catch(e){} }
+let META=loadMeta();
+let runGold=0;       // 이번 판에서 번 골드
+let runBanked=false; // 판 종료 시 1회만 적립
+function bankRun(){ if(runBanked)return; META.gold+=runGold; saveMeta(); runBanked=true; }
+function rouletteOn(p){ return !!p && (p.cd.id==='sm' || META.roulette); }
+// 룰렛 변신 — 소민 외 캐릭(해금 시)에게 전 무기 데미지 배율 부여 (소민은 빔 변신이 정체성이라 제외)
+function streamerBuff(p){
+  if(!p.streamerForm||p.cd.id==='sm')return 1;
+  const f=p.streamerForm.id;
+  if(f==='hina')return 1.35; if(f==='sleep')return 0.95; if(f==='huya')return 1.3;
+  return 1.15;
+}
+function applyMetaUpgrades(p){
+  const u=META.up, U=id=>META_UPGRADES.find(x=>x.id===id);
+  if(u.hp){ const m=U('hp').eff(u.hp); p.mhp*=m; p.hp=p.mhp; }
+  if(u.dmg){ p.metaDmg=U('dmg').eff(u.dmg); p.dm*=p.metaDmg; }
+  if(u.spd){ const m=U('spd').eff(u.spd); p.spd*=m; p.bspd*=m; }
+  if(u.xp){ p.xpm*=U('xp').eff(u.xp); }
+  if(u.crit){ p.crit+=U('crit').eff(u.crit); }
+  if(u.armor){ p.def*=U('armor').eff(u.armor); }
+}
 let godMode=false;  // 디버그 무적 — 콘솔에서 godMode=true 또는 게임 중 ` (백틱) 키로 토글
 let upgradeChoices=[],hovUI=-1,hovChar=-1,lastTs=0;
 let parts=[],killCount=0,afr=0,afrT=0;
@@ -920,6 +960,7 @@ const keys={};
 document.addEventListener('keydown',e=>{
   iac();keys[e.key]=true;keys[e.code]=true;
   if((e.key==='p'||e.key==='P'||e.key==='Escape')&&state==='playing'){paused=!paused;e.preventDefault()}
+  if(e.key==='Escape'&&state==='shop'){state='title';e.preventDefault()}  // 상점 → 타이틀
   if(e.code==='Space'&&state==='playing'&&!paused){if(player)player.tryDash();e.preventDefault()}
   if(e.key==='`'||e.code==='Backquote'){godMode=!godMode;notify(godMode?'🛡️ 무적 ON':'무적 OFF','디버그','#ffdd44');e.preventDefault()}
 });
@@ -935,7 +976,7 @@ class Player{
     this.hp=cd.hp;this.mhp=cd.hp;
     this.spd=cd.spd;this.bspd=cd.spd;
     this.def=cd.def;this.lv=1;this.xp=0;this.xpn=15;
-    this.dm=cd.id==='gj'?1.4:1;this.as=1;this.am=1;this.xpm=1;
+    this.dm=cd.id==='gj'?1.4:1;this.as=1;this.am=1;this.xpm=1;this.metaDmg=1;
     this.pierce=0;this.regen=0;this.iframes=1.2;
     this.hitT=0;this.regenT=0;this.regenLockT=0;this.magr=80;
     this.facing={x:1,y:0};
@@ -1000,7 +1041,7 @@ class Player{
       if(this.cbAxeT<=0){this.cbMode='sword';this.cbGauge=0}
     }
     // 윤소민 스텔라이브 변신 - 30초마다 룰렛 트리거 (룰렛 진행은 update()에서)
-    if(this.cd.id==='sm'){
+    if(rouletteOn(this)){
       this.streamerT-=dt;
       if(this.streamerT<=0&&this.rouletteT<=0&&!this.awaitingClick){
         this.rouletteT=3.8;  // 더 길게 (감속 위해)
@@ -1023,7 +1064,7 @@ class Player{
     if(this.regenLockT>0)this.regenLockT-=dt;
     const wheelRegenLock=(this.cd.id==='gj'&&this.gjPhase==='wheelchair');
     if(this.regen>0&&this.regenLockT<=0&&!wheelRegenLock){this.regenT=Math.max(0,this.regenT-dt);if(this.regenT<=0){this.hp=Math.min(this.mhp,this.hp+this.regen*0.2);this.regenT=0.2}}
-    if(this.cd.id==='jw')this.dm=1+(gameTime/BAL.char.jw.lateScaleStart)*BAL.char.jw.lateScaleRate;
+    if(this.cd.id==='jw')this.dm=(1+(gameTime/BAL.char.jw.lateScaleStart)*BAL.char.jw.lateScaleRate)*this.metaDmg;
     // 캐릭터별 메카닉 타이머
     if(this.repairCd>0)this.repairCd-=dt;
     if(this.repairFx>0)this.repairFx-=dt;
@@ -1211,7 +1252,7 @@ class Player{
     G.scale(sx,0.72);G.translate(-this.x,-this.y);
     sChar(this.x,this.y,this.cd,afr,fl);
     // 윤소민 변신 시 외형 액세서리
-    if(!fl&&this.cd.id==='sm'&&this.streamerForm&&this.rouletteT<=0){
+    if(!fl&&rouletteOn(this)&&this.streamerForm&&this.rouletteT<=0){
       drawStreamerAccessory(this.x,this.y,this.streamerForm);
     }
     G.restore();
@@ -1315,7 +1356,7 @@ function fireWpn(type,p,wlv){
   const gjRageMul=(p.cd.id==='gj'&&p.gjPhase==='rage')?gjB.rageDmgMul:1;
   const gjWheelDmgMul=(p.cd.id==='gj'&&p.gjPhase==='wheelchair')?gjB.wheelDmgMul:1;
   const gjWheelAmMul=(p.cd.id==='gj'&&p.gjPhase==='wheelchair')?gjB.wheelAmMul:1;
-  const dmg=18*p.dm*dM*(1+Math.max(0,p.lv-1)*0.04)*gjRageMul*gjWheelDmgMul;
+  const dmg=18*p.dm*dM*(1+Math.max(0,p.lv-1)*0.04)*gjRageMul*gjWheelDmgMul*streamerBuff(p);
   const am=p.am*gjWheelAmMul,pierce=p.pierce+pB; // 크기는 패시브만 영향, 레벨로는 안 커짐
   const t=p.nearest(),ang=t?Math.atan2(t.y-p.y,t.x-p.x):Math.atan2(p.facing.y,p.facing.x);
   // 부채꼴 발사 헬퍼
@@ -1409,7 +1450,7 @@ function fireWpn(type,p,wlv){
     case 'fullcourse': fan(wlvAt(WPROJ.fullcourse,wlv),0.85,340,1.5,'#ff5500',9,0,'fullcourse',BAL.wpn.fullcourse.dmgMul);break;
     case 'light':{
       // 윤소민 변신 효과 적용 (변신 시 변신별 빔)
-      const form=(p.cd.id==='sm'&&p.streamerForm)?p.streamerForm:null;
+      const form=(rouletteOn(p)&&p.streamerForm)?p.streamerForm:null;
       if(form){
         applyStreamerLight(p,ang,dmg,am,pierce,wlv,form,'light');
       }else{
@@ -1426,7 +1467,7 @@ function fireWpn(type,p,wlv){
       break;
     }
     case 'nightwatch':{
-      const form=(p.cd.id==='sm'&&p.streamerForm)?p.streamerForm:null;
+      const form=(rouletteOn(p)&&p.streamerForm)?p.streamerForm:null;
       if(form){
         applyStreamerLight(p,ang,dmg,am,pierce,wlv,form,'nightwatch');
       }else{
@@ -2577,6 +2618,7 @@ class Enemy{
   }
   die(){
     this.dead=true;killCount++;bumpCombo();
+    runGold+=this.elite?5:(this.type==='tank'?3:1);  // 골드 적립 (메타 진행)
     gems.push(new Gem(this.x,this.y,this.xv));
     spawnParts(this.x,this.y,this.col,this.elite?14:7);
     // 분열형: 죽으면 작은 새끼 2마리로 쪼개짐 (새끼는 안 쪼개짐)
@@ -2711,7 +2753,7 @@ class Boss{
   }
   hurt(v,crit){this.hp-=v;this.flash=0.08;SFX.bHit();spawnParts(this.x,this.y,this.col,4);showDmg(this.x+rnd(-12,12),this.y-this.sz/2-4,v,crit?'#ffee22':'#ffaa44',true,crit);if(this.hp<=0)this.die()}
   die(){
-    this.dead=true;bossActive=false;boss=null;player.gainXp(this.bxp);hitStop=Math.max(hitStop,0.16);
+    this.dead=true;bossActive=false;boss=null;player.gainXp(this.bxp);hitStop=Math.max(hitStop,0.16);runGold+=45;
     killCount++;bumpCombo();  // 보스 처치도 처치수/콤보에 카운트 (최종원 폭주 트리거에도 기여)
     for(let i=0;i<12;i++)gems.push(new Gem(this.x+rnd(-40,40),this.y+rnd(-40,40),10));
     spawnParts(this.x,this.y,this.col,30);shake(0.6,10);spark(this.x,this.y,this.col,20);
@@ -3841,7 +3883,7 @@ function drawHUD(){
     }
   }
   // 윤소민 변신 인디케이터 (현재 변신 + 다음 룰렛까지 카운트다운)
-  if(p.cd.id==='sm'){
+  if(rouletteOn(p)){
     const sIX=260,sIY=10,sIW=140,sIH=30;  // 높이 24→30 (한글 위 잘림 방지)
     G.fillStyle='rgba(0,0,0,0.7)';G.fillRect(sIX,sIY,sIW,sIH);
     const form=p.streamerForm,col=form?form.col:'#888';
@@ -3949,8 +3991,9 @@ function drawHUD(){
 // ═══ TITLE SCREEN ═══
 setInterval(()=>{if(state==='title')titleFr++},100);
 const TITLE_BTNS=[
-  {label:'▶ 게임 시작',y:340,w:240,h:42,action:'start'},
-  {label:'⚙ 설정',y:392,w:240,h:36,action:'settings'},
+  {label:'▶ 게임 시작',y:322,w:240,h:42,action:'start'},
+  {label:'🛒 강화 상점',y:374,w:240,h:36,action:'shop'},
+  {label:'⚙ 설정',y:416,w:240,h:34,action:'settings'},
 ];
 function renderTitle(){
   // 배경 - 어두운 그라데이션 + 파티클
@@ -4028,6 +4071,67 @@ function getTitleBtnAt(mx,my){
     if(mx>=bx&&mx<=bx+bw&&my>=by&&my<=by+b.h)return i;
   }
   return -1;
+}
+// ═══ 강화 상점 (메타 진행) ═══
+function shopLayout(){
+  const rows=[]; let y=118; const rowH=46;
+  META_UPGRADES.forEach(u=>{ rows.push({kind:'up',u,y,h:40}); y+=rowH; });
+  rows.push({kind:'roulette',y,h:40}); y+=rowH+8;
+  rows.push({kind:'back',y,h:36});
+  return rows;
+}
+function renderShop(){
+  G.fillStyle='#0d0a12';G.fillRect(0,0,LW,LH);
+  G.textAlign='center';G.fillStyle='#ffcc44';G.font='bold 26px Courier New';
+  G.fillText('🛒 강화 상점',LW/2,52);
+  G.fillStyle='#aaa';G.font='11px Courier New';
+  G.fillText('판이 끝나면 모은 골드가 적립됩니다 · 모든 강화는 영구 적용',LW/2,72);
+  G.fillStyle='#ffdd55';G.font='bold 16px Courier New';
+  G.fillText('보유 🪙 '+META.gold,LW/2,96);
+  shopLayout().forEach(r=>{
+    const bx=LW/2-270,bw=540,by=r.y,bh=r.h;
+    if(r.kind==='back'){
+      const w=160,x=LW/2-w/2;
+      G.fillStyle='#2a2a3a';G.fillRect(x,by,w,bh);
+      G.strokeStyle='#888';G.lineWidth=1.5;G.strokeRect(x,by,w,bh);
+      G.fillStyle='#eee';G.font='bold 15px Courier New';G.textAlign='center';
+      G.fillText('◀ 뒤로',LW/2,by+bh/2+5);return;
+    }
+    G.fillStyle='rgba(255,255,255,0.04)';G.fillRect(bx,by,bw,bh);
+    G.strokeStyle='#3a3a4a';G.lineWidth=1;G.strokeRect(bx,by,bw,bh);
+    let name,desc,lv,max,cost,owned,buyable;
+    if(r.kind==='up'){const u=r.u;lv=META.up[u.id]||0;max=u.max;name=u.name;desc=u.desc;owned=lv>=max;cost=u.cost(lv);buyable=!owned&&META.gold>=cost;}
+    else{name='🎰 룰렛 해금';desc='소민 외 모든 캐릭터도 변신 룰렛 사용 가능';lv=META.roulette?1:0;max=1;owned=!!META.roulette;cost=ROULETTE_COST;buyable=!owned&&META.gold>=cost;}
+    G.textAlign='left';G.fillStyle='#fff';G.font='bold 14px Courier New';G.fillText(name,bx+12,by+17);
+    G.fillStyle='#9aa';G.font='11px Courier New';G.fillText(desc,bx+12,by+33);
+    const pipX=bx+300;for(let i=0;i<max;i++){G.fillStyle=i<lv?'#ffcc44':'#333';G.fillRect(pipX+i*14,by+13,10,10);}
+    const btnX=bx+bw-108,btnY=by+5,btnW=100,btnH=bh-10;
+    if(owned){G.fillStyle='#1a3a1a';G.fillRect(btnX,btnY,btnW,btnH);G.fillStyle='#88dd88';G.font='bold 12px Courier New';G.textAlign='center';G.fillText('보유완료',btnX+btnW/2,btnY+btnH/2+4);}
+    else{G.fillStyle=buyable?'#3a2a10':'#222';G.fillRect(btnX,btnY,btnW,btnH);
+      G.strokeStyle=buyable?'#ffcc44':'#444';G.lineWidth=1.5;G.strokeRect(btnX,btnY,btnW,btnH);
+      G.fillStyle=buyable?'#ffdd66':'#777';G.font='bold 12px Courier New';G.textAlign='center';G.fillText('🪙 '+cost,btnX+btnW/2,btnY+btnH/2+4);}
+  });
+  G.textAlign='left';
+}
+function getShopClick(mx,my){
+  for(const r of shopLayout()){
+    if(r.kind==='back'){const w=160,x=LW/2-w/2;if(mx>=x&&mx<=x+w&&my>=r.y&&my<=r.y+r.h)return{action:'back'};continue;}
+    const bx=LW/2-270,bw=540,btnX=bx+bw-108,btnY=r.y+5,btnW=100,btnH=r.h-10;
+    if(mx>=btnX&&mx<=btnX+btnW&&my>=btnY&&my<=btnY+btnH)return r.kind==='up'?{action:'buy',id:r.u.id}:{action:'unlock'};
+  }
+  return null;
+}
+function shopBuy(res){
+  if(!res)return;
+  if(res.action==='back'){state='title';return;}
+  if(res.action==='buy'){
+    const u=META_UPGRADES.find(x=>x.id===res.id),lv=META.up[u.id]||0;
+    if(lv>=u.max)return;const cost=u.cost(lv);
+    if(META.gold>=cost){META.gold-=cost;META.up[u.id]=lv+1;saveMeta();SFX.lvUp();}else SFX.over();
+  }else if(res.action==='unlock'){
+    if(META.roulette)return;
+    if(META.gold>=ROULETTE_COST){META.gold-=ROULETTE_COST;META.roulette=1;saveMeta();SFX.lvUp();SFX.phialReady();}else SFX.over();
+  }
 }
 
 // ═══ SETTINGS OVERLAY ═══
@@ -4294,6 +4398,7 @@ function getUpgradeAt(mx,my){for(let i=0;i<upgradeChoices.length;i++){if(mx>105+
 
 // ═══ RESULT ═══
 function renderResult(win){
+  bankRun();  // 판 종료 시 골드 적립 (1회)
   // 배경
   const bg=G.createRadialGradient(LW/2,LH/2,0,LW/2,LH/2,LH);
   if(win){bg.addColorStop(0,'#3a2a05');bg.addColorStop(1,'#0a0805')}
@@ -4333,6 +4438,9 @@ function renderResult(win){
     G.fillStyle=tg;G.fillText('💀  G A M E   O V E R',LW/2,80);
     G.strokeStyle='rgba(0,0,0,0.5)';G.lineWidth=1.5;G.strokeText('💀  G A M E   O V E R',LW/2,80);
   }
+  // 골드 획득 배너 (메타 진행 — 상점에서 사용)
+  G.textAlign='center';G.font='bold 14px Courier New';G.fillStyle='#ffdd55';
+  G.fillText(`🪙 +${runGold} 골드 획득!   (보유 ${META.gold} · 🛒 상점에서 강화)`,LW/2,120);
   // 통계 박스
   G.fillStyle='rgba(0,0,0,0.7)';G.fillRect(LW/2-200,130,400,135);
   G.strokeStyle=win?'#ffdd44':'#aa3333';G.lineWidth=2;G.strokeRect(LW/2-200,130,400,135);
@@ -4419,10 +4527,12 @@ function spawnEnemies(dt){
 // ═══ MAIN ═══
 function startGame(cd){
   player=new Player(cd);enemies=[];projs=[];gems=[];parts=[];boss=null;
+  applyMetaUpgrades(player);  // 영구 업그레이드 적용
+  runGold=0;runBanked=false;  // 이번 판 골드 초기화
   gameTime=0;spawnT=0;bossIdx=0;bossActive=false;killCount=0;afr=0;afrT=0;
   dmgTexts=[];hitSparks=[];notifs=[];pickups=[];decals=[];lvUpBursts=[];
   shakeT=0;shakeM=0;combo=0;comboT=0;comboMax=0;paused=false;pendingLvUps=0;
-  weatherT=0;flashT=0;camOX=0;camOY=0;
+  weatherT=0;flashT=0;camOX=0;camOY=0;hitStop=0;
   initWorld();state='playing';
   notify('▶  GAME START','WASD/방향키 · SPACE 대시 · P 일시정지','#ffaa66');
   playBgm('battle');
@@ -4505,7 +4615,7 @@ c.addEventListener('click',e=>{
     return;
   }
   // 윤소민 룰렛 결과 카드 클릭 → 변신 적용 + 게임 재개
-  if(state==='playing'&&player&&player.awaitingClick&&player.cd.id==='sm'){
+  if(state==='playing'&&player&&player.awaitingClick&&rouletteOn(player)){
     player.streamerForm=player.rouletteResult;
     player.streamerT=30;
     player.awaitingClick=false;
@@ -4516,11 +4626,14 @@ c.addEventListener('click',e=>{
   }
   if(state==='title'){
     const i=getTitleBtnAt(m.x,m.y);
-    if(i===0){state='select';playBgm('title')}  // 게임 시작 → 캐릭 선택
-    else if(i===1){settingsOpen=true}
-    else{playBgm('title')}  // 빈 곳 클릭 - 사용자 인터랙션 트리거로 BGM 시작
+    if(i>=0){const a=TITLE_BTNS[i].action;
+      if(a==='start'){state='select';playBgm('title')}       // 게임 시작 → 캐릭 선택
+      else if(a==='shop'){state='shop';playBgm('title')}      // 강화 상점
+      else if(a==='settings'){settingsOpen=true}
+    }else playBgm('title');  // 빈 곳 클릭 - BGM 트리거
     return;
   }
+  if(state==='shop'){ shopBuy(getShopClick(m.x,m.y)); return; }
   if(state==='select'&&hovChar>=0)startGame(CHARS[hovChar]);
   if(state==='levelup'){const i=getUpgradeAt(m.x,m.y);if(i>=0){
     const choice=upgradeChoices[i];
@@ -4543,7 +4656,7 @@ function update(dt){
   // 히트스톱 — 큰 타격 순간 잠깐 정지 (render는 계속 → 프리즈 프레임)
   if(hitStop>0){hitStop-=dt;return;}
   // 룰렛 돌아갈 때 모든 게임 멈춤 (룰렛 진행만)
-  if(player&&player.rouletteT>0&&player.cd.id==='sm'){
+  if(player&&player.rouletteT>0&&rouletteOn(player)){
     player.rouletteT-=dt;
     if(player.rouletteT<=0){
       // 룰렛 끝 — 변신 적용은 클릭 후로 미룸
@@ -4554,7 +4667,7 @@ function update(dt){
     return;
   }
   // 룰렛 결과 카드 클릭 대기 중에도 게임 정지
-  if(player&&player.awaitingClick&&player.cd.id==='sm')return;
+  if(player&&player.awaitingClick&&rouletteOn(player))return;
   gameTime+=dt;
   afrT+=dt;if(afrT>0.18){afr++;afrT=0}
   player.update(dt);spawnEnemies(dt);
@@ -4609,6 +4722,7 @@ function render(){
   G.setTransform(G._scale||1,0,0,G._scale||1,0,0);
   G.fillStyle='#080808';G.fillRect(0,0,LW,LH);
   if(state==='title'){renderTitle();if(settingsOpen)renderSettings();return}
+  if(state==='shop'){renderShop();return}
   if(state==='select'){renderSelect();if(settingsOpen)renderSettings();return}
   // 화면 흔들림 + 카메라 선행
   const sx=shakeT>0?rnd(-shakeM,shakeM):0,sy=shakeT>0?rnd(-shakeM,shakeM):0;
@@ -4688,6 +4802,14 @@ function render(){
   drawCombo();
   drawNotifs();
   if(boss)boss.drawAnn();
+  // 골드 카운터 (우상단 무기패널 위, 메타 진행)
+  {
+    G.save();
+    G.fillStyle='rgba(0,0,0,0.55)';G.fillRect(LW-150,8,86,18);
+    G.fillStyle='#ffdd55';G.font='bold 12px Courier New';G.textAlign='right';G.textBaseline='middle';
+    G.fillText('🪙 '+runGold,LW-70,18);
+    G.textBaseline='alphabetic';G.restore();
+  }
   // 디버그 무적 배지 (켜져 있는 동안 항상 표시)
   if(godMode){
     const gp=0.6+0.4*Math.sin(gameTime*6);
