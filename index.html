@@ -2671,6 +2671,10 @@ class Boss{
     this.phase=1;this.dead=false;this.flash=0;this.at=0;
     this.bp=[];this.slow=0;this.pf=0;this.ann=3;this.ct=0;this.pat=0;
     this.tele=[];  // 텔레그래프 경고
+    // 시그니처 메카닉 상태 (보스별 고유 특수기)
+    this.sigEvery=this.bt==='sabi'?3.2:(this.bt==='truck'?4.5:(this.bt==='uncomfy'?6:5));
+    this.sigT=this.sigEvery*0.6;  // 첫 발동 살짝 빠르게
+    this.chargeWind=0;this.chargeT=0;this.chargeDur=0;this.chargeSpd=0;this.chargeDir={x:1,y:0};this.fogT=0;
     SFX.boss();
   }
   addTele(x,y,r,life){this.tele.push({x,y,r,life,ml:life,dead:false})}
@@ -2679,8 +2683,21 @@ class Boss{
     if(this.flash>0)this.flash-=dt;if(this.ann>0)this.ann-=dt;if(this.pf>0)this.pf-=dt;if(this.ct>0)this.ct-=dt;if(this.slow>0)this.slow-=dt;
     if(this.hp<this.mhp*0.5&&this.phase===1){this.phase=2;this.spd*=1.6;this.cdmg*=1.4;this.pf=2;hitStop=Math.max(hitStop,0.12);shake(0.3,7)}
     const sm=this.slow>0?0.4:1,dx=player.x-this.x,dy=player.y-this.y,d=Math.hypot(dx,dy)||1;
-    this.x+=dx/d*this.spd*sm*dt;this.y+=dy/d*this.spd*sm*dt;
-    if(d<this.sz+13&&this.ct<=0){player.takeDmg(this.cdmg);this.ct=0.6}
+    // 시그니처 메카닉 트리거
+    if(this.sigT>0)this.sigT-=dt; else { this.signature(); this.sigT=this.sigEvery; }
+    if(this.fogT>0)this.fogT-=dt;
+    // 이동 — 돌진 윈드업 중 정지 → 락온 대시 → 평소 추적
+    if(this.chargeWind>0){
+      this.chargeWind-=dt;
+      if(this.chargeWind<=0){ this.chargeT=this.chargeDur; SFX.bHit(); shake(0.2,5); }
+    }else if(this.chargeT>0){
+      this.chargeT-=dt;
+      this.x+=this.chargeDir.x*this.chargeSpd*sm*dt;this.y+=this.chargeDir.y*this.chargeSpd*sm*dt;
+      if(d<this.sz+16&&this.ct<=0){player.takeDmg(this.cdmg*1.6);this.ct=0.5}  // 돌진 강타
+    }else{
+      this.x+=dx/d*this.spd*sm*dt;this.y+=dy/d*this.spd*sm*dt;
+      if(d<this.sz+13&&this.ct<=0){player.takeDmg(this.cdmg);this.ct=0.6}
+    }
     this.at-=dt;
     if(this.at<=0){this.attack();this.at=this.phase===2?(this.bt==='sabi'?0.8:1.0):(this.bt==='sabi'?1.6:2.2);this.pat=(this.pat+1)%3}
     this.bp=this.bp.filter(p=>!p.dead);
@@ -2751,6 +2768,25 @@ class Boss{
       }
     }
   }
+  // 보스별 시그니처 특수기
+  signature(){
+    const a=Math.atan2(player.y-this.y,player.x-this.x);
+    if(this.bt==='truck'||this.bt==='sabi'){
+      // 돌진: 플레이어 방향 락온 + 윈드업 텔레그래프 → 고속 대시
+      this.chargeDir={x:Math.cos(a),y:Math.sin(a)};
+      this.chargeWind=this.bt==='sabi'?0.4:0.7;
+      this.chargeDur=this.bt==='sabi'?0.35:0.6;
+      this.chargeSpd=this.bt==='sabi'?440:580;
+      notify(this.bt==='sabi'?'🐕 싸비 돌진!':'🚚 트럭 돌진!','경로 피하기','#ffaa44');
+    }else if(this.bt==='uncomfy'){
+      // 시야 차단: "불편한 안개"로 화면 어두워짐
+      this.fogT=4; notify('😤 불편한 안개','시야 차단됨','#ff8888');
+    }else{
+      // 망령: 분신 소환 (엘리트 러셔 3마리)
+      for(let i=0;i<3;i++){const ra=Math.random()*Math.PI*2;enemies.push(new Enemy(this.x+Math.cos(ra)*40,this.y+Math.sin(ra)*40,'rusher',true));}
+      notify('😡 분신 소환!','ㅈ발 분신이다','#ff5555');
+    }
+  }
   hurt(v,crit){this.hp-=v;this.flash=0.08;SFX.bHit();spawnParts(this.x,this.y,this.col,4);showDmg(this.x+rnd(-12,12),this.y-this.sz/2-4,v,crit?'#ffee22':'#ffaa44',true,crit);if(this.hp<=0)this.die()}
   die(){
     this.dead=true;bossActive=false;boss=null;player.gainXp(this.bxp);hitStop=Math.max(hitStop,0.16);runGold+=8;
@@ -2778,6 +2814,18 @@ class Boss{
       G.beginPath();G.arc(t.x,t.y,t.r*p,0,Math.PI*2);G.fill();
       G.restore();
     });
+    // 돌진 윈드업 텔레그래프 — 위험 레인(반투명 통로)으로 회피 경로 명확히 표시
+    if(this.chargeWind>0){
+      const bl=0.5+0.5*Math.sin(gameTime*22),len=500,wdt=this.sz*1.25;
+      const ang=Math.atan2(this.chargeDir.y,this.chargeDir.x);
+      G.save();G.translate(this.x,this.y);G.rotate(ang);
+      G.globalAlpha=0.16+bl*0.16;G.fillStyle='#ff2a1a';G.fillRect(0,-wdt,len,wdt*2);  // 위험 레인
+      G.globalAlpha=0.5+bl*0.4;G.strokeStyle='#ffcc22';G.lineWidth=3;G.strokeRect(0,-wdt,len,wdt*2);
+      // 진행방향 화살표
+      G.globalAlpha=0.7+bl*0.3;G.fillStyle='#ffdd33';
+      G.beginPath();G.moveTo(len*0.5+18,0);G.lineTo(len*0.5-6,-12);G.lineTo(len*0.5-6,12);G.closePath();G.fill();
+      G.restore();
+    }
     // 보스 식별 아우라 — 호드 속에서 보스가 항상 눈에 띄게
     {
       const ap=0.5+0.5*Math.sin(gameTime*3);
@@ -4794,6 +4842,13 @@ function render(){
       vg.addColorStop(0,'rgba(40,80,160,0)');vg.addColorStop(1,'rgba(80,120,200,0.25)');
       G.fillStyle=vg;G.fillRect(0,0,LW,LH);
     }
+  }
+  // 불편러 시야 차단 안개 (보스 시그니처) — 화면 가장자리 어둡게 (HUD는 위에 그려져 유지)
+  if(boss&&boss.fogT>0){
+    const fa=Math.min(1,boss.fogT)*(0.5+0.08*Math.sin(gameTime*4));
+    const vg=G.createRadialGradient(LW/2,LH/2,LH*0.1,LW/2,LH/2,LH*0.5);
+    vg.addColorStop(0,'rgba(40,10,30,0)');vg.addColorStop(0.6,`rgba(35,8,25,${fa*0.6})`);vg.addColorStop(1,`rgba(25,4,18,${fa})`);
+    G.fillStyle=vg;G.fillRect(0,0,LW,LH);
   }
   drawHUD();
   drawPhialGauge();  // 차지 액스 페이얼 게이지 (좌하단 HUD)
