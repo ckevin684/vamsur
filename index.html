@@ -863,7 +863,20 @@ function applyMetaUpgrades(p){
 let godMode=false;  // 디버그 무적 — 콘솔에서 godMode=true 또는 게임 중 ` (백틱) 키로 토글
 let upgradeChoices=[],hovUI=-1,hovChar=-1,lastTs=0;
 let parts=[],killCount=0,afr=0,afrT=0;
-let totalDmg=0,dmgPeak=0;  // 누적 데미지 / 최고 단일타 (결과화면 DPS 표시용)
+let totalDmg=0,dmgPeak=0,dmgByWpn={};  // 누적 데미지 / 최고 단일타 / 무기(wt)별 데미지 (결과화면 표시용)
+// wt(전달체 타입) → 무기 패밀리 라벨. 기본/진화/시그니처를 한 무기로 묶음. 미등록은 fmtWpnFam에서 '기타' 처리.
+const WFAM={
+  ram:'🖥️ 램',ram_bounce:'🖥️ 램',fullspec:'🖥️ 램',fullspec_bounce:'🖥️ 램',
+  knife:'🔪 셰프나이프',fullcourse:'🔪 셰프나이프',
+  staff:'🦯 지팡이',awakegj:'🦯 지팡이',disc_burst:'🦯 지팡이',wheelchair:'🦯 지팡이',
+  slash:'🪓 차지액스',lightning:'🪓 차지액스',
+  dog:'🐕 뭉치',
+  beam:'🔦 손전등',flash:'🔦 손전등',beam_nw:'🔦 손전등',
+  beam_sb:'🔦 손전등',beam_rk:'🔦 손전등',beam_hy:'🔦 손전등',beam_lz:'🔦 손전등',
+  beam_tb:'🔦 손전등',beam_sleep:'🔦 손전등',beam_hina:'🔦 손전등',light_tb:'🔦 손전등',light_lz:'🔦 손전등',
+  bomb:'💣 폭탄',
+};
+function fmtWpnFam(wt){return WFAM[wt]||'기타';}
 let shakeT=0,shakeM=0,dmgTexts=[],hitSparks=[];
 let combo=0,comboT=0,comboMax=0,paused=false;
 let notifs=[],pickups=[],pendingLvUps=0;
@@ -957,7 +970,7 @@ function applyPickup(pk){
   }else if(pk.t==='bomb'){
     const r=320;
     (boss?[...enemies,boss]:enemies).forEach(e=>{
-      const d=dist(player,e);if(d<r){const dmg=80*player.dm*(1+player.lv*0.1);e.hurt(dmg,false)}
+      const d=dist(player,e);if(d<r){const dmg=80*player.dm*(1+player.lv*0.1);e.hurt(dmg,false,'bomb')}
     });
     spawnParts(player.x,player.y,'#ffaa44',40);
     shake(0.4,8);
@@ -1107,7 +1120,7 @@ class Player{
       // 완치 질주(awakegj): 무적 난동 — 닿는 적 즉사(보스X), 게이지 닳으며 지속
       if(this.gjPhase==='wheelchair'&&this.curedGj()){
         const gjB2=BAL.char.gj;
-        enemies.forEach(e=>{if(!e.dead&&dist(this,e)<e.sz+18)e.hurt(e.hp+9999,false)});  // 닿는 적 즉사
+        enemies.forEach(e=>{if(!e.dead&&dist(this,e)<e.sz+18)e.hurt(e.hp+9999,false,'wheelchair')});  // 닿는 적 즉사
         this.discPain=Math.max(0,this.discPain-gjB2.curedDrainRate*dt);                  // 게이지 닳음
         const ref=this.gjInjectionRef;                                                   // 질주 중 주사 먹으면 영구성장
         if(ref&&!ref.dead&&dist(this,ref)<gjB2.injPickupR*2){ref.dead=true;this.gjInjectionRef=null;this.gainPermStat()}
@@ -1621,7 +1634,7 @@ function applyStreamerLight(p,ang,dmg,am,pierce,wlv,form,baseType){
           const r=Math.random();
           if(r<0.15&&wasAlive&&!e.dead){
             // 추가 폭딜
-            e.hurt(dmg*1.8,true);
+            e.hurt(dmg*1.8,true,'beam_sb');
             spawnParts(e.x,e.y,'#ffaa00',5);
             shake(0.06,1.8);
           }
@@ -1863,7 +1876,7 @@ function aoeHit(x,y,r,col,dmg,life,pierce,slow=false,wt='',visCnt=0){
     if(dist({x,y},e)<r+e.sz){
       let dd=dmg;if(e===boss)dd*=player.bdm;
       const cr=Math.random()<player.crit;if(cr)dd*=2;
-      e.hurt(dd,cr);if(slow&&'slow'in e)e.slow=2;
+      e.hurt(dd,cr,wt);if(slow&&'slow'in e)e.slow=2;
     }
   });
 }
@@ -1921,7 +1934,7 @@ function slashHit(p,faceAng,r,spanDeg,dmg,col,life,evolved,fillGauge){
     let dd=dmg;
     if(e===boss)dd*=p.bdm;
     const cr=Math.random()<p.crit;if(cr)dd*=2;
-    e.hurt(dd,cr);
+    e.hurt(dd,cr,'slash');
     // 검 모드일 때만 게이지 충전
     if(fillGauge&&p.cbMode==='sword'){
       const wpn=p.wpns.find(w=>w.type==='gsword'||w.type==='caff');
@@ -1988,7 +2001,7 @@ function spawnLightning(x,y,dmg,evolved){
       let dd=dmg;
       if(e===boss)dd*=player.bdm;
       const cr=Math.random()<player.crit;if(cr)dd*=2;
-      e.hurt(dd,cr);
+      e.hurt(dd,cr,'lightning');
     }
   });
   shake(0.12,3);
@@ -2054,7 +2067,7 @@ function spawnBouncingRam(p,opts){
           let dd=this.dmg;
           if(e===boss)dd*=player.bdm;
           const cr=Math.random()<player.crit; if(cr)dd*=2;
-          e.hurt(dd,cr);
+          e.hurt(dd,cr,this.wt);
           this.hitMap.set(e,gameTime);
         }
       });
@@ -2126,7 +2139,7 @@ function spawnBeam(p,ang,opts){
     if(e===boss)dd*=player.bdm;
     const cr=Math.random()<player.crit; if(cr)dd*=2;
     const wasAlive=!e.dead;
-    e.hurt(dd,cr);
+    e.hurt(dd,cr,o.wt||'beam');
     if('slow'in e)e.slow=Math.max(e.slow,slowDur);
     if(onHit)onHit(e,wasAlive);
   });
@@ -2217,7 +2230,7 @@ class Proj{
         let dd=this.pdmg;if(e===boss)dd*=player.bdm;
         const cr=Math.random()<player.crit;if(cr)dd*=2;
         const wasAlive=!e.dead;
-        e.hurt(dd,cr);this.hs.add(e);
+        e.hurt(dd,cr,this.wt);this.hs.add(e);
         // 리제 (흡혈의 밤) 효과: 처치 시 HP 회복, 적중 시 슬로우
         if(this.wt==='light_lz'){
           if('slow'in e)e.slow=1.5;
@@ -2651,11 +2664,12 @@ class Enemy{
     }
     if(d<this.sz+13&&this.ct<=0){player.takeDmg(this.dmg);this.ct=0.8}
   }
-  hurt(v,crit){
+  hurt(v,crit,src){
     const dmg=v*(this.elite?0.7:1);
     const eff=Math.min(dmg,Math.max(this.hp,0));  // 오버킬 제외 (휠체어 즉사 e.hp+9999 등)
     this.hp-=dmg;this.flash=0.12;
     totalDmg+=eff;if(eff>dmgPeak)dmgPeak=eff;  // 누적 데미지 집계
+    dmgByWpn[src||'etc']=(dmgByWpn[src||'etc']||0)+eff;  // 무기(wt)별 데미지
     spawnParts(this.x,this.y,this.col,this.elite?5:3);SFX.hit();
     const col=crit?'#ffee44':(this.elite?'#aaff66':'#ffeecc');
     showDmg(this.x,this.y-this.sz,dmg,col,this.elite||crit,crit);
@@ -2837,7 +2851,7 @@ class Boss{
       notify('😡 분신 소환!','ㅈ발 분신이다','#ff5555');
     }
   }
-  hurt(v,crit){const eff=Math.min(v,Math.max(this.hp,0));this.hp-=v;this.flash=0.08;totalDmg+=eff;if(eff>dmgPeak)dmgPeak=eff;SFX.bHit();spawnParts(this.x,this.y,this.col,4);showDmg(this.x+rnd(-12,12),this.y-this.sz/2-4,v,crit?'#ffee22':'#ffaa44',true,crit);if(this.hp<=0)this.die()}
+  hurt(v,crit,src){const eff=Math.min(v,Math.max(this.hp,0));this.hp-=v;this.flash=0.08;totalDmg+=eff;if(eff>dmgPeak)dmgPeak=eff;dmgByWpn[src||'etc']=(dmgByWpn[src||'etc']||0)+eff;SFX.bHit();spawnParts(this.x,this.y,this.col,4);showDmg(this.x+rnd(-12,12),this.y-this.sz/2-4,v,crit?'#ffee22':'#ffaa44',true,crit);if(this.hp<=0)this.die()}
   die(){
     this.dead=true;bossActive=false;boss=null;player.gainXp(this.bxp);hitStop=Math.max(hitStop,0.16);runGold+=8;
     killCount++;bumpCombo();  // 보스 처치도 처치수/콤보에 카운트 (최종원 폭주 트리거에도 기여)
@@ -3005,7 +3019,7 @@ class Companion{
       if(dist(this,e)<r+e.sz){
         let dd=dmg;if(e===boss)dd*=player.bdm;
         const cr=Math.random()<player.crit;if(cr)dd*=2;
-        e.hurt(dd,cr);
+        e.hurt(dd,cr,'dog');
         // 약한 넉백
         const a=Math.atan2(e.y-this.y,e.x-this.x);
         e.kvx+=Math.cos(a)*70;e.kvy+=Math.sin(a)*70;
@@ -3092,7 +3106,7 @@ class Companion{
           let dmg=this.baseDmg();
           if(this.target===boss)dmg*=player.bdm;
           const cr=Math.random()<player.crit;if(cr)dmg*=2;
-          this.target.hurt(dmg,cr);
+          this.target.hurt(dmg,cr,'dog');
           this.doScratch();
           this.biteT=Math.max(0.3,0.55-lv*0.025);
           this.x-=dx/d*5;this.y-=dy/d*5;
@@ -3102,7 +3116,7 @@ class Companion{
             let dmg=this.baseDmg()*0.5;
             if(this.target===boss)dmg*=player.bdm;
             const cr=Math.random()<player.crit;if(cr)dmg*=2;
-            this.target.hurt(dmg,cr);
+            this.target.hurt(dmg,cr,'dog');
             this.scratchCount--;
             this.scratchT=0.12;
             this.scratchAnimT=0.35;  // 추가타 잔상
@@ -4607,6 +4621,28 @@ function renderResult(win){
     G.fillStyle=maxed?'#88ddff':'#aaa';G.font='bold 9px Courier New';
     G.fillText(maxed?'MAX':`Lv.${lv}/${P_MAX_LV}`,bx+48,by+24);
   });
+  // 💥 무기별 데미지 브레이크다운 (패밀리로 묶어 내림차순, 막대그래프)
+  const fam={};
+  for(const k in dmgByWpn){const L=fmtWpnFam(k);fam[L]=(fam[L]||0)+dmgByWpn[k];}
+  const dmgRows=Object.keys(fam).map(L=>[L,fam[L]]).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  if(dmgRows.length){
+    const maxD=dmgRows[0][1]||1,px=LW/2-200,pw=400;
+    G.textAlign='center';G.fillStyle='#ffcc44';G.font='bold 12px Courier New';
+    G.fillText('💥 무기별 데미지',LW/2,332);
+    dmgRows.forEach(([L,d],i)=>{
+      const y=346+i*24,frac=d/maxD;
+      G.fillStyle='rgba(255,255,255,0.06)';G.fillRect(px,y,pw,18);
+      const bg=G.createLinearGradient(px,0,px+pw,0);
+      bg.addColorStop(0,'#ff7733');bg.addColorStop(1,'#ffcc44');
+      G.fillStyle=bg;G.fillRect(px,y,Math.max(2,pw*frac),18);
+      G.save();G.shadowColor='rgba(0,0,0,0.85)';G.shadowBlur=3;
+      G.font='bold 11px Courier New';G.fillStyle='#fff';
+      G.textAlign='left';G.fillText(L,px+8,y+13);
+      const pct=totalDmg>0?Math.round(d/totalDmg*100):0;
+      G.textAlign='right';G.fillText(`${Math.floor(d).toLocaleString()}  (${pct}%)`,px+pw-8,y+13);
+      G.restore();
+    });
+  }
   // 재시작 안내
   const blink=Math.sin(gameTime*4)*0.5+0.5;
   G.save();G.globalAlpha=0.5+blink*0.5;
@@ -4649,7 +4685,7 @@ function startGame(cd){
   player=new Player(cd);enemies=[];projs=[];gems=[];parts=[];boss=null;
   applyMetaUpgrades(player);  // 영구 업그레이드 적용
   runGold=0;runBanked=false;runRevives=0;  // 이번 판 골드/부활 초기화
-  gameTime=0;spawnT=0;bossIdx=0;bossActive=false;killCount=0;afr=0;afrT=0;totalDmg=0;dmgPeak=0;
+  gameTime=0;spawnT=0;bossIdx=0;bossActive=false;killCount=0;afr=0;afrT=0;totalDmg=0;dmgPeak=0;dmgByWpn={};
   dmgTexts=[];hitSparks=[];notifs=[];pickups=[];decals=[];lvUpBursts=[];
   shakeT=0;shakeM=0;combo=0;comboT=0;comboMax=0;paused=false;pendingLvUps=0;
   weatherT=0;flashT=0;camOX=0;camOY=0;hitStop=0;
