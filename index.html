@@ -619,7 +619,7 @@ const BAL={
       rushDur:5,           // 폭주 지속 시간
       rushAsMul:2,         // 폭주 시 공속 배율
       lateScaleStart:120,  // 시간 데미지 스케일링 시작 (초)
-      lateScaleRate:0.4,   // 스케일링 속도 (1+t*0.4) — 0.7→0.4 너프 (10분 dm 4.5→3.0)
+      lateScaleRate:0.3,   // 스케일링 속도 (1+t*0.3) — 0.4→0.3 (후반 폭딜 캡, 15분 ×4.0→×3.25)
     },
     gj:{ // 최기종 — 분노/휠체어 (이동 기반 게이지 시스템)
       painPerMove:0.022,   // 이동 중 매초 누적 (1/0.022 ≈ 45s 이동 시 1회 분노 — 후반 보장)
@@ -659,15 +659,15 @@ const BAL={
   },
   // ━━━ 무기 데미지 배수 (fireWpn 안의 매직 넘버) ━━━
   wpn:{
-    ram:{dmgMul:1.4, spdBase:220, spdPerLv:10, szBase:9, szPerLv:0.3, hitCd:0.5},
-    fullspec:{dmgMul:1.3, spdBase:270, spdPerLv:12, szBase:10, szPerLv:0.3, count:2},  // 1.6→1.3 너프 (2 RAM이라 광역 강함)
+    ram:{dmgMul:1.4, spdBase:220, spdPerLv:10, szBase:9, szPerLv:0.3, hitCd:0.35},  // hitCd 0.5→0.35 (단일 타겟 보강) · 바운싱 램 재타격 cd
+    fullspec:{dmgMul:1.45, spdBase:270, spdPerLv:12, szBase:10, szPerLv:0.3, count:3},  // dmgMul 1.45 + 램 2→3개 (단일/군중 보강) · count는 fireWpn에서 참조
     knife:{dmgMul:1.0, spread:0.6, speed:310, life:1.5, sz:7},
-    fullcourse:{dmgMul:1.3, spread:0.85, speed:340, life:1.5, sz:9},
-    light:{dmgMul:1.0, lenBase:170, lenPerLv:12, halfAngBase:0.36, halfAngPerLv:0.02, life:0.85, slowDur:1.4},  // 0.78→1.0 버프
-    nightwatch:{dmgMul:1.05, lenBase:210, lenPerLv:8, halfAng:0.55, life:0.65, slowDur:1.8, pulseR:90, pulseDmgMul:0.4},  // pulseDmg 0.6→0.4
+    fullcourse:{dmgMul:1.35, spread:0.85, speed:340, life:1.5, sz:9},  // 1.3→1.4→1.35 (최상위라 미세 너프) · fireWpn에서 참조
+    light:{dmgMul:1.15, lenBase:170, lenPerLv:12, halfAngBase:0.36, halfAngPerLv:0.02, life:0.85, slowDur:1.4},  // 0.78→1.0→1.15 (최약 베이스 보강)
+    nightwatch:{dmgMul:1.2, lenBase:210, lenPerLv:8, halfAng:0.55, life:0.65, slowDur:1.8, pulseR:90, pulseDmgMul:0.55},  // dmg 1.05→1.2, pulse 0.4→0.55 (진화 체감 버프) · dmgMul/pulse는 fireWpn에서 참조
     staff:{dmgMul:1.6, r:120, life:0.5},      // 이미 너프됨
     awakegj:{dmgMul:3.0, spd:300, life:1.5, sz:18},
-    mungchi:{dmgBase:24, evoMul:1.4},
+    mungchi:{dmgBase:24, evoMul:1.35},  // evoMul 1.2→1.35 (언리쉬드 진화 체감 버프) · Companion.baseDmg에서 참조
     gsword:{swordDmgMul:1.3, swordR:52, swordSpan:100, swordLife:0.22,
             axeDmgMul:3.5, axeR:72, axeSpan:140, axeLife:0.32},  // axe 4.0→3.5 너프
     caff:{swordDmgMul:1.5, swordR:56, swordSpan:110, axeDmgMul:4.0, axeR:80, axeSpan:150,
@@ -728,7 +728,7 @@ const CHARS=[
   {id:'jh',name:'준형전자',sub:'조립의 신',color:'#4488cc',hp:130,spd:100,startWpn:'ram',pdesc:'방어 +10% · 🔧 위급시 자가수리',def:0.9},
   {id:'jw',name:'최종원',sub:'셰프',color:'#dd6622',hp:100,spd:110,startWpn:'knife',pdesc:'시간↑공격↑ · 🍳 8콤보→폭주',def:1.0},
   {id:'sm',name:'윤소민',sub:'심야경비+버튜버',color:'#33aa66',hp:110,spd:128,startWpn:'light',pdesc:'이동 +15% · 🎰 변신 룰렛',def:1.0},
-  {id:'gj',name:'최기종',sub:'허리디스크레전드',color:'#9955cc',hp:160,spd:70,startWpn:'staff',pdesc:'공격+40% · 이동→허리부담↑→💥분노→🦽휠체어→💉',def:0.8},
+  {id:'gj',name:'최기종',sub:'허리디스크레전드',color:'#9955cc',hp:160,spd:70,startWpn:'staff',pdesc:'공격+40% · 이동→허리부담↑→💥분노→🦽휠체어→💉',def:0.85},
   {id:'co',name:'최초',sub:'뭉치 주인',color:'#cc8800',hp:100,spd:120,startWpn:'mungchi',pdesc:'크리 +20% · 🐕 뭉치 컴패니언',def:1.0},
   {id:'gh',name:'황기훈',sub:'몬헌마스터',color:'#cc3377',hp:110,spd:105,startWpn:'gsword',pdesc:'보스 +25% · 🪓 페이얼/SAED',def:1.0},
 ];
@@ -1359,7 +1359,7 @@ function fireWpn(type,p,wlv){
       // 풀스펙 진화: 영구 2개 + 빠르고 강함 + 발광
       if(!p.bouncingRams)p.bouncingRams=[];
       p.bouncingRams=p.bouncingRams.filter(r=>!r.dead);
-      const wantCount=2;
+      const wantCount=BAL.wpn.fullspec.count;
       const ramDmg=dmg*BAL.wpn.fullspec.dmgMul;
       const ramSpd=270+wlv*12;
       const ramSz=(10+wlv*0.3)*am;
@@ -1392,7 +1392,7 @@ function fireWpn(type,p,wlv){
       break;
     }
     case 'knife':      fan(wlvAt(WPROJ.knife,wlv),0.6,310,1.5,'#ff8844',7,0,'knife',1);break;
-    case 'fullcourse': fan(wlvAt(WPROJ.fullcourse,wlv),0.85,340,1.5,'#ff5500',9,0,'fullcourse',1.3);break;
+    case 'fullcourse': fan(wlvAt(WPROJ.fullcourse,wlv),0.85,340,1.5,'#ff5500',9,0,'fullcourse',BAL.wpn.fullcourse.dmgMul);break;
     case 'light':{
       // 윤소민 변신 효과 적용 (변신 시 변신별 빔)
       const form=(p.cd.id==='sm'&&p.streamerForm)?p.streamerForm:null;
@@ -1422,7 +1422,7 @@ function fireWpn(type,p,wlv){
           col:'#00ff88',
           len:210+lvCnt*8, halfAng:0.55,
           life:0.65, tickInt:0.16,
-          dmg:dmg*1.05, slowDur:1.8, wt:'beam_nw',
+          dmg:dmg*BAL.wpn.nightwatch.dmgMul, slowDur:1.8, wt:'beam_nw',
           bigClick:true
         });
         // 360° 짧은 펄스 (진화 보너스)
@@ -1939,8 +1939,8 @@ function spawnBouncingRam(p,opts){
       else if(this.x>maxX){this.x=maxX;this.vx=-Math.abs(this.vx)}
       if(this.y<minY){this.y=minY;this.vy=Math.abs(this.vy)}
       else if(this.y>maxY){this.y=maxY;this.vy=-Math.abs(this.vy)}
-      // 적 충돌 체크 (적당 0.5초 쿨다운)
-      const cdT=0.5;
+      // 적 충돌 체크 (재타격 쿨다운 — BAL.wpn.ram.hitCd 참조)
+      const cdT=BAL.wpn.ram.hitCd;
       const all=boss?[...enemies,boss]:enemies;
       all.forEach(e=>{
         const last=this.hitMap.get(e)||-1;
@@ -2773,7 +2773,7 @@ class Companion{
   baseDmg(){
     const lv=this.getWpnLv();
     const dM=wlvAt(WLV.dmgM,lv);
-    return 24*player.dm*dM*(1+Math.max(0,player.lv-1)*0.04)*(this.evolved?1.2:1);  // 진화 1.4→1.2 너프
+    return BAL.wpn.mungchi.dmgBase*player.dm*dM*(1+Math.max(0,player.lv-1)*0.04)*(this.evolved?BAL.wpn.mungchi.evoMul:1);  // 진화배율 BAL.wpn.mungchi.evoMul 참조
   }
   doBark(){
     const lv=this.getWpnLv();
