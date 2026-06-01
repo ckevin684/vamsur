@@ -834,7 +834,7 @@ function saveMeta(){ try{ localStorage.setItem('vamsur_meta',JSON.stringify(META
 let META=loadMeta();
 let runGold=0;       // 이번 판에서 번 골드
 let runBanked=false; // 판 종료 시 1회만 적립
-function bankRun(){ if(runBanked)return; META.gold+=runGold; saveMeta(); runBanked=true; }
+function bankRun(){ if(runBanked)return; META.gold+=Math.floor(runGold); saveMeta(); runBanked=true; }
 function rouletteOn(p){ return !!p && (p.cd.id==='sm' || META.roulette); }
 // 룰렛 변신 — 소민 외 캐릭(해금 시)에게 전 무기 데미지 배율 부여 (소민은 빔 변신이 정체성이라 제외)
 function streamerBuff(p){
@@ -2618,7 +2618,7 @@ class Enemy{
   }
   die(){
     this.dead=true;killCount++;bumpCombo();
-    runGold+=this.elite?5:(this.type==='tank'?3:1);  // 골드 적립 (메타 진행)
+    runGold+=this.elite?0.45:(this.type==='tank'?0.25:(this.type==='splitling'?0.02:0.08));  // 골드 적립(분수 누적, ~6판에 만렙)
     gems.push(new Gem(this.x,this.y,this.xv));
     spawnParts(this.x,this.y,this.col,this.elite?14:7);
     // 분열형: 죽으면 작은 새끼 2마리로 쪼개짐 (새끼는 안 쪼개짐)
@@ -2753,7 +2753,7 @@ class Boss{
   }
   hurt(v,crit){this.hp-=v;this.flash=0.08;SFX.bHit();spawnParts(this.x,this.y,this.col,4);showDmg(this.x+rnd(-12,12),this.y-this.sz/2-4,v,crit?'#ffee22':'#ffaa44',true,crit);if(this.hp<=0)this.die()}
   die(){
-    this.dead=true;bossActive=false;boss=null;player.gainXp(this.bxp);hitStop=Math.max(hitStop,0.16);runGold+=45;
+    this.dead=true;bossActive=false;boss=null;player.gainXp(this.bxp);hitStop=Math.max(hitStop,0.16);runGold+=8;
     killCount++;bumpCombo();  // 보스 처치도 처치수/콤보에 카운트 (최종원 폭주 트리거에도 기여)
     for(let i=0;i<12;i++)gems.push(new Gem(this.x+rnd(-40,40),this.y+rnd(-40,40),10));
     spawnParts(this.x,this.y,this.col,30);shake(0.6,10);spark(this.x,this.y,this.col,20);
@@ -4440,7 +4440,7 @@ function renderResult(win){
   }
   // 골드 획득 배너 (메타 진행 — 상점에서 사용)
   G.textAlign='center';G.font='bold 14px Courier New';G.fillStyle='#ffdd55';
-  G.fillText(`🪙 +${runGold} 골드 획득!   (보유 ${META.gold} · 🛒 상점에서 강화)`,LW/2,120);
+  G.fillText(`🪙 +${Math.floor(runGold)} 골드 획득!   (보유 ${META.gold} · 🛒 상점에서 강화)`,LW/2,120);
   // 통계 박스
   G.fillStyle='rgba(0,0,0,0.7)';G.fillRect(LW/2-200,130,400,135);
   G.strokeStyle=win?'#ffdd44':'#aa3333';G.lineWidth=2;G.strokeRect(LW/2-200,130,400,135);
@@ -4807,7 +4807,7 @@ function render(){
     G.save();
     G.fillStyle='rgba(0,0,0,0.55)';G.fillRect(LW-150,8,86,18);
     G.fillStyle='#ffdd55';G.font='bold 12px Courier New';G.textAlign='right';G.textBaseline='middle';
-    G.fillText('🪙 '+runGold,LW-70,18);
+    G.fillText('🪙 '+Math.floor(runGold),LW-70,18);
     G.textBaseline='alphabetic';G.restore();
   }
   // 디버그 무적 배지 (켜져 있는 동안 항상 표시)
