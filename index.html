@@ -863,6 +863,7 @@ function applyMetaUpgrades(p){
 let godMode=false;  // 디버그 무적 — 콘솔에서 godMode=true 또는 게임 중 ` (백틱) 키로 토글
 let upgradeChoices=[],hovUI=-1,hovChar=-1,lastTs=0;
 let parts=[],killCount=0,afr=0,afrT=0;
+let totalDmg=0,dmgPeak=0;  // 누적 데미지 / 최고 단일타 (결과화면 DPS 표시용)
 let shakeT=0,shakeM=0,dmgTexts=[],hitSparks=[];
 let combo=0,comboT=0,comboMax=0,paused=false;
 let notifs=[],pickups=[],pendingLvUps=0;
@@ -2652,7 +2653,9 @@ class Enemy{
   }
   hurt(v,crit){
     const dmg=v*(this.elite?0.7:1);
+    const eff=Math.min(dmg,Math.max(this.hp,0));  // 오버킬 제외 (휠체어 즉사 e.hp+9999 등)
     this.hp-=dmg;this.flash=0.12;
+    totalDmg+=eff;if(eff>dmgPeak)dmgPeak=eff;  // 누적 데미지 집계
     spawnParts(this.x,this.y,this.col,this.elite?5:3);SFX.hit();
     const col=crit?'#ffee44':(this.elite?'#aaff66':'#ffeecc');
     showDmg(this.x,this.y-this.sz,dmg,col,this.elite||crit,crit);
@@ -2834,7 +2837,7 @@ class Boss{
       notify('😡 분신 소환!','ㅈ발 분신이다','#ff5555');
     }
   }
-  hurt(v,crit){this.hp-=v;this.flash=0.08;SFX.bHit();spawnParts(this.x,this.y,this.col,4);showDmg(this.x+rnd(-12,12),this.y-this.sz/2-4,v,crit?'#ffee22':'#ffaa44',true,crit);if(this.hp<=0)this.die()}
+  hurt(v,crit){const eff=Math.min(v,Math.max(this.hp,0));this.hp-=v;this.flash=0.08;totalDmg+=eff;if(eff>dmgPeak)dmgPeak=eff;SFX.bHit();spawnParts(this.x,this.y,this.col,4);showDmg(this.x+rnd(-12,12),this.y-this.sz/2-4,v,crit?'#ffee22':'#ffaa44',true,crit);if(this.hp<=0)this.die()}
   die(){
     this.dead=true;bossActive=false;boss=null;player.gainXp(this.bxp);hitStop=Math.max(hitStop,0.16);runGold+=8;
     killCount++;bumpCombo();  // 보스 처치도 처치수/콤보에 카운트 (최종원 폭주 트리거에도 기여)
@@ -4567,6 +4570,10 @@ function renderResult(win){
   G.fillStyle='#888';G.fillText('👤  캐릭터',sX2,158);G.fillStyle=player.cd.color;G.fillText(player.cd.name,sX2+80,158);
   G.fillStyle='#888';G.fillText('🎒  아이템',sX2,178);G.fillStyle='#fff';G.fillText(`${player.pCnt()}개`,sX2+80,178);
   G.fillStyle='#888';G.fillText('⚔  무기 슬롯',sX2,198);G.fillStyle='#fff';G.fillText(`${player.wpns.length}/${W_SLOTS}`,sX2+80,198);
+  // 💥 누적 데미지 / DPS / 최고 단일타 (강조 라인)
+  const dps=totalDmg/Math.max(gameTime,1);
+  G.textAlign='center';G.font='bold 11px Courier New';G.fillStyle='#ffcc44';
+  G.fillText(`💥 총 데미지 ${Math.floor(totalDmg).toLocaleString()}   ·   DPS ${Math.floor(dps).toLocaleString()}   ·   최고타 ${Math.floor(dmgPeak).toLocaleString()}`,LW/2,217);
   // 무기 카드
   G.textAlign='center';G.fillStyle='#ff8866';G.font='bold 10px Courier New';G.fillText('⚔ 무기',LW/2,225);
   player.wpns.forEach((w,i)=>{
@@ -4642,7 +4649,7 @@ function startGame(cd){
   player=new Player(cd);enemies=[];projs=[];gems=[];parts=[];boss=null;
   applyMetaUpgrades(player);  // 영구 업그레이드 적용
   runGold=0;runBanked=false;runRevives=0;  // 이번 판 골드/부활 초기화
-  gameTime=0;spawnT=0;bossIdx=0;bossActive=false;killCount=0;afr=0;afrT=0;
+  gameTime=0;spawnT=0;bossIdx=0;bossActive=false;killCount=0;afr=0;afrT=0;totalDmg=0;dmgPeak=0;
   dmgTexts=[];hitSparks=[];notifs=[];pickups=[];decals=[];lvUpBursts=[];
   shakeT=0;shakeM=0;combo=0;comboT=0;comboMax=0;paused=false;pendingLvUps=0;
   weatherT=0;flashT=0;camOX=0;camOY=0;hitStop=0;
