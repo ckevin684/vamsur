@@ -878,7 +878,7 @@ function updateWeather(dt){
     weatherT=0;flashT=0.4;
     setTimeout(()=>{if(state==='playing'&&!paused)flashT=0.25},250);
     // 천둥 (지연된 노이즈)
-    setTimeout(()=>{try{iac();if(AC){const s=AC.sampleRate,b=AC.createBuffer(1,s*1.2,s),dd=b.getChannelData(0);for(let i=0;i<dd.length;i++){const env=Math.exp(-i/(s*0.5));dd[i]=(Math.random()*2-1)*env*0.5}const src=AC.createBufferSource(),g=AC.createGain();src.buffer=b;src.connect(g);g.connect(AC.destination);g.gain.setValueAtTime(0.4,AC.currentTime);src.start();src.stop(AC.currentTime+1.2)}}catch(e){}},rnd(400,900));
+    setTimeout(()=>{try{iac();if(AC){const s=AC.sampleRate,b=AC.createBuffer(1,s*1.2,s),dd=b.getChannelData(0);for(let i=0;i<dd.length;i++){const env=Math.exp(-i/(s*0.5));dd[i]=(Math.random()*2-1)*env*0.5}const src=AC.createBufferSource(),g=AC.createGain();src.buffer=b;src.connect(g);g.connect(AC.destination);g.gain.setValueAtTime(0.4*sfxVol,AC.currentTime);src.start();src.stop(AC.currentTime+1.2)}}catch(e){}},rnd(400,900));
   }
 }
 // BGM - 절차적 다크 앰비언트 (실제 mp3 사용으로 비활성화됨, 폴백용)
