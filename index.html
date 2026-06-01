@@ -696,9 +696,9 @@ const BAL={
   },
   // ━━━ 룰렛 확률 ━━━
   rouletteProb:{
-    sleep:0.15,     // 꽝 15%
-    hina:0.06,      // 잭팟 6%
-    each:0.158,     // 일반 5명 각각 ~15.8%
+    sleep:0.10,     // 꽝 10% (15→10 완화)
+    hina:0.12,      // 잭팟 12% — 일반보다 '살짝 낮게'
+    each:0.156,     // 일반 5명 각각 15.6% (×5=0.78). 0.10+0.12+0.78=1.0
   },
   // ━━━ 패시브 아이템 효과 ━━━
   passive:{
@@ -789,6 +789,8 @@ const STREAMER_FORMS=[
   {id:'sleep',  name:'졸린 윤소민',emoji:'💤',col:'#666688',desc:'야간경비 졸음...'},
   {id:'hina',   name:'칸자키 히나',emoji:'👑',col:'#ff66bb',desc:'절대적 아이돌 ★ JACKPOT'},
 ];
+// 야근 윤소민 — 룰렛 풀에는 없음. 졸린 윤소민 2연속 시 전화 컷신 후 발동(손전등 2개 30초 풀가동).
+const WORK_FORM={id:'workmode',name:'야근 윤소민',emoji:'📞',col:'#ffcc22',desc:'전화 받고 풀가동!'};
 // 확률: BAL.rouletteProb 참조 (sleep + hina + 5명 균등)
 function pickStreamerForm(){
   const P=BAL.rouletteProb;
@@ -1021,6 +1023,8 @@ class Player{
     this.rouletteResult=null;  // 룰렛 결과
     this.awaitingClick=false;  // 룰렛 끝난 후 결과 카드 클릭 대기 (true면 게임 정지)
     this.resultCardT=0;        // (deprecated, 호환용)
+    this.lastWasSleep=false;   // 직전 룰렛이 졸음이었나 (2연속 → 야근 컷신 트리거)
+    this.workCut=0;            // 야근 전화 컷신 진행 (0=없음, 1=사장 대사, 2=소민 대사)
     // 준형전자 — 🔧 AS 보증 (HP 위급 시 자가 수리)
     this.repairCd=0;        // 0 이상: 사용 후 쿨다운 (초)
     this.repairFx=0;        // 발동 시 시각 이펙트 시간
@@ -1620,6 +1624,19 @@ function applyStreamerLight(p,ang,dmg,am,pierce,wlv,form,baseType){
   // 진화 시 모든 변신 빔이 더 강해짐 (길이/틱속도/슬로우)
   const evoLen=isEvo?25:0, evoTick=isEvo?0.85:1.0, evoSlow=isEvo?0.4:0;
   switch(form.id){
+    case 'workmode':{
+      // 📞 야근 모드: 손전등 2개 풀가동 — 가장 가까운 적 + 두 번째 적 방향으로 강한 빔 2발
+      const LB=BAL.wpn.light;
+      const len=LB.lenBase+lvCnt*LB.lenPerLv+evoLen+30, ha=(LB.halfAngBase+lvCnt*LB.halfAngPerLv)+0.08;
+      let ang2=ang+0.6;
+      const list=(boss?[...enemies,boss]:enemies).filter(e=>!e.dead).map(e=>[e,dist(p,e)]).sort((a,b)=>a[1]-b[1]);
+      if(list[1])ang2=Math.atan2(list[1][0].y-p.y,list[1][0].x-p.x);
+      [[ang,'#ccffee'],[ang2,'#ffee88']].forEach(([aa,col])=>spawnBeam(p,aa,{
+        col,len,halfAng:ha,life:LB.life,tickInt:0.18,
+        dmg:dmg*1.5,slowDur:LB.slowDur+0.5,wt:'beam',bigClick:true
+      }));
+      break;
+    }
     case 'shibuki':{
       // 여우신의 변덕: 틱마다 데미지 럭 (0.4x/1.6x/4x), 폭딜 시 화면 흔들림
       const wideBeam=isEvo;
@@ -2581,7 +2598,9 @@ class Enemy{
     this.x=x;this.y=y;this.type=type;this.dead=false;
     this.flash=0;this.slow=0;this.ct=0;this.elite=elite;
     this.kvx=0;this.kvy=0;
-    const w=Math.floor(gameTime/30),hs=1+gameTime*0.013,em=elite?2.2:1;  // 0.015→0.013 (후반 체력 곡선 완화)
+    const w=Math.floor(gameTime/30),em=elite?2.2:1;
+    // 적 HP 배수: 11분(660s)에 무릎 → 이후 기울기 0.013→0.005로 꺾어 후반 스펀지 완화 (물량은 spawnEnemies에서 보상)
+    const hs=gameTime<=660?1+gameTime*0.013:1+660*0.013+(gameTime-660)*0.005;
     if(type==='zombie'){
       this.hp=this.mhp=(35+w*8)*hs*em;this.spd=(38+w*1.5)*(elite?1.2:1);
       this.dmg=(10+w)*em;this.col='#44bb44';this.sz=12*(elite?1.3:1);this.xv=3*(elite?3:1);
@@ -3484,6 +3503,50 @@ function drawResultCard(){
   G.globalAlpha=0.6+pulse*0.4;
   G.fillStyle=form.col;G.font='bold 14px Courier New';G.textAlign='center';
   G.fillText('▶ 클릭하여 계속 ◀',LW/2,by+bh-12);
+  G.restore();
+}
+// 📞 야근 전화 컷신 — 졸린 윤소민 2연속 시. 소민 클로즈업 + 휴대폰 + 말풍선 대사.
+function drawWorkCutscene(){
+  if(!player||!player.workCut)return;
+  const line1=player.workCut===1;  // 1: 사장 호통 / 2: 소민 사과
+  const now=performance.now();
+  G.save();
+  G.fillStyle='rgba(0,0,0,0.8)';G.fillRect(0,0,LW,LH);
+  // ── 소민 클로즈업 (좌측, 크게) ──
+  const cx=LW*0.28, cy=LH*0.60, sc=8;
+  const g=G.createRadialGradient(cx,cy,10,cx,cy,170);
+  g.addColorStop(0,'rgba(255,210,90,0.20)');g.addColorStop(1,'rgba(255,210,90,0)');
+  G.fillStyle=g;G.beginPath();G.arc(cx,cy,170,0,Math.PI*2);G.fill();
+  G.save();
+  const jitter=Math.sin(now/55)*0.35;  // 다급한 떨림
+  G.translate(cx+jitter,cy+44);G.scale(sc,sc);
+  sChar(0,0,player.cd,1,false);
+  G.restore();
+  // 휴대전화 (귀에 댄 느낌, 머리 우측)
+  const phx=cx+44, phy=cy-78;
+  G.save();G.translate(phx,phy);G.rotate(0.32);
+  G.fillStyle='#0c0c10';G.fillRect(-11,-22,22,44);
+  G.strokeStyle='#444';G.lineWidth=2;G.strokeRect(-11,-22,22,44);
+  G.fillStyle=line1?'#ff5555':'#3aa0ff';G.fillRect(-8,-17,16,30);
+  if(Math.floor(now/300)%2){G.fillStyle='#fff';G.font='bold 11px serif';G.textAlign='center';G.fillText('📞',0,3);}
+  G.restore();
+  // ── 말풍선 ──
+  const txt=line1?'윤소민!!! 일 안 해?!':'죄송합니다!!! 열심히 하겠습니다 🙇';
+  const sub=line1?'— 사장님 (전화)':'— 윤소민';
+  const bx=LW*0.50, by=LH*0.26, bw=LW*0.46, bh=120;
+  G.fillStyle='#fff';G.fillRect(bx,by,bw,bh);
+  G.strokeStyle=line1?'#ff4444':'#ffcc22';G.lineWidth=5;G.strokeRect(bx,by,bw,bh);
+  // 꼬리 (소민/전화 쪽을 향함)
+  G.fillStyle='#fff';G.beginPath();G.moveTo(bx,by+bh*0.62);G.lineTo(bx-26,by+bh*0.52);G.lineTo(bx,by+bh*0.40);G.closePath();G.fill();
+  G.fillStyle=line1?'#ff4444':'#ffcc22';G.beginPath();G.moveTo(bx,by+bh*0.62);G.lineTo(bx-26,by+bh*0.52);G.lineTo(bx,by+bh*0.40);G.closePath();G.stroke();
+  G.fillStyle='#cc1111';G.font='bold 17px Courier New';G.textAlign='center';
+  if(line1)G.fillStyle='#cc1111';else G.fillStyle='#1a6633';
+  G.fillText(txt,bx+bw/2,by+bh/2+2);
+  G.fillStyle='#999';G.font='12px Courier New';G.fillText(sub,bx+bw/2,by+bh-16);
+  // 클릭 안내
+  const pulse=0.5+0.5*Math.sin(now/250);
+  G.globalAlpha=0.5+pulse*0.5;G.fillStyle='#ffcc22';G.font='bold 14px Courier New';G.textAlign='center';
+  G.fillText('▶ 클릭하여 계속 ◀',LW/2,LH-26);
   G.restore();
 }
 // 룰렛 애니메이션 (윤소민 변신 진행 중) — ease-out 감속으로 결과에 정확히 안착
@@ -4654,9 +4717,21 @@ function renderResult(win){
 // ═══ SPAWN ═══
 function spawnEnemies(dt){
   spawnT-=dt;if(spawnT>0)return;
-  const wave=Math.floor(gameTime/30),cnt=Math.min(3+wave*2,15);  // 동시 스폰 22→18→15 (물량 벽 완화: 강빌드 처치속도 ~20/s와 균형)
+  const wave=Math.floor(gameTime/30);
+  // 11분(660s) 이후 후반 램프: HP 완화분을 물량으로 보상. 분당 +1, 최대 +5 (상한 15→20)
+  const lateMin=Math.max(0,(gameTime-660)/60);
+  const capBoost=Math.min(5,Math.round(lateMin));
+  const cnt=Math.min(3+wave*2,15+capBoost);
+  // 플레이어 진행(이동) 방향 ±35° 콘은 스폰 절반으로 줄여 '도망 통로' 형성
+  const fang=Math.atan2(player.facing.y,player.facing.x);
   for(let i=0;i<cnt;i++){
-    const a=Math.random()*Math.PI*2,r=310+Math.random()*110;
+    let a;
+    for(let tries=0;tries<4;tries++){
+      a=Math.random()*Math.PI*2;
+      let da=a-fang;while(da>Math.PI)da-=Math.PI*2;while(da<-Math.PI)da+=Math.PI*2;
+      if(Math.abs(da)>0.61||Math.random()>0.5)break;  // 콘(0.61rad≈35°) 밖이면 채택, 안이면 50%만 채택(나머지 리롤)
+    }
+    const r=310+Math.random()*110;
     const ex=player.x+Math.cos(a)*r,ey=player.y+Math.sin(a)*r;
     const rv=Math.random();
     let type='zombie';
@@ -4677,7 +4752,7 @@ function spawnEnemies(dt){
     const elite=Math.random()<0.08;
     enemies.push(new Enemy(ex,ey,type,elite));
   }
-  spawnT=Math.max(0.5,2.2-wave*0.15);  // 스폰 간격 하한 0.4→0.5 (밀도 완화)
+  spawnT=Math.max(Math.max(0.42,0.5-lateMin*0.02),2.2-wave*0.15);  // 11분 이후 간격 하한 0.5→0.42로 점감 (물량 보상)
 }
 
 // ═══ MAIN ═══
@@ -4770,11 +4845,35 @@ c.addEventListener('click',e=>{
     else if(sb===1){canvasAutoFit=!canvasAutoFit;if(canvasAutoFit)autoFitCanvas()}
     return;
   }
+  // 📞 야근 전화 컷신 진행 (사장 대사 → 소민 대사 → 야근모드 발동)
+  if(state==='playing'&&player&&player.workCut>0&&rouletteOn(player)){
+    player.workCut++;
+    if(player.workCut>2){
+      // 컷신 끝 → 야근 윤소민 발동 (손전등 2개 30초)
+      player.workCut=0;
+      player.streamerForm=WORK_FORM;
+      player.streamerT=30;
+      player.lastWasSleep=false;
+      paused=false;
+      for(const k in keys)keys[k]=false;
+      SFX.phialReady();
+      notify('📞 야근 윤소민!','손전등 2개 풀가동 — 30초','#ffcc22');
+    }else SFX.shoot();
+    return;
+  }
   // 윤소민 룰렛 결과 카드 클릭 → 변신 적용 + 게임 재개
   if(state==='playing'&&player&&player.awaitingClick&&rouletteOn(player)){
+    // 졸린 윤소민 2연속 (소민 전용) → sleep 미적용, 전화 컷신으로 전환
+    if(player.rouletteResult&&player.rouletteResult.id==='sleep'&&player.lastWasSleep&&player.cd.id==='sm'){
+      player.awaitingClick=false;
+      player.workCut=1;
+      SFX.over();
+      return;
+    }
     player.streamerForm=player.rouletteResult;
     player.streamerT=30;
     player.awaitingClick=false;
+    player.lastWasSleep=(player.rouletteResult&&player.rouletteResult.id==='sleep');  // 졸음 연속 추적
     paused=false;  // 룰렛 중 실수로 P 눌러도 클릭 시 자동으로 일시정지 해제
     for(const k in keys)keys[k]=false;  // 룰렛 중 눌린 키 초기화 (클릭 후 이동 고정 버그 방지)
     SFX.lvUp();
@@ -4823,8 +4922,9 @@ function update(dt){
     }
     return;
   }
-  // 룰렛 결과 카드 클릭 대기 중에도 게임 정지
+  // 룰렛 결과 카드 클릭 대기 / 야근 전화 컷신 중에도 게임 정지
   if(player&&player.awaitingClick&&rouletteOn(player))return;
+  if(player&&player.workCut>0&&rouletteOn(player))return;
   gameTime+=dt;
   afrT+=dt;if(afrT>0.18){afr++;afrT=0}
   player.update(dt);spawnEnemies(dt);
@@ -4982,9 +5082,10 @@ function render(){
     G.fillText('🛡️ GOD MODE (` 토글)',LW/2,30);
     G.textBaseline='alphabetic';G.restore();
   }
-  // 윤소민 룰렛 + 결과 카드
+  // 윤소민 룰렛 + 결과 카드 + 야근 컷신
   drawRouletteAnim();
   drawResultCard();
+  drawWorkCutscene();
   if(paused)drawPauseOverlay();
   if(state==='levelup')renderLevelUp();
   if(state==='dead')renderResult(false);

@@ -42,7 +42,7 @@ BAL 구조:
 - `BAL.wpn.{ram,fullspec,knife,...}` — 무기 데미지 배수/속도/크기
 - `BAL.beam.{shibuki,riko,huya,lize,tabi,sleep,hina,...}` — 윤소민 변신별 빔 효과
 - `BAL.regen` — 회복 틱/전투 잠금
-- `BAL.rouletteProb` — 룰렛 확률 (sleep 0.15 / hina 0.06 / each 0.158)
+- `BAL.rouletteProb` — 룰렛 확률 (sleep 0.10 / hina 0.12 / each 0.156)
 - `BAL.passive.{pill,bark,warrant,...}` — 패시브 아이템 레벨당 효과
 
 ---
@@ -150,8 +150,11 @@ start firefox index.html
 
 - **골드 적립(분수)**: 일반 0.08·탱크 0.25·엘리트 0.45·보스 8·새끼 0.02 → 한 판 ~1000골드, 전체 만렙(~4500) ~6-8판. (`Enemy.die`/`Boss.die`, HUD·뱅킹 `Math.floor`)
 - **기본 체젠**: `BAL.regen.base=1.2`(HP/초, 비전투) — 진통제 없어도 회복. 회복잠금 `combatLockDur=1.0`.
-- **적 HP 곡선**: `hs=1+gameTime*0.013` (0.015에서 완화).
-- **스폰 밀도**: `cnt=min(3+wave*2,15)`, `spawnT=max(0.5,2.2-wave*0.15)` → 5분 ~21마리/초.
+- **적 HP 곡선**: `hs= t<=660 ? 1+t*0.013 : 1+660*0.013+(t-660)*0.005` — **11분(660s) 무릎**, 이후 기울기 절반(0.013→0.005)으로 후반 스펀지 완화. 15분 배수 12.7→10.8.
+- **스폰 밀도**: `cnt=min(3+wave*2, 15+capBoost)`, `capBoost=min(5,round((t-660)/60))` (11분+ 분당 +1, 최대 +5). `spawnT` 하한 11분+ 0.5→0.42로 점감. → **HP↓를 물량↑으로 보상**.
+- **진행방향 도망통로**: 스폰 각도가 `player.facing` ±35°(0.61rad) 콘 안이면 50% 리롤 → 앞쪽 밀도 절반(측정 19.4%→10%).
+- **룰렛 확률**: `BAL.rouletteProb` sleep **0.10** / hina **0.12** / each **0.156** (×5). (이전 0.15/0.06/0.158).
+- **📞 야근 윤소민 이벤트**: 졸린 윤소민(sleep) **2연속**(소민 전용) 시 sleep 미적용 → 전화 컷신(`drawWorkCutscene`, `player.workCut` 1=사장/2=소민, 클릭 진행) → `WORK_FORM`(손전등 2개 30초 풀가동, `applyStreamerLight` case 'workmode'). 추적: `player.lastWasSleep`. 컷신/야근 중 update 정지(`workCut>0` 가드).
 - **해골**: `BAL.enemy.skel` projSpd 150(플레이어 100~128 회피가능)·fire 4.5~8·스폰비중 200s+10%/300s+9%.
 - **기종 dm 1.3** (1.4에서), **gj def 0.85**.
 
