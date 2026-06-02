@@ -2310,7 +2310,7 @@ class Proj{
         break;
       }
       case 'knife':{
-        G.rotate(ang+spinT*0.8);  // 던진 칼 텀블링 회전 (정적 페이드 → 활발한 투사체)
+        G.rotate(ang);  // 진행방향 고정 (회전 X — 어지럼 방지)
         const fancy=false;
         // 칼날 (커다란 삼각형)
         G.fillStyle=fancy?'#ffcc66':'#dddddd';
