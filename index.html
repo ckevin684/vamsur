@@ -1100,9 +1100,11 @@ class Player{
     // 최종원 주문 폭주 활성 시 발사 속도 ×2 / 기종 분노/휠체어 — BAL 참조
     const rushAsMul=(this.cd.id==='jw'&&this.rushT>0)?BAL.char.jw.rushAsMul:1;
     const gjAsMul=(this.cd.id==='gj'&&this.gjPhase==='rage')?BAL.char.gj.rageAsMul:(this.cd.id==='gj'&&this.gjPhase==='wheelchair')?(this.curedGj()?BAL.char.gj.curedWheelAsMul:BAL.char.gj.wheelAsMul):1;
+    // 휠체어 중엔 무적+한방 돌진이라 모든 무기 발사 정지 (주운 무기 포함). 타이머는 계속 돌려 종료 후 정상 재개
+    const wheelLock=(this.cd.id==='gj'&&this.gjPhase==='wheelchair');
     this.wpns.forEach(w=>{
       w.t-=dt;
-      if(w.t<=0){fireWpn(w.type,this,w.lv||1);w.t=(WDEFS[w.type]?.cd||1)*wlvAt(WLV.cdM,w.lv||1)/(this.as*rushAsMul*gjAsMul)}
+      if(w.t<=0){if(!wheelLock)fireWpn(w.type,this,w.lv||1);w.t=(WDEFS[w.type]?.cd||1)*wlvAt(WLV.cdM,w.lv||1)/(this.as*rushAsMul*gjAsMul)}
     });
     // HP 회복 — 비전투 시에만 작동 (피격 후 regenLockT 2초간 잠금, 휠체어 시 잠금)
     if(this.regenLockT>0)this.regenLockT-=dt;
