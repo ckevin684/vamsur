@@ -822,7 +822,8 @@ let gameTime=0,spawnT=0,bossIdx=0,bossActive=false;
 let hitStop=0;  // 히트스톱 — 큰 타격 순간 게임 잠깐 정지 (타격감 juice)
 
 // ═══ 메타 진행 (영구 업그레이드 — localStorage, VS 스타일) ═══
-const META_DEFAULTS={gold:0, up:{hp:0,dmg:0,spd:0,xp:0,crit:0,armor:0,revive:0}, roulette:0};
+const META_DEFAULTS={gold:0, up:{hp:0,dmg:0,spd:0,xp:0,crit:0,armor:0,revive:0}, roulette:0,
+  best:{time:0,kills:0,dmg:0,wins:0,plays:0}};  // 하이스코어(영구): 최고 생존/킬/데미지, 승리·플레이 횟수
 const META_UPGRADES=[
   {id:'hp',   name:'❤️ 체력 강화', desc:'최대 HP',   max:5, cost:l=>40+l*40, eff:l=>1+l*0.08, fmt:l=>'+'+Math.round(l*8)+'%'},
   {id:'dmg',  name:'⚔️ 공격 강화', desc:'데미지',     max:5, cost:l=>50+l*55, eff:l=>1+l*0.05, fmt:l=>'+'+Math.round(l*5)+'%'},
@@ -835,7 +836,7 @@ const META_UPGRADES=[
 const ROULETTE_COST=300;
 function loadMeta(){
   try{ const r=JSON.parse(localStorage.getItem('vamsur_meta'));
-    if(r&&typeof r==='object') return Object.assign({},META_DEFAULTS,r,{up:Object.assign({},META_DEFAULTS.up,r.up||{})});
+    if(r&&typeof r==='object') return Object.assign({},META_DEFAULTS,r,{up:Object.assign({},META_DEFAULTS.up,r.up||{}),best:Object.assign({},META_DEFAULTS.best,r.best||{})});
   }catch(e){}
   return JSON.parse(JSON.stringify(META_DEFAULTS));
 }
@@ -844,7 +845,20 @@ let META=loadMeta();
 let runGold=0;       // 이번 판에서 번 골드
 let runBanked=false; // 판 종료 시 1회만 적립
 let runRevives=0;    // 이번 판 사용한 부활 횟수
-function bankRun(){ if(runBanked)return; META.gold+=Math.floor(runGold); saveMeta(); runBanked=true; }
+let runRecords={time:false,kills:false,dmg:false};  // 이번 판 갱신한 신기록 (결과화면 배지용)
+function bankRun(win){
+  if(runBanked)return;
+  META.gold+=Math.floor(runGold);
+  // 하이스코어 갱신
+  const b=META.best;
+  runRecords={time:gameTime>b.time, kills:killCount>b.kills, dmg:totalDmg>b.dmg};
+  if(runRecords.time)b.time=gameTime;
+  if(runRecords.kills)b.kills=killCount;
+  if(runRecords.dmg)b.dmg=totalDmg;
+  b.plays=(b.plays||0)+1;
+  if(win)b.wins=(b.wins||0)+1;
+  saveMeta(); runBanked=true;
+}
 function rouletteOn(p){ return !!p && (p.cd.id==='sm' || META.roulette); }
 // 룰렛 변신 — 소민 외 캐릭(해금 시)에게 전 무기 데미지 배율 부여 (소민은 빔 변신이 정체성이라 제외)
 function streamerBuff(p){
@@ -4246,6 +4260,16 @@ function renderTitle(){
     G.fillStyle=hov?'#000':'#eee';G.font=`bold ${i===0?20:16}px Courier New`;G.textAlign='center';
     G.fillText(b.label,LW/2,by+bh/2+(i===0?7:5));
   });
+  // 🏆 최고 기록 (하이스코어) — 기록이 있을 때만
+  const hb=META.best;
+  if(hb&&(hb.time>0||hb.kills>0||hb.dmg>0)){
+    const hm=String(Math.floor(hb.time/60)).padStart(2,'0'),hs2=String(Math.floor(hb.time%60)).padStart(2,'0');
+    G.textAlign='center';G.fillStyle='#ffcc44';G.font='bold 12px Courier New';
+    G.fillText('🏆 최고 기록',LW/2,LH-58);
+    G.fillStyle='#ccb06a';G.font='11px Courier New';
+    G.fillText(`⏱ ${hm}:${hs2}   💀 ${hb.kills}   💥 ${Math.floor(hb.dmg).toLocaleString()}`,LW/2,LH-40);
+    if(hb.wins>0){G.fillStyle='#88dd88';G.font='10px Courier New';G.fillText(`👑 클리어 ${hb.wins}회 · 플레이 ${hb.plays||0}판`,LW/2,LH-26);}
+  }
   // 하단 크레딧
   G.fillStyle='#444';G.font='10px Courier New';G.textAlign='center';
   G.fillText('v1.0 · made with friends',LW/2,LH-12);
@@ -4591,7 +4615,7 @@ function getUpgradeAt(mx,my){for(let i=0;i<upgradeChoices.length;i++){if(mx>105+
 
 // ═══ RESULT ═══
 function renderResult(win){
-  bankRun();  // 판 종료 시 골드 적립 (1회)
+  bankRun(win);  // 판 종료 시 골드 적립 + 하이스코어 갱신 (1회)
   // 배경
   const bg=G.createRadialGradient(LW/2,LH/2,0,LW/2,LH/2,LH);
   if(win){bg.addColorStop(0,'#3a2a05');bg.addColorStop(1,'#0a0805')}
@@ -4641,16 +4665,17 @@ function renderResult(win){
   // 통계 행
   G.font='12px Courier New';G.textAlign='left';
   const sX=LW/2-180,sX2=LW/2+20;
-  G.fillStyle='#888';G.fillText('⏱  생존',sX,158);G.fillStyle='#fff';G.fillText(`${mm}:${ss}`,sX+80,158);
+  const newBadge=(x,y)=>{const bl=0.5+0.5*Math.sin(gameTime*8);G.save();G.globalAlpha=0.6+bl*0.4;G.fillStyle='#ffdd44';G.font='bold 10px Courier New';G.fillText('🏆 신기록!',x,y);G.restore();G.font='12px Courier New';G.textAlign='left';};
+  G.fillStyle='#888';G.fillText('⏱  생존',sX,158);G.fillStyle='#fff';G.fillText(`${mm}:${ss}`,sX+80,158);if(runRecords.time)newBadge(sX+128,158);
   G.fillStyle='#888';G.fillText('⭐  레벨',sX,178);G.fillStyle='#88ccff';G.fillText(`Lv.${player.lv}`,sX+80,178);
-  G.fillStyle='#888';G.fillText('💀  처치',sX,198);G.fillStyle='#ff8866';G.fillText(`${killCount}`,sX+80,198);
+  G.fillStyle='#888';G.fillText('💀  처치',sX,198);G.fillStyle='#ff8866';G.fillText(`${killCount}`,sX+80,198);if(runRecords.kills)newBadge(sX+128,198);
   G.fillStyle='#888';G.fillText('👤  캐릭터',sX2,158);G.fillStyle=player.cd.color;G.fillText(player.cd.name,sX2+80,158);
   G.fillStyle='#888';G.fillText('🎒  아이템',sX2,178);G.fillStyle='#fff';G.fillText(`${player.pCnt()}개`,sX2+80,178);
   G.fillStyle='#888';G.fillText('⚔  무기 슬롯',sX2,198);G.fillStyle='#fff';G.fillText(`${player.wpns.length}/${W_SLOTS}`,sX2+80,198);
   // 💥 누적 데미지 / DPS / 최고 단일타 (강조 라인)
   const dps=totalDmg/Math.max(gameTime,1);
   G.textAlign='center';G.font='bold 11px Courier New';G.fillStyle='#ffcc44';
-  G.fillText(`💥 총 데미지 ${Math.floor(totalDmg).toLocaleString()}   ·   DPS ${Math.floor(dps).toLocaleString()}   ·   최고타 ${Math.floor(dmgPeak).toLocaleString()}`,LW/2,217);
+  G.fillText(`💥 총 데미지 ${Math.floor(totalDmg).toLocaleString()}${runRecords.dmg?' 🏆':''}   ·   DPS ${Math.floor(dps).toLocaleString()}   ·   최고타 ${Math.floor(dmgPeak).toLocaleString()}`,LW/2,217);
   // 무기 카드
   G.textAlign='center';G.fillStyle='#ff8866';G.font='bold 10px Courier New';G.fillText('⚔ 무기',LW/2,225);
   player.wpns.forEach((w,i)=>{
@@ -4759,7 +4784,7 @@ function spawnEnemies(dt){
 function startGame(cd){
   player=new Player(cd);enemies=[];projs=[];gems=[];parts=[];boss=null;
   applyMetaUpgrades(player);  // 영구 업그레이드 적용
-  runGold=0;runBanked=false;runRevives=0;  // 이번 판 골드/부활 초기화
+  runGold=0;runBanked=false;runRevives=0;runRecords={time:false,kills:false,dmg:false};  // 이번 판 골드/부활/신기록 초기화
   gameTime=0;spawnT=0;bossIdx=0;bossActive=false;killCount=0;afr=0;afrT=0;totalDmg=0;dmgPeak=0;dmgByWpn={};
   dmgTexts=[];hitSparks=[];notifs=[];pickups=[];decals=[];lvUpBursts=[];
   shakeT=0;shakeM=0;combo=0;comboT=0;comboMax=0;paused=false;pendingLvUps=0;
