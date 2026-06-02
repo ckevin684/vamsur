@@ -683,6 +683,7 @@ const BAL={
     staff:{r:120, life:0.5, maxMul:2.2, minMul:1.2},  // 거리감쇠 킬존: 중심2.2/가장자리1.2 (면적평균~1.5≈기존1.6, DPS유지)
     awakegj:{r:155, life:0.5, maxMul:3.2, minMul:1.8, slamOffset:40},  // 진화: 쌍지팡이 좌우 슬램 킬존(왼손/오른손)
     mungchi:{dmgBase:24, evoMul:1.75},  // 진화 밸류↑ evoMul 1.35→1.75 (언리쉬드)
+    unleash:{waveDmgMul:3.2, waveSpeed:320, waveLife:1.3, waveSz:15},  // 진화: 황금뭉치 와이파이 관통음파 (뭉치보다 DPS↑ — 관통이라 호드선 더 셈)
     gsword:{swordDmgMul:1.3, swordR:52, swordSpan:100, swordLife:0.22,
             axeDmgMul:3.5, axeR:72, axeSpan:140, axeLife:0.32},  // axe 4.0→3.5 너프
     caff:{swordDmgMul:1.9, swordR:56, swordSpan:110, axeDmgMul:5.0, axeR:80, axeSpan:150,
@@ -1478,14 +1479,29 @@ class Player{
       G.beginPath();G.arc(this.x,this.y,32+pulse*6,0,Math.PI*2);G.fill();
       G.restore();
     }
+    // 🐕 황금 뭉치 오라 (초사이언 — 진화 시)
+    if(this.wpns.some(w=>w.type==='unleash')){
+      const pl=0.5+0.5*Math.sin(gameTime*14);
+      G.save();
+      G.globalAlpha=0.35+pl*0.25;G.fillStyle='#ffdd22';
+      G.beginPath();G.arc(this.x,this.y-2,20+pl*5,0,Math.PI*2);G.fill();
+      G.globalAlpha=0.18+pl*0.12;G.fillStyle='#ffffaa';
+      G.beginPath();G.arc(this.x,this.y-2,30+pl*8,0,Math.PI*2);G.fill();
+      // 위로 솟는 금빛 불꽃 줄기
+      G.globalAlpha=0.5+pl*0.3;G.strokeStyle='#ffe855';G.lineWidth=2;
+      for(let i=-2;i<=2;i++){G.beginPath();G.moveTo(this.x+i*5,this.y-8);G.lineTo(this.x+i*5+Math.sin(gameTime*10+i)*3,this.y-26-pl*8);G.stroke();}
+      G.restore();
+    }
     G.save();G.translate(this.x,this.y);
     // 기종 분노 시 캐릭터 90도 꺾임 (허리 부러진 느낌)
     if(this.cd.id==='gj'&&this.gjPhase==='rage'){
       G.rotate(Math.PI/2);
     }
+    const unleashed=this.wpns.some(w=>w.type==='unleash');
     const sx=this.facing.x<0?-0.72:0.72;
     G.scale(sx,0.72);G.translate(-this.x,-this.y);
-    sChar(this.x,this.y,this.cd,afr,fl);
+    if(unleashed)drawGoldenMungchi(this.x,this.y,afr);  // 진화: 황금 초사이언 뭉치
+    else sChar(this.x,this.y,this.cd,afr,fl);
     // 윤소민 변신 시 외형 액세서리
     if(!fl&&rouletteOn(this)&&this.streamerForm&&this.rouletteT<=0){
       drawStreamerAccessory(this.x,this.y,this.streamerForm);
@@ -1789,15 +1805,22 @@ function fireWpn(type,p,wlv){
       shake(0.045,1.6);  // 슬램 미세 흔들림 (잦으니 약하게 — 멀미 방지)
       break;
     }
-    case 'mungchi':
-    case 'unleash':{
-      // 컴패니언: 항상 1마리 (진화 언리쉬드는 옆에 붙어 계속 짖기 — 강아지 고증)
-      const evolved=type==='unleash';
-      const wantCount=1;
+    case 'mungchi':{
+      // 기본: 뭉치 컴패니언 1마리 (물기/짖기)
       if(!p.companions)p.companions=[];
-      p.companions.forEach(c=>c.evolved=evolved);
-      while(p.companions.length<wantCount)p.companions.push(new Companion(p,evolved));
-      while(p.companions.length>wantCount)p.companions.pop();
+      p.companions.forEach(c=>c.evolved=false);
+      while(p.companions.length<1)p.companions.push(new Companion(p,false));
+      while(p.companions.length>1)p.companions.pop();
+      break;
+    }
+    case 'unleash':{
+      // 진화: 플레이어가 황금 뭉치로 변신 — 컴패니언 제거, 앞으로 와이파이 관통 음파 발사
+      if(p.companions)p.companions.length=0;
+      const t2=p.nearest(), wa=t2?Math.atan2(t2.y-p.y,t2.x-p.x):Math.atan2(p.facing.y,p.facing.x);
+      const U=BAL.wpn.unleash, dM2=wlvAt(WLV.dmgM,wlv);
+      const wdmg=18*p.dm*dM2*(1+Math.max(0,p.lv-1)*0.04)*U.waveDmgMul;
+      const pr=new Proj(p.x,p.y,Math.cos(wa)*U.waveSpeed,Math.sin(wa)*U.waveSpeed,wdmg,U.waveLife,'#ffdd33',U.waveSz*am,999,'wifi');
+      pr.waveAng=wa; projs.push(pr); SFX.shoot();
       break;
     }
     case 'gsword':{
@@ -2570,6 +2593,22 @@ class Proj{
         // 폼멜
         G.fillStyle=fancy?'#882200':'#3a2010';
         G.fillRect(-s*1.85,-s*0.32,s*0.18,s*0.64);
+        break;
+      }
+      case 'wifi':{
+        // 🐕 황금뭉치 와이파이 음파 — 진행방향으로 펼쳐진 동심 호(📶) + 잔진동
+        G.rotate(this.waveAng||ang);
+        const s=this.sz, jit=Math.sin(gameTime*40)*s*0.05;
+        // 글로우
+        G.globalAlpha=al*0.3;G.fillStyle='#ffee88';G.beginPath();G.arc(0,jit,s*1.1,-0.85,0.85);G.fill();
+        // 동심 호 3겹 (앞쪽 +x로 펼쳐짐)
+        for(let i=1;i<=3;i++){
+          G.globalAlpha=al*(0.95-i*0.14);
+          G.strokeStyle=i===1?'#ffffff':'#ffdd22';G.lineWidth=Math.max(2,s*0.22);
+          G.beginPath();G.arc(0,jit,s*0.34*i,-0.8,0.8);G.stroke();
+        }
+        // 중심 점 (와이파이 원점)
+        G.globalAlpha=al;G.fillStyle='#fff';G.beginPath();G.arc(0,jit,s*0.16,0,Math.PI*2);G.fill();
         break;
       }
       case 'btclaser':{
@@ -4061,6 +4100,36 @@ function drawRouletteAnim(){
   G.fillStyle='#ffaa44';G.fillRect(bx+12,by+bh-12,(bw-24)*prog,4);
   G.restore();
 }
+// 🐕✨ 황금 초사이언 뭉치 (언리쉬드 진화 시 플레이어 외형). 외부 G가 좌우반전/스케일 처리.
+function drawGoldenMungchi(x,y,fr){
+  const t=Math.floor(fr)%2;
+  const gold='#ffd83a', glt='#fff0a0', gsh='#d49a14', blk='#3a2a00';
+  G.save();
+  // 다리
+  G.fillStyle=gsh;
+  G.fillRect(x-9,y+4+(t?1:0),4,5);G.fillRect(x-3,y+4+(t?0:1),4,5);
+  G.fillRect(x+1,y+4+(t?1:0),4,5);G.fillRect(x+6,y+4+(t?0:1),4,5);
+  // 몸통 (큰 황금 솜뭉치)
+  G.fillStyle=gold;G.fillRect(x-11,y-5,21,10);
+  G.fillStyle=glt;G.fillRect(x-10,y-5,18,3);
+  G.fillStyle=gsh;G.fillRect(x-11,y+3,21,2);
+  // 스파이키 황금 털 (위로 솟음 — 초사이언)
+  G.fillStyle=gold;
+  for(let i=-2;i<=2;i++){const sx2=x+i*4;G.beginPath();G.moveTo(sx2-3,y-4);G.lineTo(sx2,y-14+(Math.abs(i)===2?3:0));G.lineTo(sx2+3,y-4);G.closePath();G.fill();}
+  // 머리
+  G.fillStyle=gold;G.fillRect(x-6,y-9,12,8);
+  G.fillStyle=glt;G.fillRect(x-6,y-9,12,2);
+  // 뾰족 귀
+  G.fillStyle=gsh;
+  G.beginPath();G.moveTo(x-6,y-9);G.lineTo(x-9,y-15);G.lineTo(x-2,y-10);G.closePath();G.fill();
+  G.beginPath();G.moveTo(x+6,y-9);G.lineTo(x+9,y-15);G.lineTo(x+2,y-10);G.closePath();G.fill();
+  // 결연한 눈
+  G.fillStyle='#fff';G.fillRect(x-4,y-6,3,3);G.fillRect(x+1,y-6,3,3);
+  G.fillStyle=blk;G.fillRect(x-3,y-5,2,2);G.fillRect(x+2,y-5,2,2);
+  // 코 + 으르렁 입
+  G.fillStyle=blk;G.fillRect(x-1,y-2,2,2);G.fillRect(x-2,y+1,4,1);
+  G.restore();
+}
 function drawCocker(x,y,fr,evolved,flip){
   // 뭉치 — 흰 솜털 포메. 실제 뭉치 사진 기반 (흰 솜뭉치, 작은 검은 눈, 검은 단추 코, 살짝 어두운 입가, 작은 뾰족 귀)
   // (함수명은 호환 위해 그대로; 외형은 흰 포메)
@@ -4208,7 +4277,8 @@ function triggerLvUp(){
       tag:'✨진화',
       name:`✨ ${WDEFS[ev.res].name}`,
       desc:`${WDEFS[w.type].name} → ${WDEFS[ev.res].name}`,
-      fn:()=>{w.type=ev.res;w.lv=1;SFX.evolve();notify('✨ 진화 완료!',WDEFS[ev.res].name,'#ffdd44')}
+      fn:()=>{w.type=ev.res;w.lv=1;SFX.evolve();notify('✨ 진화 완료!',WDEFS[ev.res].name,'#ffdd44');
+        if(ev.res==='unleash'){if(player.companions)player.companions.length=0;shake(0.35,8);spawnParts(player.x,player.y,'#ffdd33',46);hitStop=Math.max(hitStop,0.3);notify('🐕✨ 각성!','초사이언 뭉치 — 와이파이 음파!','#ffdd22');}}
     });
   });
 
