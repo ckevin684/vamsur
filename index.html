@@ -923,7 +923,7 @@ let investResultOpen=false,investResultStart=0;  // 정산 결과 애니메이�
 let shopT=0,shopEnt=null,shopOpen=false,shopOffers=[],hovShop=-1;
 
 // ═══ 메타 진행 (영구 업그레이드 — localStorage, VS 스타일) ═══
-const META_DEFAULTS={gold:0, up:{hp:0,dmg:0,spd:0,xp:0,crit:0,armor:0,revive:0}, roulette:0,
+const META_DEFAULTS={gold:0, up:{hp:0,dmg:0,spd:0,xp:0,crit:0,armor:0,revive:0,reroll:0}, roulette:0,
   best:{time:0,kills:0,dmg:0,wins:0,plays:0}};  // 하이스코어(영구)
 const META_UPGRADES=[
   {id:'hp',   name:'❤️ 체력 강화', desc:'최대 HP',   max:5, cost:l=>40+l*40, eff:l=>1+l*0.08, fmt:l=>'+'+Math.round(l*8)+'%'},
@@ -933,6 +933,7 @@ const META_UPGRADES=[
   {id:'crit', name:'🎯 크리 강화', desc:'크리율',      max:5, cost:l=>55+l*50, eff:l=>l*0.03, fmt:l=>'+'+Math.round(l*3)+'%'},
   {id:'armor',name:'🛡️ 방어 강화', desc:'받는 피해',  max:5, cost:l=>55+l*55, eff:l=>1-l*0.04, fmt:l=>'-'+Math.round(l*4)+'%'},
   {id:'revive',name:'💗 부활',     desc:'사망 시 HP50% 부활(판당)', max:2, cost:l=>250+l*350, eff:l=>l, fmt:l=>l+'회'},
+  {id:'reroll',name:'🔄 새로고침',  desc:'레벨업 카드 리롤/판', max:8, cost:l=>150+l*120, eff:l=>2+l, fmt:l=>(2+l)+'회'},
 ];
 const ROULETTE_COST=300;
 function loadMeta(){
@@ -978,6 +979,7 @@ function applyMetaUpgrades(p){
   if(u.xp){ p.xpm*=U('xp').eff(u.xp); }
   if(u.crit){ p.crit+=U('crit').eff(u.crit); }
   if(u.armor){ p.def*=U('armor').eff(u.armor); }
+  p.rerolls = 2 + (u.reroll||0);  // 레벨업 새로고침: 기본 2 + 상점 구매(최대 8 → 총 10)
 }
 let godMode=false;  // 디버그 무적 — 콘솔에서 godMode=true 또는 게임 중 ` (백틱) 키로 토글
 let upgradeChoices=[],hovUI=-1,hovChar=-1,lastTs=0;
@@ -1501,7 +1503,15 @@ class Player{
     const unleashed=this.wpns.some(w=>w.type==='unleash');
     const sx=this.facing.x<0?-0.72:0.72;
     G.scale(sx,0.72);G.translate(-this.x,-this.y);
-    if(unleashed)drawGoldenMungchi(this.x,this.y,afr);  // 진화: 황금 초사이언 뭉치
+    if(unleashed){
+      // 진화: 원래 뭉치(흰 포메) 모습 + 초사이언 황금 틴트(가산혼합)
+      G.save();G.translate(this.x,this.y);G.scale(1.45,1.45);G.translate(-this.x,-this.y);  // 플레이어 사이즈감
+      drawCocker(this.x,this.y,afr,false,false);
+      G.globalCompositeOperation='lighter';
+      G.globalAlpha=0.3+0.18*Math.sin(gameTime*12);
+      G.fillStyle='#ffcc22';G.beginPath();G.arc(this.x,this.y-1,12,0,Math.PI*2);G.fill();
+      G.restore();
+    }
     else sChar(this.x,this.y,this.cd,afr,fl);
     // 윤소민 변신 시 외형 액세서리
     if(!fl&&rouletteOn(this)&&this.streamerForm&&this.rouletteT<=0){
@@ -1830,17 +1840,21 @@ function fireWpn(type,p,wlv){
         let dd=wdmg; if(e===boss)dd*=p.bdm; const cr=Math.random()<p.crit; if(cr)dd*=2;
         e.hurt(dd,cr,'wave');
       });
-      // 확장 파동 비주얼
-      projs.push({x:p.x,y:p.y,ang:wa,R,span,life:0.42,ml:0.42,dead:false,isAoe:true,wt:'wave',
+      // 큰 할퀴기 비주얼 (발톱 4줄이 앞으로 크게 긁음)
+      projs.push({x:p.x,y:p.y,ang:wa,R,span,life:0.32,ml:0.32,dead:false,isAoe:true,wt:'wave',
         update(dt){this.life-=dt;if(this.life<=0)this.dead=true;},
         draw(){
-          const al=clamp(this.life/this.ml,0,1),tt=1-al;
+          const al=clamp(this.life/this.ml,0,1),tt=1-al, sw=Math.min(1,tt*1.6);
           G.save();G.translate(this.x,this.y);G.rotate(this.ang);
-          G.globalAlpha=al*0.13;G.fillStyle='#ffdd44';
-          G.beginPath();G.moveTo(0,0);G.arc(0,0,this.R*Math.min(1,tt*1.2),-this.span/2,this.span/2);G.closePath();G.fill();
-          for(let i=0;i<3;i++){const wt=tt-i*0.13;if(wt<0||wt>1)continue;const r=this.R*wt;
-            G.globalAlpha=al*(1-wt)*0.95;G.strokeStyle=i===0?'#ffffff':'#ffdd22';G.lineWidth=7*(1-wt*0.5);
-            G.beginPath();G.arc(0,0,r,-this.span/2,this.span/2);G.stroke();}
+          G.lineCap='round';G.shadowColor='#ffcc33';G.shadowBlur=8;
+          for(let i=0;i<4;i++){
+            const a=(-this.span*0.42)+(this.span*0.84)*(i/3);
+            const r0=this.R*0.15, r1=this.R*(0.4+sw*0.6);
+            G.globalAlpha=al*0.95;G.strokeStyle=i%2?'#ffffff':'#ffe24a';G.lineWidth=Math.max(3,this.R*0.06)*(1-tt*0.35);
+            G.beginPath();G.moveTo(Math.cos(a)*r0,Math.sin(a)*r0);G.lineTo(Math.cos(a)*r1,Math.sin(a)*r1);G.stroke();
+          }
+          G.shadowBlur=0;G.lineCap='butt';
+          if(tt<0.3){G.globalAlpha=al*(1-tt*3.3)*0.5;G.fillStyle='#fff';G.beginPath();G.arc(0,0,this.R*0.18,0,Math.PI*2);G.fill();}
           G.restore();
         }
       });
@@ -4124,36 +4138,6 @@ function drawRouletteAnim(){
   G.fillStyle='#ffaa44';G.fillRect(bx+12,by+bh-12,(bw-24)*prog,4);
   G.restore();
 }
-// 🐕✨ 황금 초사이언 뭉치 (언리쉬드 진화 시 플레이어 외형). 외부 G가 좌우반전/스케일 처리.
-function drawGoldenMungchi(x,y,fr){
-  const t=Math.floor(fr)%2;
-  const gold='#ffd83a', glt='#fff0a0', gsh='#d49a14', blk='#3a2a00';
-  G.save();
-  // 다리
-  G.fillStyle=gsh;
-  G.fillRect(x-9,y+4+(t?1:0),4,5);G.fillRect(x-3,y+4+(t?0:1),4,5);
-  G.fillRect(x+1,y+4+(t?1:0),4,5);G.fillRect(x+6,y+4+(t?0:1),4,5);
-  // 몸통 (큰 황금 솜뭉치)
-  G.fillStyle=gold;G.fillRect(x-11,y-5,21,10);
-  G.fillStyle=glt;G.fillRect(x-10,y-5,18,3);
-  G.fillStyle=gsh;G.fillRect(x-11,y+3,21,2);
-  // 스파이키 황금 털 (위로 솟음 — 초사이언)
-  G.fillStyle=gold;
-  for(let i=-2;i<=2;i++){const sx2=x+i*4;G.beginPath();G.moveTo(sx2-3,y-4);G.lineTo(sx2,y-14+(Math.abs(i)===2?3:0));G.lineTo(sx2+3,y-4);G.closePath();G.fill();}
-  // 머리
-  G.fillStyle=gold;G.fillRect(x-6,y-9,12,8);
-  G.fillStyle=glt;G.fillRect(x-6,y-9,12,2);
-  // 뾰족 귀
-  G.fillStyle=gsh;
-  G.beginPath();G.moveTo(x-6,y-9);G.lineTo(x-9,y-15);G.lineTo(x-2,y-10);G.closePath();G.fill();
-  G.beginPath();G.moveTo(x+6,y-9);G.lineTo(x+9,y-15);G.lineTo(x+2,y-10);G.closePath();G.fill();
-  // 결연한 눈
-  G.fillStyle='#fff';G.fillRect(x-4,y-6,3,3);G.fillRect(x+1,y-6,3,3);
-  G.fillStyle=blk;G.fillRect(x-3,y-5,2,2);G.fillRect(x+2,y-5,2,2);
-  // 코 + 으르렁 입
-  G.fillStyle=blk;G.fillRect(x-1,y-2,2,2);G.fillRect(x-2,y+1,4,1);
-  G.restore();
-}
 function drawCocker(x,y,fr,evolved,flip){
   // 뭉치 — 흰 솜털 포메. 실제 뭉치 사진 기반 (흰 솜뭉치, 작은 검은 눈, 검은 단추 코, 살짝 어두운 입가, 작은 뾰족 귀)
   // (함수명은 호환 위해 그대로; 외형은 흰 포메)
@@ -4289,6 +4273,10 @@ function drawLvUpBursts(){
 // ═══ LEVEL UP ═══
 function triggerLvUp(){
   state='levelup';SFX.lvUp();
+  rollLvUpCards();
+}
+// 레벨업 카드 풀 생성 + 3장 선택 (새로고침이 재호출)
+function rollLvUpCards(){
   const evoPool=[],wpnPool=[],itmPool=[];
 
   // ✨ 진화: 무기 maxLv + 페어 아이템 maxLv
@@ -4389,6 +4377,13 @@ function triggerLvUp(){
   if(!upgradeChoices.length){
     upgradeChoices.push({tag:'보너스',name:'💚 회복',desc:'HP 50% 회복',lvBadge:'',fn:()=>{player.hp=Math.min(player.mhp,player.hp+player.mhp*0.5)}});
   }
+}
+// 레벨업 새로고침 — 남은 횟수 소모하고 카드 다시 뽑기
+function rerollLvUp(){
+  if(!player||(player.rerolls||0)<=0)return;
+  player.rerolls--;
+  rollLvUpCards();
+  SFX.shoot();
 }
 
 // ═══ WORLD ═══
@@ -5144,7 +5139,18 @@ function renderLevelUp(){
     G.fillStyle=hov?'#000':'#888';G.font='bold 10px Courier New';
     G.fillText(hov?'▶ 선택 ◀':'[ 클릭 ]',cx2+cw2/2,cy2+ch2-12);
   });
+  // 🔄 새로고침 버튼 (남은 횟수)
+  {
+    const r=rerollBtnRect(), rr=player.rerolls||0, can=rr>0;
+    G.fillStyle=can?'#173a2a':'#1c1c1c';G.fillRect(r.x,r.y,r.w,r.h);
+    G.strokeStyle=can?'#33cc88':'#444';G.lineWidth=2;G.strokeRect(r.x,r.y,r.w,r.h);
+    G.fillStyle=can?'#7fffcc':'#666';G.font='bold 14px Courier New';G.textAlign='center';G.textBaseline='middle';
+    G.fillText('🔄 새로고침  '+rr+'회 남음',LW/2,r.y+r.h/2+1);
+    G.textBaseline='alphabetic';
+    if(!can){G.fillStyle='#777';G.font='9px Courier New';G.fillText('(상점에서 새로고침 횟수 구매 — 최대 10)',LW/2,r.y+r.h+13);}
+  }
 }
+function rerollBtnRect(){return {x:LW/2-110,y:LH/2+104,w:220,h:30};}
 function getUpgradeAt(mx,my){for(let i=0;i<upgradeChoices.length;i++){if(mx>105+i*198&&mx<105+i*198+168&&my>LH/2-100&&my<LH/2+88)return i}return -1}
 
 // ═══ RESULT ═══
@@ -5475,7 +5481,11 @@ c.addEventListener('click',e=>{
   }
   if(state==='shop'){ shopBuy(getShopClick(m.x,m.y)); return; }
   if(state==='select'&&hovChar>=0)startGame(CHARS[hovChar]);
-  if(state==='levelup'){const i=getUpgradeAt(m.x,m.y);if(i>=0){
+  if(state==='levelup'){
+    // 🔄 새로고침 버튼
+    const rb=rerollBtnRect();
+    if(m.x>=rb.x&&m.x<=rb.x+rb.w&&m.y>=rb.y&&m.y<=rb.y+rb.h){ rerollLvUp(); return; }
+    const i=getUpgradeAt(m.x,m.y);if(i>=0){
     const choice=upgradeChoices[i];
     choice.fn(player);
     if(choice.tag==='무기 NEW')notify('⚔ 새 무기',choice.name,'#ff8844');
