@@ -3356,7 +3356,7 @@ class Companion{
   }
   doBark(){
     const lv=this.getWpnLv();
-    const r=90+lv*8+(this.evolved?30:0);
+    const r=(90+lv*8+(this.evolved?30:0))*(player.am||1);  // 범위 패시브(뭉치간식 등) 반영
     const dmg=this.baseDmg()*(this.evolved?2.4:1.4);  // 진화는 짖기만 하므로 데미지↑(물기 상실 보상)
     let hits=0;
     (boss?[...enemies,boss]:enemies).forEach(e=>{
