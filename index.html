@@ -855,6 +855,8 @@ let runRevives=0;    // 이번 판 사용한 부활 횟수
 let runRecords={time:false,kills:false,dmg:false};  // 이번 판 갱신한 신기록 (결과화면 배지용)
 function bankRun(win){
   if(runBanked)return;
+  // 바닥에 남은 코인은 판 종료 시 자동 정산 (수거 못해도 골드 손실 0 — 기존 경제 보존, 인게임 픽업은 연출/즉시활용용)
+  coins.forEach(c=>{runGold+=c.v});coins=[];
   META.gold+=Math.floor(runGold);
   // 하이스코어 갱신
   const b=META.best;
@@ -4695,6 +4697,13 @@ function renderResult(win){
     G.fillStyle=tg;G.fillText('💀  G A M E   O V E R',LW/2,80);
     G.strokeStyle='rgba(0,0,0,0.5)';G.lineWidth=1.5;G.strokeText('💀  G A M E   O V E R',LW/2,80);
   }
+  // 난이도 표기 (하드 클리어 강조)
+  {
+    const d=curDiff();
+    G.textAlign='center';G.font='bold 12px Courier New';G.fillStyle=d.col;
+    const tag=(win&&d.id==='hard')?`🔥 하드 클리어! 🔥`:`난이도 ${d.name} · 골드 ${d.goldMul}×`;
+    G.fillText(tag,LW/2,100);
+  }
   // 골드 획득 배너 (메타 진행 — 상점에서 사용)
   G.textAlign='center';G.font='bold 14px Courier New';G.fillStyle='#ffdd55';
   G.fillText(`🪙 +${Math.floor(runGold)} 골드 획득!   (보유 ${META.gold} · 🛒 상점에서 강화)`,LW/2,120);
@@ -5144,6 +5153,11 @@ function render(){
     G.fillStyle='rgba(0,0,0,0.55)';G.fillRect(LW-150,8,86,18);
     G.fillStyle='#ffdd55';G.font='bold 12px Courier New';G.textAlign='right';G.textBaseline='middle';
     G.fillText('🪙 '+Math.floor(runGold),LW-70,18);
+    // 난이도 뱃지 (골드 카운터 아래)
+    const d=curDiff();
+    G.fillStyle='rgba(0,0,0,0.55)';G.fillRect(LW-150,28,86,16);
+    G.fillStyle=d.col;G.font='bold 10px Courier New';G.textAlign='right';
+    G.fillText('난이도 '+d.name,LW-70,36);
     G.textBaseline='alphabetic';G.restore();
   }
   // 디버그 무적 배지 (켜져 있는 동안 항상 표시)
