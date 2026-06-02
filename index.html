@@ -858,11 +858,11 @@ function openShop(){
   for(let i=0;i<4;i++){
     if(i===3 && Math.random()<0.35){
       const L=SHOP_LEGENDARY[Math.floor(Math.random()*SHOP_LEGENDARY.length)];
-      const price=Math.max(300,Math.round(cash*(0.55+Math.random()*0.30)/10)*10);  // 현금의 55~85% (전설=큰 투자)
+      const price=Math.max(400,Math.round(cash*(0.60+Math.random()*0.32)/10)*10);  // 현금의 60~92% (전설=고점)
       shopOffers.push(Object.assign({},L,{leg:true,sold:false,price}));
     }else{
       const s=pool.splice(Math.floor(Math.random()*pool.length),1)[0]||SHOP_STATS[i];
-      const price=Math.max(60,Math.round(cash*(0.18+Math.random()*0.14)/10)*10);  // 현금의 18~32% (스탯 3~5개 살 만큼)
+      const price=Math.max(100,Math.round(cash*(0.15+Math.random()*0.08)/10)*10);  // 현금의 15~23% (스탯 4개 합 ≤현금 → 부자면 전부 구매 가능). 저점 100
       shopOffers.push(Object.assign({},s,{leg:false,sold:false,price}));
     }
   }
