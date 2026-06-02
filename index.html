@@ -897,7 +897,7 @@ const WFAM={
 };
 function fmtWpnFam(wt){return WFAM[wt]||'기타';}
 let shakeT=0,shakeM=0,dmgTexts=[],hitSparks=[];
-let combo=0,comboT=0,comboMax=0,paused=false;
+let paused=false;
 let notifs=[],pickups=[],pendingLvUps=0;
 let decals=[],ambients=[],weatherT=0,flashT=0,thunderQueued=false;
 let camOX=0,camOY=0;
@@ -951,7 +951,7 @@ function shake(t,m){shakeT=Math.max(shakeT,t);shakeM=Math.max(shakeM,m)}
 function showDmg(x,y,v,col,big,crit){dmgTexts.push({x:x+rnd(-6,6),y:y-10,vy:-32,life:crit?1.0:0.8,ml:crit?1.0:0.8,t:Math.ceil(v).toString(),c:col||'#ffeecc',sz:crit?16:(big?13:10),dead:false,crit:!!crit})}
 function spark(x,y,col,n){for(let i=0;i<(n||3);i++){const a=Math.random()*Math.PI*2,s=rnd(80,200);hitSparks.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:rnd(0.15,0.3),ml:0.3,col,dead:false})}}
 function notify(title,sub,col){notifs.push({title,sub:sub||'',col:col||'#ffdd66',life:2.4,ml:2.4,dead:false})}
-function bumpCombo(){combo++;comboT=2.5;if(combo>comboMax)comboMax=combo;if(player&&player.notifyKill)player.notifyKill()}
+function bumpCombo(){if(player&&player.notifyKill)player.notifyKill()}  // 처치 알림(jw 폭주 트리거). 콤보 표시는 제거됨
 // 픽업: heal / magnet / bomb
 const PICKUP_TYPES=['heal','magnet'];  // 랜덤 드롭에서 폭탄 제외 (폭탄은 보스만 드롭 — 상시 딜원 방지)
 function spawnPickup(x,y,type){
@@ -4067,7 +4067,7 @@ function drawHUD(){
   G.fillStyle='#aaa';G.font='9px Courier New';G.fillText('XP',86,67);
   // 처치 수 (하단)
   G.fillStyle='#888';G.font='9px Courier New';
-  G.fillText(`💀 ${killCount} · 콤보최대 ${comboMax}`,52,80);
+  G.fillText(`💀 ${killCount} 처치`,52,80);
   // 대시 쿨다운 표시
   const ready=p.dashCd<=0,dashX=12,dashY=92;
   G.fillStyle='rgba(0,0,0,0.6)';G.fillRect(dashX,dashY-9,32,10);
@@ -4825,7 +4825,7 @@ function startGame(cd){
   runGold=0;runBanked=false;runRevives=0;runRecords={time:false,kills:false,dmg:false};  // 이번 판 골드/부활/신기록 초기화
   gameTime=0;spawnT=0;bossIdx=0;bossActive=false;killCount=0;afr=0;afrT=0;totalDmg=0;dmgPeak=0;dmgByWpn={};
   dmgTexts=[];hitSparks=[];notifs=[];pickups=[];decals=[];lvUpBursts=[];
-  shakeT=0;shakeM=0;combo=0;comboT=0;comboMax=0;paused=false;pendingLvUps=0;
+  shakeT=0;shakeM=0;paused=false;pendingLvUps=0;
   weatherT=0;flashT=0;camOX=0;camOY=0;hitStop=0;
   initWorld();state='playing';
   notify('▶  GAME START','WASD/방향키 · SPACE 대시 · P 일시정지','#ffaa66');
@@ -4834,7 +4834,7 @@ function startGame(cd){
 function reset(){
   state='title';player=null;enemies=[];projs=[];gems=[];coins=[];parts=[];boss=null;bossActive=false;
   dmgTexts=[];hitSparks=[];notifs=[];pickups=[];decals=[];lvUpBursts=[];
-  shakeT=0;shakeM=0;combo=0;comboT=0;paused=false;pendingLvUps=0;
+  shakeT=0;shakeM=0;paused=false;pendingLvUps=0;
   weatherT=0;flashT=0;camOX=0;camOY=0;
   playBgm('title');
 }
@@ -5018,8 +5018,6 @@ function update(dt){
     if(dist(pk,player)<16)applyPickup(pk);
   });
   pickups=pickups.filter(pk=>!pk.dead);
-  // 콤보 타이머
-  if(comboT>0){comboT-=dt;if(comboT<=0)combo=0}
   // 알림
   notifs.forEach(n=>{n.life-=dt;n.dead=n.life<=0});
   notifs=notifs.filter(n=>!n.dead);
@@ -5128,7 +5126,6 @@ function render(){
   drawPhialGauge();  // 차지 액스 페이얼 게이지 (좌하단 HUD)
   drawNerveInjectionArrow();  // 신경주사 화살표 (휠체어 모드)
   drawMinimap();
-  drawCombo();
   drawNotifs();
   if(boss)boss.drawAnn();
   // 골드 카운터 (우상단 무기패널 위, 메타 진행)
@@ -5256,19 +5253,6 @@ function drawMinimap(){
 }
 
 // 콤보 카운터 (좌하단)
-function drawCombo(){
-  if(combo<3)return;
-  G.save();
-  const x=20,y=LH-30,sz=Math.min(16+combo*0.4,28);
-  G.font=`bold ${sz}px Courier New`;G.textAlign='left';
-  G.fillStyle='#000';G.fillText(`${combo} COMBO!`,x+2,y+2);
-  const col=combo<10?'#ffdd66':combo<25?'#ff8844':'#ff2244';
-  G.fillStyle=col;G.fillText(`${combo} COMBO!`,x,y);
-  // 콤보 타이머 바
-  G.fillStyle='#222';G.fillRect(x,y+3,90,3);
-  G.fillStyle=col;G.fillRect(x,y+3,90*(comboT/2.5),3);
-  G.restore();
-}
 
 // 알림 (우상단, 무기 패널 아래)
 function drawNotifs(){
@@ -5399,7 +5383,7 @@ function drawPauseOverlay(){
   drawVolSlider(sliderSx,sliderY2+4,sliderSw,sfxVol,'#44aaff','sfx');
   // 하단 통계
   G.fillStyle='#888';G.font='10px Courier New';G.textAlign='center';
-  G.fillText(`Lv.${player.lv} · ${killCount} 처치 · 최대 콤보 ${comboMax} · 생존 ${String(Math.floor(gameTime/60)).padStart(2,'0')}:${String(Math.floor(gameTime%60)).padStart(2,'0')}`,LW/2,LH-12);
+  G.fillText(`Lv.${player.lv} · ${killCount} 처치 · 생존 ${String(Math.floor(gameTime/60)).padStart(2,'0')}:${String(Math.floor(gameTime%60)).padStart(2,'0')}`,LW/2,LH-12);
   G.restore();
 }
 // 일시정지 화면 볼륨 슬라이더 클릭 감지
