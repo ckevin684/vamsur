@@ -833,6 +833,76 @@ const STOCKS=[
   {id:'teslak',  name:'TESLAK',  col:'#e31937',vol:0.34,drift:0.020, tag:'테마주'},
   {id:'kakou',   name:'KAKOU',   col:'#e8b800',vol:0.52,drift:-0.008,tag:'잡주'},
 ];
+// 지워니 랜덤 상점 — 현금으로 소소한 스탯 구매 (4개 랜덤 진열)
+const SHOP_STATS=[
+  {id:'atk', name:'⚔ 공격력', desc:'+4%', apply:p=>p.dm*=1.04},
+  {id:'crit',name:'🎯 크리율', desc:'+3%', apply:p=>p.crit+=0.03},
+  {id:'as',  name:'⚡ 공격속도',desc:'+4%', apply:p=>p.as*=1.04},
+  {id:'spd', name:'👟 이동속도',desc:'+4%', apply:p=>{p.spd*=1.04;p.bspd*=1.04}},
+  {id:'area',name:'⭕ 공격범위',desc:'+5%', apply:p=>p.am*=1.05},
+  {id:'hp',  name:'❤️ 최대HP', desc:'+15', apply:p=>{p.mhp+=15;p.hp=Math.min(p.hp+15,p.mhp)}},
+  {id:'prc', name:'🎯 관통',   desc:'+1', apply:p=>p.pierce+=1},
+];
+const SHOP_LEGENDARY=[
+  {id:'slot',name:'🏆 추가 거래소', desc:'아이템 칸 +1',     apply:p=>p.extraSlots++},
+  {id:'lev', name:'🏆 레버리지 증서',desc:'다음 투자 변동 ×2',apply:p=>p.leverageNext=true},
+];
+function openShop(){
+  shopOpen=true; hovShop=-1; shopOffers=[];
+  const pool=SHOP_STATS.slice();
+  for(let i=0;i<4;i++){
+    if(i===3 && Math.random()<0.35){
+      const L=SHOP_LEGENDARY[Math.floor(Math.random()*SHOP_LEGENDARY.length)];
+      shopOffers.push(Object.assign({},L,{leg:true,sold:false,price:850+Math.floor(Math.random()*4)*120}));
+    }else{
+      const s=pool.splice(Math.floor(Math.random()*pool.length),1)[0]||SHOP_STATS[i];
+      shopOffers.push(Object.assign({},s,{leg:false,sold:false,price:180+Math.floor(Math.random()*5)*55}));
+    }
+  }
+  SFX.lvUp();
+}
+function shopBuy2(i){
+  if(i===99){shopOpen=false;shopEnt=null;shopT=BAL.char.zw.shopInterval;return;}  // 나가기 → 상점 소멸
+  const o=shopOffers[i]; if(!o||o.sold||player.seedMoney<o.price)return;
+  player.seedMoney-=o.price; o.apply(player); o.sold=true; SFX.gem();
+  notify('🛒 구매!',o.name+' '+o.desc,'#ffd24a');
+}
+function getShopClick2(mx,my){
+  const n=shopOffers.length,cw=160,gap=16,totalW=n*cw+(n-1)*gap,sx=LW/2-totalW/2,cy=120,ch=220;
+  for(let i=0;i<n;i++){const bx=sx+i*(cw+gap);if(mx>=bx&&mx<=bx+cw&&my>=cy&&my<=cy+ch)return i;}
+  const eby=cy+ch+24,ebw=200,ebx=LW/2-ebw/2;
+  if(mx>=ebx&&mx<=ebx+ebw&&my>=eby&&my<=eby+30)return 99;
+  return -1;
+}
+function renderShop2(){
+  if(!shopOpen||!player)return;
+  G.save();
+  G.fillStyle='rgba(0,0,0,0.8)';G.fillRect(0,0,LW,LH);
+  G.textAlign='center';G.fillStyle='#ffd24a';G.font='bold 24px Courier New';
+  G.fillText('🛒 랜덤 증권상점',LW/2,54);
+  G.fillStyle='#13b88a';G.font='bold 16px Courier New';
+  G.fillText('💵 보유 현금  '+Math.floor(player.seedMoney).toLocaleString()+'원',LW/2,82);
+  const n=shopOffers.length,cw=160,gap=16,totalW=n*cw+(n-1)*gap,sx=LW/2-totalW/2,cy=120,ch=220;
+  shopOffers.forEach((o,i)=>{
+    const bx=sx+i*(cw+gap),hov=hovShop===i,afford=player.seedMoney>=o.price&&!o.sold;
+    G.fillStyle=o.sold?'#0e0e12':(hov&&afford?'#22222e':'#16161e');G.fillRect(bx,cy,cw,ch);
+    G.strokeStyle=o.leg?'#ffcc33':(afford?'#13b88a':'#444');G.lineWidth=o.leg?3:1.5;G.strokeRect(bx,cy,cw,ch);
+    G.textAlign='center';
+    if(o.leg){G.fillStyle='#ffcc33';G.font='bold 11px Courier New';G.fillText('★ 전설 ★',bx+cw/2,cy+24);}
+    G.fillStyle=o.sold?'#555':'#fff';G.font='bold 15px Courier New';G.fillText(o.name,bx+cw/2,cy+(o.leg?52:44));
+    G.fillStyle=o.sold?'#444':'#aaccbb';G.font='13px Courier New';G.fillText(o.desc,bx+cw/2,cy+(o.leg?76:70));
+    G.fillStyle=o.sold?'#444':(afford?'#ffd24a':'#aa5555');G.font='bold 15px Courier New';
+    G.fillText(o.sold?'구매완료':o.price.toLocaleString()+'원',bx+cw/2,cy+ch-50);
+    G.fillStyle=o.sold?'#222':(afford?(hov?'#13b88a':'#1a3a30'):'#2a2020');G.fillRect(bx+14,cy+ch-36,cw-28,24);
+    G.fillStyle=o.sold?'#555':(afford?(hov?'#000':'#9fffdd'):'#a66');G.font='bold 13px Courier New';
+    G.fillText(o.sold?'✓ 완료':(afford?'구매':'현금부족'),bx+cw/2,cy+ch-20);
+  });
+  const eby=cy+ch+24,ebw=200,ebx=LW/2-ebw/2;
+  G.fillStyle=hovShop===99?'#3a3a4a':'#222';G.fillRect(ebx,eby,ebw,30);
+  G.strokeStyle='#888';G.lineWidth=1.5;G.strokeRect(ebx,eby,ebw,30);
+  G.fillStyle='#ccc';G.font='bold 13px Courier New';G.textAlign='center';G.fillText('🚪 상점 나가기',LW/2,eby+20);
+  G.restore();
+}
 
 // ═══ GAME STATE ═══
 let state='title',player=null,enemies=[],projs=[],gems=[],coins=[],boss=null;
@@ -995,7 +1065,12 @@ function spawnNerveInjection(p){
 function applyPickup(pk){
   if(pk.dead)return;  // 중복 적용 방지
   pk.dead=true;
-  if(pk.t==='heal'){
+  if(pk.t==='subsidy'){
+    const amt=BAL.char.zw.subsidyCash;
+    if(player)player.seedMoney+=amt;
+    notify('💸 긴급 지원금','파산 방지 +'+amt+'원','#ffd24a');
+    SFX.gem();
+  }else if(pk.t==='heal'){
     const heal=Math.max(20,Math.floor(player.mhp*0.35));
     player.hp=Math.min(player.mhp,player.hp+heal);
     showDmg(player.x,player.y-16,heal,'#88ff88',true);
@@ -4096,8 +4171,8 @@ function triggerLvUp(){
     });
   });
 
-  // 새 아이템 (슬롯 여유)
-  if(player.pCnt()<P_SLOTS){
+  // 새 아이템 (슬롯 여유) — 지워니 전설템 '추가 거래소'로 늘어난 칸 반영
+  if(player.pCnt()<P_SLOTS+(player.extraSlots||0)){
     PASSIVES.filter(p=>!player.hasP(p.id)).forEach(p=>{
       itmPool.push({
         tag:'아이템 NEW',
@@ -4411,12 +4486,13 @@ function drawHUD(){
     G.fillText(wd.evolved?'★EVO':(w.lv>=W_MAX_LV?'MAX':`L${w.lv}`),wsX+134,wy);
     G.textAlign='left';
   }
-  // 아이템 슬롯
-  const isX=wsX,isY=wsY+wsH+6,isH=22+P_SLOTS*16,pIds=Object.keys(p.passives);
+  // 아이템 슬롯 (지워니 전설템으로 늘어날 수 있음)
+  const pSlots=P_SLOTS+(p.extraSlots||0);
+  const isX=wsX,isY=wsY+wsH+6,isH=22+pSlots*16,pIds=Object.keys(p.passives);
   G.fillStyle='rgba(20,20,30,0.85)';G.fillRect(isX,isY,140,isH);
   G.strokeStyle='#444';G.lineWidth=1;G.strokeRect(isX,isY,140,isH);
-  G.fillStyle='#88ccff';G.font='bold 9px Courier New';G.textAlign='left';G.fillText(`🎁 아이템 ${pIds.length}/${P_SLOTS}`,isX+6,isY+14);
-  for(let i=0;i<P_SLOTS;i++){
+  G.fillStyle='#88ccff';G.font='bold 9px Courier New';G.textAlign='left';G.fillText(`🎁 아이템 ${pIds.length}/${pSlots}`,isX+6,isY+14);
+  for(let i=0;i<pSlots;i++){
     const id=pIds[i],iy=isY+27+i*16;
     G.fillStyle='rgba(0,0,0,0.5)';G.fillRect(isX+4,iy-10,132,15);
     if(!id){G.fillStyle='#222';G.fillRect(isX+4,iy-10,132,15);G.fillStyle='#444';G.font='9px Courier New';G.fillText('빈 슬롯',isX+8,iy);continue}
@@ -5150,6 +5226,12 @@ c.addEventListener('click',e=>{
     else if(i>=0){player.doInvest(i);investOpen=false;}  // 올인 투자
     return;
   }
+  // 🛒 지워니 상점 클릭 (구매 / 나가기)
+  if(shopOpen&&player){
+    const i=getShopClick2(m.x,m.y);
+    if(i>=0)shopBuy2(i);
+    return;
+  }
   // 📞 야근 전화 컷신 진행 (사장 대사 → 소민 대사 → 야근모드 발동)
   if(state==='playing'&&player&&player.workCut>0&&rouletteOn(player)){
     player.workCut++;
@@ -5242,6 +5324,15 @@ function update(dt){
       if(player.seedMoney>0){investOpen=true;hovInvest=-1;}  // 현금 있으면 투자 선택창
     }
     if(investToastT>0)investToastT-=dt;
+    // 🛒 상점 스폰 (주기) + 진입
+    shopT-=dt;
+    if(shopT<=0&&!shopEnt){ shopT=Z.shopInterval; const a=Math.random()*Math.PI*2,r=rnd(260,400); shopEnt={x:player.x+Math.cos(a)*r,y:player.y+Math.sin(a)*r,fr:0}; notify('🛒 증권상점 등장!','맵 표시 — 찾아가서 스탯 구매','#ffd24a'); }
+    if(shopEnt){ shopEnt.fr+=dt; if(dist(player,shopEnt)<44)openShop(); }
+    // 💸 돈 0원 → 맵에 지원금 (중복 방지, 25초 후부터)
+    if(player.seedMoney<=0&&!player.invest&&gameTime>25&&!pickups.some(pk=>pk.t==='subsidy'&&!pk.dead)){
+      const a=Math.random()*Math.PI*2,r=rnd(150,250);
+      spawnPickup(player.x+Math.cos(a)*r,player.y+Math.sin(a)*r,'subsidy');
+    }
   }
   if(investOpen||shopOpen)return;  // 투자창/상점 열림 → 게임 정지
   gameTime+=dt;
@@ -5306,6 +5397,23 @@ function render(){
   drawWorld();
   // 데칼 (월드 배경 위, 모든 엔티티 아래)
   drawDecals();
+  // 🛒 지워니 증권상점 (맵 건물)
+  if(shopEnt){
+    const sx=shopEnt.x,sy=shopEnt.y,bob=Math.sin(shopEnt.fr*2)*2;
+    G.save();shadow(sx,sy+14,20,5,0.4);
+    // 건물
+    G.fillStyle='#1a2e44';G.fillRect(sx-20,sy-18+bob,40,30);
+    G.fillStyle='#22405e';G.fillRect(sx-20,sy-18+bob,40,8);
+    G.fillStyle='#ffd24a';G.fillRect(sx-20,sy-10+bob,40,2);
+    // 차트 간판 (📈)
+    G.strokeStyle='#33ee99';G.lineWidth=2;G.beginPath();G.moveTo(sx-12,sy+6+bob);G.lineTo(sx-4,sy-2+bob);G.lineTo(sx+2,sy+2+bob);G.lineTo(sx+12,sy-8+bob);G.stroke();
+    G.fillStyle='#33ee99';G.beginPath();G.moveTo(sx+12,sy-8+bob);G.lineTo(sx+7,sy-7+bob);G.lineTo(sx+11,sy-3+bob);G.closePath();G.fill();
+    // 라벨 + 화살표
+    const gl=Math.sin(shopEnt.fr*4)*0.4+0.6;
+    G.globalAlpha=gl;G.fillStyle='#ffd24a';G.font='bold 11px Courier New';G.textAlign='center';
+    G.fillText('🛒 증권상점',sx,sy-24+bob);G.globalAlpha=1;
+    G.restore();
+  }
   // 픽업 (배경 위)
   pickups.forEach(pk=>drawPickup(pk));
   gems.forEach(g=>g.draw());
@@ -5406,6 +5514,7 @@ function render(){
   drawResultCard();
   drawWorkCutscene();
   renderInvest();  // 지워니 투자창
+  renderShop2();   // 지워니 상점
   if(paused)drawPauseOverlay();
   if(state==='levelup')renderLevelUp();
   if(state==='dead')renderResult(false);
@@ -5418,7 +5527,15 @@ function drawPickup(pk){
   G.save();
   shadow(pk.x,pk.y+8,7,2,0.4);
   // 본체
-  if(pk.t==='heal'){
+  if(pk.t==='subsidy'){
+    // 💸 긴급 지원금 — 금색 돈다발
+    const gl=Math.sin(pk.fr*2)*0.3+0.7;
+    G.globalAlpha=gl*0.4;G.fillStyle='#ffd24a';G.beginPath();G.arc(pk.x,pk.y+bob,13,0,Math.PI*2);G.fill();G.globalAlpha=1;
+    G.fillStyle='#1f7a3a';G.fillRect(pk.x-9,pk.y-6+bob,18,12);
+    G.fillStyle='#2faa55';G.fillRect(pk.x-9,pk.y-6+bob,18,3);
+    G.fillStyle='#ffd24a';G.fillRect(pk.x-9,pk.y-1+bob,18,2);  // 띠
+    G.fillStyle='#fff';G.font='bold 9px Courier New';G.textAlign='center';G.fillText('₩',pk.x,pk.y+3+bob);
+  }else if(pk.t==='heal'){
     G.fillStyle='#55cc55';G.fillRect(pk.x-7,pk.y-7+bob,14,14);
     G.fillStyle='#88ee88';G.fillRect(pk.x-7,pk.y-7+bob,14,2);G.fillRect(pk.x-7,pk.y-7+bob,2,14);
     G.fillStyle='#338833';G.fillRect(pk.x+5,pk.y-7+bob,2,14);G.fillRect(pk.x-7,pk.y+5+bob,14,2);
@@ -5482,6 +5599,13 @@ function drawMinimap(){
   // 픽업
   G.fillStyle='#88ff88';
   pickups.forEach(pk=>{const p=rel(pk.x,pk.y);if(inMap(p))G.fillRect(p.x-2,p.y-2,4,4)});
+  // 🛒 상점 (지워니) — 맵 밖이면 가장자리 화살표
+  if(shopEnt){
+    const p=rel(shopEnt.x,shopEnt.y),bl=Math.sin(gameTime*4)*0.5+0.5;
+    if(inMap(p)){G.fillStyle='#ffd24a';G.fillRect(p.x-3,p.y-3,6,6);G.fillStyle='#000';G.font='6px Courier New';G.textAlign='center';G.fillText('$',p.x,p.y+2);}
+    else{const a=Math.atan2(shopEnt.y-player.y,shopEnt.x-player.x);const ax=cx+Math.cos(a)*(mw/2-8),ay=cy+Math.sin(a)*(mh/2-8);
+      G.save();G.globalAlpha=0.6+bl*0.4;G.translate(ax,ay);G.rotate(a);G.fillStyle='#ffd24a';G.beginPath();G.moveTo(6,0);G.lineTo(-4,-4);G.lineTo(-4,4);G.closePath();G.fill();G.restore();}
+  }
   // 보스
   if(boss){
     const p=rel(boss.x,boss.y),bl=Math.sin(gameTime*5)*0.5+0.5;
