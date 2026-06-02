@@ -139,11 +139,18 @@ start firefox index.html
 
 ## 🆕 이번 세션 추가/변경 (위 시스템 외 — 최신)
 
-### 자동 패치 세션 (전적/픽업/난이도)
+### 자동 패치 세션 (전적/픽업/밸런스 정비)
 - **무기별 데미지 집계**: `dmgByWpn`(wt별) + `WFAM` 패밀리 라벨 → 결과화면 막대그래프. `totalDmg`/`dmgPeak`도. 모든 `hurt(v,crit,src)`에 src 전달(오버킬 제외).
 - **하이스코어**: `META.best{time,kills,dmg,wins,plays}` localStorage 영속. `bankRun(win)`서 갱신, `runRecords`로 결과화면 🏆배지, 타이틀에 최고기록.
-- **🪙 골드 코인 픽업(VS식)**: `Coin` 클래스, 처치 시 드랍→자석 흡수→`runGold`. 기존 골드량 보존.
-- **난이도 옵션**: `DIFFS`(이지/노말/하드) + `META.diff`. `curDiff()`로 적HP(`hs×hpMul`)·물량(`cnt×spawnMul`,`spawnT/spawnMul`)·골드(`goldMul`) 배수. 타이틀 `diffBarRect()` 클릭 순환.
+- **🪙 골드 코인 픽업(VS식)**: `Coin` 클래스, 처치 시 드랍→자석 흡수→`runGold`. 미수거분 `bankRun`서 자동정산(손실0).
+- **난이도 옵션 = 제거됨** (복잡도↓, 사용자 요청). DIFFS/curDiff/META.diff 전부 삭제.
+- **폭탄 너프**: 데미지 27%로 1위였음 → 레벨스케일 ×0.1→×0.04, 반경 320→260, 엘리트 랜덤드롭 제외(`PICKUP_TYPES`서 bomb 빠짐, 보스만 드롭).
+- **진화무기 밸류↑**: 풀스펙 1.85·풀코스 1.7(+무한관통)·심야 1.6·각성 3.7·언리쉬 1.75·개방 axe 5.0. (폭탄 대신 진화가 주력이 되도록)
+- **jw 주문폭주 쿨다운**: `rushCdT`(BAL.char.jw.rushCd=7) — 종료 후 7s간 콤보 안 쌓임(후반 상시발동 차단).
+- **싸비 보스 돌진 풀차지**: chargeDur 0.35→0.9·spd 440→560 (거리 504 = 텔레레인 끝까지). 트럭 등 나머지는 유지.
+- **미니맵 플레이어중심**: 버그였음(플레이어가 항상 world 0,0에 그려짐) → `rel()`로 플레이어 기준 상대좌표, ±750 줌인, 흰링+방향화살표.
+- **비주얼**: 풀코스=🍣사시미 draw, 칼 텀블링 회전, 뭉치 짖기 `barkX/barkY` 위치고정+풀사거리링, 손전등 빔 `globalCompositeOperation='lighter'`(가산혼합, 적 가독성↑).
+- **(소민 룰렛: 검증결과 이미 손전등 전용 — `streamerBuff(sm)=1`, 데미지 누수 없음)**
 
 - **보스 시그니처 패턴** (구현 완료): 트럭/싸비 = 돌진(윈드업 정지 텔레그래프 = 반투명 위험레인+화살표 → 고속 락온 대시, ×1.6 강타), 불편러 = 시야차단 안개(`boss.fogT`), 망령 = 분신 소환(엘리트 러셔 3). `Boss.signature()` + `sigEvery/sigT/chargeWind/chargeT/chargeDir/fogT`.
 - **💗 부활 메타 업그레이드**: `META.up.revive`(판당 최대 2회), 사망 시 HP50%+주변 넉백. `runRevives`로 카운트, `takeDmg` 분기.
