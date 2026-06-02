@@ -664,18 +664,18 @@ const BAL={
   // ━━━ 무기 데미지 배수 (fireWpn 안의 매직 넘버) ━━━
   wpn:{
     ram:{dmgMul:1.4, spdBase:220, spdPerLv:10, szBase:9, szPerLv:0.3, hitCd:0.30, count:2},  // jh 약캐 버프: 램 1→2개·hitCd 0.35→0.30 (접촉빈도↑)
-    fullspec:{dmgMul:1.45, spdBase:270, spdPerLv:12, szBase:10, szPerLv:0.3, count:3},  // dmgMul 1.45 + 램 2→3개 (단일/군중 보강) · count는 fireWpn에서 참조
+    fullspec:{dmgMul:1.85, spdBase:270, spdPerLv:12, szBase:10, szPerLv:0.3, count:3},  // 진화 밸류↑ 1.45→1.85 (램 3개)
     knife:{dmgMul:1.0, spread:0.6, speed:310, life:1.5, sz:7},
-    fullcourse:{dmgMul:1.35, spread:0.85, speed:340, life:1.5, sz:9},  // 1.3→1.4→1.35 (최상위라 미세 너프) · fireWpn에서 참조
+    fullcourse:{dmgMul:1.7, spread:0.85, speed:340, life:1.5, sz:9},  // 진화 밸류↑ 1.35→1.7 + 무한관통
     light:{dmgMul:1.15, lenBase:170, lenPerLv:12, halfAngBase:0.36, halfAngPerLv:0.02, life:0.85, slowDur:1.4},  // 0.78→1.0→1.15 (최약 베이스 보강)
-    nightwatch:{dmgMul:1.2, lenBase:210, lenPerLv:8, halfAng:0.55, life:0.65, slowDur:1.8, pulseR:90, pulseDmgMul:0.55},  // dmg 1.05→1.2, pulse 0.4→0.55 (진화 체감 버프) · dmgMul/pulse는 fireWpn에서 참조
+    nightwatch:{dmgMul:1.6, lenBase:210, lenPerLv:8, halfAng:0.55, life:0.65, slowDur:1.8, pulseR:100, pulseDmgMul:0.85},  // 진화 밸류↑ dmg 1.2→1.6, pulse 0.55→0.85, R 90→100
     staff:{dmgMul:1.6, r:120, life:0.5},      // 이미 너프됨
-    awakegj:{dmgMul:3.0, spd:300, life:1.5, sz:18},
-    mungchi:{dmgBase:24, evoMul:1.35},  // evoMul 1.2→1.35 (언리쉬드 진화 체감 버프) · Companion.baseDmg에서 참조
+    awakegj:{dmgMul:3.7, spd:300, life:1.5, sz:18},  // 진화 밸류↑ 3.0→3.7
+    mungchi:{dmgBase:24, evoMul:1.75},  // 진화 밸류↑ evoMul 1.35→1.75 (언리쉬드)
     gsword:{swordDmgMul:1.3, swordR:52, swordSpan:100, swordLife:0.22,
             axeDmgMul:3.5, axeR:72, axeSpan:140, axeLife:0.32},  // axe 4.0→3.5 너프
-    caff:{swordDmgMul:1.5, swordR:56, swordSpan:110, axeDmgMul:4.0, axeR:80, axeSpan:150,
-          lightningCount:3, lightningDmgMul:1.2, lightningDelay:0.15},  // axe 4.5→4.0 너프, lightning 1.8→1.2
+    caff:{swordDmgMul:1.9, swordR:56, swordSpan:110, axeDmgMul:5.0, axeR:80, axeSpan:150,
+          lightningCount:3, lightningDmgMul:1.8, lightningDelay:0.15},  // 진화 밸류↑ sword 1.5→1.9, axe 4.0→5.0, lightning 1.2→1.8
   },
   // ━━━ 윤소민 변신 빔 ━━━ (다양한 변신별 효과)
   beam:{
@@ -822,8 +822,8 @@ let gameTime=0,spawnT=0,bossIdx=0,bossActive=false;
 let hitStop=0;  // 히트스톱 — 큰 타격 순간 게임 잠깐 정지 (타격감 juice)
 
 // ═══ 메타 진행 (영구 업그레이드 — localStorage, VS 스타일) ═══
-const META_DEFAULTS={gold:0, up:{hp:0,dmg:0,spd:0,xp:0,crit:0,armor:0,revive:0}, roulette:0, diff:1,
-  best:{time:0,kills:0,dmg:0,wins:0,plays:0}};  // 하이스코어(영구) + 난이도 인덱스(1=노말)
+const META_DEFAULTS={gold:0, up:{hp:0,dmg:0,spd:0,xp:0,crit:0,armor:0,revive:0}, roulette:0,
+  best:{time:0,kills:0,dmg:0,wins:0,plays:0}};  // 하이스코어(영구)
 const META_UPGRADES=[
   {id:'hp',   name:'❤️ 체력 강화', desc:'최대 HP',   max:5, cost:l=>40+l*40, eff:l=>1+l*0.08, fmt:l=>'+'+Math.round(l*8)+'%'},
   {id:'dmg',  name:'⚔️ 공격 강화', desc:'데미지',     max:5, cost:l=>50+l*55, eff:l=>1+l*0.05, fmt:l=>'+'+Math.round(l*5)+'%'},
@@ -834,13 +834,6 @@ const META_UPGRADES=[
   {id:'revive',name:'💗 부활',     desc:'사망 시 HP50% 부활(판당)', max:2, cost:l=>250+l*350, eff:l=>l, fmt:l=>l+'회'},
 ];
 const ROULETTE_COST=300;
-// 난이도 옵션 — 적 HP·물량·골드 배수. META.diff(인덱스)로 영속 저장.
-const DIFFS=[
-  {id:'easy',  name:'이지',col:'#66dd88', hpMul:0.75, spawnMul:0.85, goldMul:0.8, desc:'적 체력↓ 물량↓ (골드 0.8×)'},
-  {id:'normal',name:'노말',col:'#ffcc44', hpMul:1.0,  spawnMul:1.0,  goldMul:1.0, desc:'표준 밸런스'},
-  {id:'hard',  name:'하드',col:'#ff5555', hpMul:1.35, spawnMul:1.25, goldMul:1.5, desc:'적 체력↑ 물량↑ (골드 1.5×)'},
-];
-function curDiff(){return DIFFS[Math.min(DIFFS.length-1,Math.max(0,META.diff||0))]||DIFFS[1];}
 function loadMeta(){
   try{ const r=JSON.parse(localStorage.getItem('vamsur_meta'));
     if(r&&typeof r==='object') return Object.assign({},META_DEFAULTS,r,{up:Object.assign({},META_DEFAULTS.up,r.up||{}),best:Object.assign({},META_DEFAULTS.best,r.best||{})});
@@ -959,7 +952,7 @@ function spark(x,y,col,n){for(let i=0;i<(n||3);i++){const a=Math.random()*Math.P
 function notify(title,sub,col){notifs.push({title,sub:sub||'',col:col||'#ffdd66',life:2.4,ml:2.4,dead:false})}
 function bumpCombo(){combo++;comboT=2.5;if(combo>comboMax)comboMax=combo;if(player&&player.notifyKill)player.notifyKill()}
 // 픽업: heal / magnet / bomb
-const PICKUP_TYPES=['heal','magnet','bomb'];
+const PICKUP_TYPES=['heal','magnet'];  // 랜덤 드롭에서 폭탄 제외 (폭탄은 보스만 드롭 — 상시 딜원 방지)
 function spawnPickup(x,y,type){
   const t=type||PICKUP_TYPES[Math.floor(Math.random()*PICKUP_TYPES.length)];
   pickups.push({x,y,t,life:18,ml:18,dead:false,fr:Math.random()*Math.PI*2});
@@ -993,9 +986,9 @@ function applyPickup(pk){
     notify('🧲 자석',`${cnt}개 젬 흡수`,'#aaccff');
     SFX.lvUp();
   }else if(pk.t==='bomb'){
-    const r=320;
+    const r=260;  // 320→260 (전체화면 클리어 방지)
     (boss?[...enemies,boss]:enemies).forEach(e=>{
-      const d=dist(player,e);if(d<r){const dmg=80*player.dm*(1+player.lv*0.1);e.hurt(dmg,false,'bomb')}
+      const d=dist(player,e);if(d<r){const dmg=80*player.dm*(1+player.lv*0.04);e.hurt(dmg,false,'bomb')}  // 레벨 스케일 ×0.1→×0.04 (사기 너프)
     });
     spawnParts(player.x,player.y,'#ffaa44',40);
     shake(0.4,8);
@@ -2624,7 +2617,7 @@ class Enemy{
     const w=Math.floor(gameTime/30),em=elite?2.2:1;
     // 적 HP 배수: 11분(660s)에 무릎 → 이후 기울기 0.013→0.005로 꺾어 후반 스펀지 완화 (물량은 spawnEnemies에서 보상)
     // 적 HP 배수: 10분(600s)까지 상승 후 거의 평탄(상한 9.6) — 후반 폭주 억제. 11분 벽의 주 레버는 스폰/관통, HP는 보조.
-    const hs=(gameTime<=600?1+gameTime*0.013:Math.min(8.8+(gameTime-600)*0.002,9.6))*curDiff().hpMul;
+    const hs=gameTime<=600?1+gameTime*0.013:Math.min(8.8+(gameTime-600)*0.002,9.6);
     if(type==='zombie'){
       this.hp=this.mhp=(35+w*8)*hs*em;this.spd=(38+w*1.5)*(elite?1.2:1);
       this.dmg=(10+w)*em;this.col='#44bb44';this.sz=12*(elite?1.3:1);this.xv=3*(elite?3:1);
@@ -2682,7 +2675,7 @@ class Enemy{
       const SB=BAL.enemy.skel;
       if(this.sT<=0&&d<SB.shootR){
         const a=Math.atan2(player.y-this.y,player.x-this.x);
-        const pb={x:this.x,y:this.y,vx:Math.cos(a)*SB.projSpd,vy:Math.sin(a)*SB.projSpd,pdmg:this.dmg*0.95,life:2.5,sz:SB.projSz,dead:false,
+        const pb={x:this.x,y:this.y,vx:Math.cos(a)*SB.projSpd,vy:Math.sin(a)*SB.projSpd,pdmg:this.dmg*1.2,life:2.5,sz:SB.projSz,dead:false,
           update(dt2){this.x+=this.vx*dt2;this.y+=this.vy*dt2;this.life-=dt2;if(this.life<=0){this.dead=true;return}if(dist(this,player)<this.sz+12){player.takeDmg(this.pdmg);this.dead=true}},
           draw(){
             G.save();G.translate(this.x,this.y);
@@ -2726,7 +2719,7 @@ class Enemy{
   die(){
     this.dead=true;killCount++;bumpCombo();
     // 골드 코인 드랍 (기존 골드량 그대로 — 자석으로 흡수해야 적립). 새끼는 안 떨굼(스팸 방지)
-    const gv=(this.elite?0.45:(this.type==='tank'?0.25:(this.type==='splitling'?0:0.08)))*curDiff().goldMul;
+    const gv=this.elite?0.45:(this.type==='tank'?0.25:(this.type==='splitling'?0:0.08));
     if(gv>0)coins.push(new Coin(this.x,this.y,gv));
     gems.push(new Gem(this.x,this.y,this.xv));
     spawnParts(this.x,this.y,this.col,this.elite?14:7);
@@ -2900,7 +2893,7 @@ class Boss{
   die(){
     this.dead=true;bossActive=false;boss=null;player.gainXp(this.bxp);hitStop=Math.max(hitStop,0.16);
     killCount++;bumpCombo();  // 보스 처치도 처치수/콤보에 카운트 (최종원 폭주 트리거에도 기여)
-    for(let i=0;i<8;i++)coins.push(new Coin(this.x+rnd(-30,30),this.y+rnd(-30,30),curDiff().goldMul));  // 코인 8개 버스트 (난이도 골드배수)
+    for(let i=0;i<8;i++)coins.push(new Coin(this.x+rnd(-30,30),this.y+rnd(-30,30),1));  // 코인 8개 버스트 (총 8골드)
     for(let i=0;i<12;i++)gems.push(new Gem(this.x+rnd(-40,40),this.y+rnd(-40,40),10));
     spawnParts(this.x,this.y,this.col,30);shake(0.6,10);spark(this.x,this.y,this.col,20);
     // 보스 사망 데칼도 제거 (가시성)
@@ -4234,7 +4227,6 @@ const TITLE_BTNS=[
   {label:'🛒 강화 상점',y:374,w:240,h:36,action:'shop'},
   {label:'⚙ 설정',y:416,w:240,h:34,action:'settings'},
 ];
-function diffBarRect(){return {x:LW/2-120,y:278,w:240,h:24};}
 function renderTitle(){
   // 배경 - 어두운 그라데이션 + 파티클
   const bg=G.createRadialGradient(LW/2,LH*0.4,40,LW/2,LH*0.4,LH*0.9);
@@ -4276,14 +4268,11 @@ function renderTitle(){
   G.fillText('━━ 친구들의 서바이벌 ━━',LW/2,204);
   G.fillStyle='#666';G.font='13px Courier New';
   G.fillText('15분간 살아남아 협곡의 망령을 처치하라',LW/2,228);
-  // 난이도 선택 바 (클릭 시 순환)
+  // 깜빡이는 시작 안내
   {
-    const d=curDiff(),r=diffBarRect();
-    G.fillStyle='rgba(0,0,0,0.55)';G.fillRect(r.x,r.y,r.w,r.h);
-    G.strokeStyle=d.col;G.lineWidth=2;G.strokeRect(r.x,r.y,r.w,r.h);
-    G.textAlign='left';G.fillStyle='#888';G.font='bold 11px Courier New';G.fillText('난이도',r.x+12,r.y+18);
-    G.textAlign='center';G.fillStyle=d.col;G.font='bold 15px Courier New';G.fillText('◀  '+d.name+'  ▶',LW/2+22,r.y+18);
-    G.textAlign='center';G.fillStyle='#777';G.font='9px Courier New';G.fillText(d.desc,LW/2,r.y+r.h+12);
+    const blink=Math.sin(titleFr*0.15)*0.5+0.5;
+    G.textAlign='center';G.fillStyle=`rgba(255,${180+blink*40},${100+blink*40},${0.6+blink*0.4})`;
+    G.font='bold 11px Courier New';G.fillText('▼  ▼  ▼',LW/2,288);
   }
   // 버튼들
   TITLE_BTNS.forEach((b,i)=>{
@@ -4698,13 +4687,6 @@ function renderResult(win){
     G.fillStyle=tg;G.fillText('💀  G A M E   O V E R',LW/2,80);
     G.strokeStyle='rgba(0,0,0,0.5)';G.lineWidth=1.5;G.strokeText('💀  G A M E   O V E R',LW/2,80);
   }
-  // 난이도 표기 (하드 클리어 강조)
-  {
-    const d=curDiff();
-    G.textAlign='center';G.font='bold 12px Courier New';G.fillStyle=d.col;
-    const tag=(win&&d.id==='hard')?`🔥 하드 클리어! 🔥`:`난이도 ${d.name} · 골드 ${d.goldMul}×`;
-    G.fillText(tag,LW/2,100);
-  }
   // 골드 획득 배너 (메타 진행 — 상점에서 사용)
   G.textAlign='center';G.font='bold 14px Courier New';G.fillStyle='#ffdd55';
   G.fillText(`🪙 +${Math.floor(runGold)} 골드 획득!   (보유 ${META.gold} · 🛒 상점에서 강화)`,LW/2,120);
@@ -4794,7 +4776,7 @@ function spawnEnemies(dt){
   spawnT-=dt;if(spawnT>0)return;
   const wave=Math.floor(gameTime/30);
   // 후반 물량은 '벽'이 되므로 늘리지 않음(이전 +33% 롤백). 동시 스폰 상한 15 고정.
-  const cnt=Math.max(1,Math.round(Math.min(3+wave*2,15)*curDiff().spawnMul));  // 난이도 물량 배수
+  const cnt=Math.min(3+wave*2,15);  // 동시 스폰 상한 15
   // 플레이어 진행(이동) 방향 ±35° 콘은 스폰 절반으로 줄여 '도망 통로' 형성
   const fang=Math.atan2(player.facing.y,player.facing.x);
   for(let i=0;i<cnt;i++){
@@ -4810,13 +4792,13 @@ function spawnEnemies(dt){
     let type='zombie';
     if(gameTime>=60)type=rv<0.55?'zombie':'bat';
     if(gameTime>=120)type=rv<0.4?'zombie':rv<0.6?'bat':rv<0.85?'rusher':'zombie';
-    if(gameTime>=200)type=rv<0.3?'zombie':rv<0.5?'bat':rv<0.7?'rusher':rv<0.8?'skeleton':rv<0.92?'splitter':'zombie';  // 해골 16%→10%
+    if(gameTime>=200)type=rv<0.32?'zombie':rv<0.52?'bat':rv<0.74?'rusher':rv<0.8?'skeleton':rv<0.92?'splitter':'zombie';  // 해골 10%→6% (총알 강화 보상)
     if(gameTime>=300){
       // 후반: 탱커/분열형/자폭형 추가 (VS 참고)
       if(rv<0.2)type='zombie';
       else if(rv<0.36)type='bat';
-      else if(rv<0.5)type='rusher';
-      else if(rv<0.59)type='skeleton';   // 14%→9%
+      else if(rv<0.52)type='rusher';
+      else if(rv<0.58)type='skeleton';   // 9%→6% (총알 강화 보상)
       else if(rv<0.71)type='tank';
       else if(rv<0.86)type='splitter';   // 12%→15%
       else if(rv<0.92)type='bomber';     // 10%→6% (떼거리 완화)
@@ -4827,7 +4809,7 @@ function spawnEnemies(dt){
   }
   // 10분부터 스폰 간격을 늘려 화면 밀도↓ (스폰율 30→ 11분 27 → 15분 19/s). 처치율과 균형 맞춰 '벽' 완화
   const lateFloor=0.5+Math.min(0.4,Math.max(0,(gameTime-600)/60)*0.06);
-  spawnT=Math.max(lateFloor,2.2-wave*0.15)/curDiff().spawnMul;
+  spawnT=Math.max(lateFloor,2.2-wave*0.15);
 }
 
 // ═══ MAIN ═══
@@ -4956,11 +4938,6 @@ c.addEventListener('click',e=>{
     return;
   }
   if(state==='title'){
-    // 난이도 바 클릭 → 다음 난이도로 순환 (이지→노말→하드→이지)
-    const r=diffBarRect();
-    if(m.x>=r.x&&m.x<=r.x+r.w&&m.y>=r.y&&m.y<=r.y+r.h){
-      META.diff=((META.diff||0)+1)%DIFFS.length; saveMeta(); SFX.shoot(); return;
-    }
     const i=getTitleBtnAt(m.x,m.y);
     if(i>=0){const a=TITLE_BTNS[i].action;
       if(a==='start'){state='select';playBgm('title')}       // 게임 시작 → 캐릭 선택
@@ -5154,11 +5131,6 @@ function render(){
     G.fillStyle='rgba(0,0,0,0.55)';G.fillRect(LW-150,8,86,18);
     G.fillStyle='#ffdd55';G.font='bold 12px Courier New';G.textAlign='right';G.textBaseline='middle';
     G.fillText('🪙 '+Math.floor(runGold),LW-70,18);
-    // 난이도 뱃지 (골드 카운터 아래)
-    const d=curDiff();
-    G.fillStyle='rgba(0,0,0,0.55)';G.fillRect(LW-150,28,86,16);
-    G.fillStyle=d.col;G.font='bold 10px Courier New';G.textAlign='right';
-    G.fillText('난이도 '+d.name,LW-70,36);
     G.textBaseline='alphabetic';G.restore();
   }
   // 디버그 무적 배지 (켜져 있는 동안 항상 표시)
