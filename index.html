@@ -816,7 +816,7 @@ const PASSIVES=[
 ];
 
 // ═══ GAME STATE ═══
-let state='title',player=null,enemies=[],projs=[],gems=[],boss=null;
+let state='title',player=null,enemies=[],projs=[],gems=[],coins=[],boss=null;
 let titleFr=0,hovTitleBtn=-1,settingsOpen=false,hovSetBtn=-1,dragSlider=null;
 let gameTime=0,spawnT=0,bossIdx=0,bossActive=false;
 let hitStop=0;  // 히트스톱 — 큰 타격 순간 게임 잠깐 정지 (타격감 juice)
@@ -2715,7 +2715,9 @@ class Enemy{
   }
   die(){
     this.dead=true;killCount++;bumpCombo();
-    runGold+=this.elite?0.45:(this.type==='tank'?0.25:(this.type==='splitling'?0.02:0.08));  // 골드 적립(분수 누적, ~6판에 만렙)
+    // 골드 코인 드랍 (기존 골드량 그대로 — 자석으로 흡수해야 적립). 새끼는 안 떨굼(스팸 방지)
+    const gv=this.elite?0.45:(this.type==='tank'?0.25:(this.type==='splitling'?0:0.08));
+    if(gv>0)coins.push(new Coin(this.x,this.y,gv));
     gems.push(new Gem(this.x,this.y,this.xv));
     spawnParts(this.x,this.y,this.col,this.elite?14:7);
     // 분열형: 죽으면 작은 새끼 2마리로 쪼개짐 (새끼는 안 쪼개짐)
@@ -2886,8 +2888,9 @@ class Boss{
   }
   hurt(v,crit,src){const eff=Math.min(v,Math.max(this.hp,0));this.hp-=v;this.flash=0.08;totalDmg+=eff;if(eff>dmgPeak)dmgPeak=eff;dmgByWpn[src||'etc']=(dmgByWpn[src||'etc']||0)+eff;SFX.bHit();spawnParts(this.x,this.y,this.col,4);showDmg(this.x+rnd(-12,12),this.y-this.sz/2-4,v,crit?'#ffee22':'#ffaa44',true,crit);if(this.hp<=0)this.die()}
   die(){
-    this.dead=true;bossActive=false;boss=null;player.gainXp(this.bxp);hitStop=Math.max(hitStop,0.16);runGold+=8;
+    this.dead=true;bossActive=false;boss=null;player.gainXp(this.bxp);hitStop=Math.max(hitStop,0.16);
     killCount++;bumpCombo();  // 보스 처치도 처치수/콤보에 카운트 (최종원 폭주 트리거에도 기여)
+    for(let i=0;i<8;i++)coins.push(new Coin(this.x+rnd(-30,30),this.y+rnd(-30,30),1));  // 코인 8개 버스트 (총 8골드, 기존 동일)
     for(let i=0;i<12;i++)gems.push(new Gem(this.x+rnd(-40,40),this.y+rnd(-40,40),10));
     spawnParts(this.x,this.y,this.col,30);shake(0.6,10);spark(this.x,this.y,this.col,20);
     // 보스 사망 데칼도 제거 (가시성)
@@ -3018,6 +3021,31 @@ class Gem{
   }
 }
 function spawnParts(x,y,col,n){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,s=rnd(30,130);parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:rnd(0.3,0.7),ml:0.7,col,dead:false})}}
+// 🪙 골드 코인 (VS식 바닥 픽업) — 처치 시 떨어지고 자석으로 흡수. 기존 골드량을 그대로 담아 경제 보존.
+class Coin{
+  constructor(x,y,v){this.x=x;this.y=y;this.v=v;this.dead=false;this.t=Math.random()*Math.PI*2;
+    const a=Math.random()*Math.PI*2,s=rnd(25,75);this.vx=Math.cos(a)*s;this.vy=Math.sin(a)*s;  // 살짝 튕김
+    this.sz=v>=1?6:(v>=0.3?5:4);
+  }
+  update(dt){
+    this.t+=dt*6;
+    this.x+=this.vx*dt;this.y+=this.vy*dt;this.vx*=0.88;this.vy*=0.88;  // 튕김 감쇠
+    const d=dist(this,player);
+    const magR=player.magrBoost>0?99999:player.magr*1.15;  // 코인은 보석보다 살짝 더 잘 끌림
+    if(d<magR){const a=Math.atan2(player.y-this.y,player.x-this.x),s=Math.max(player.magrBoost>0?520:220,(magR-d)*5);this.x+=Math.cos(a)*s*dt;this.y+=Math.sin(a)*s*dt}
+    if(dist(this,player)<15){runGold+=this.v;this.dead=true;SFX.gem()}
+  }
+  draw(){
+    const s=this.sz+Math.sin(this.t)*0.8;
+    G.save();
+    G.fillStyle='rgba(255,200,0,0.22)';G.beginPath();G.arc(this.x,this.y,s*1.5,0,Math.PI*2);G.fill();
+    G.fillStyle='#ffcc22';G.beginPath();G.arc(this.x,this.y,s,0,Math.PI*2);G.fill();
+    G.strokeStyle='#a8780f';G.lineWidth=1;G.stroke();
+    G.fillStyle='#8a6510';G.beginPath();G.arc(this.x,this.y,s*0.55,0,Math.PI*2);G.stroke();  // 안쪽 링
+    G.fillStyle='rgba(255,240,160,0.9)';G.beginPath();G.arc(this.x-s*0.3,this.y-s*0.3,s*0.32,0,Math.PI*2);G.fill();  // 하이라이트
+    G.restore();
+  }
+}
 
 // ═══ COMPANION (뭉치 - 흰 코카 스파니엘) ═══
 class Companion{
@@ -4782,7 +4810,7 @@ function spawnEnemies(dt){
 
 // ═══ MAIN ═══
 function startGame(cd){
-  player=new Player(cd);enemies=[];projs=[];gems=[];parts=[];boss=null;
+  player=new Player(cd);enemies=[];projs=[];gems=[];coins=[];parts=[];boss=null;
   applyMetaUpgrades(player);  // 영구 업그레이드 적용
   runGold=0;runBanked=false;runRevives=0;runRecords={time:false,kills:false,dmg:false};  // 이번 판 골드/부활/신기록 초기화
   gameTime=0;spawnT=0;bossIdx=0;bossActive=false;killCount=0;afr=0;afrT=0;totalDmg=0;dmgPeak=0;dmgByWpn={};
@@ -4794,7 +4822,7 @@ function startGame(cd){
   playBgm('battle');
 }
 function reset(){
-  state='title';player=null;enemies=[];projs=[];gems=[];parts=[];boss=null;bossActive=false;
+  state='title';player=null;enemies=[];projs=[];gems=[];coins=[];parts=[];boss=null;bossActive=false;
   dmgTexts=[];hitSparks=[];notifs=[];pickups=[];decals=[];lvUpBursts=[];
   shakeT=0;shakeM=0;combo=0;comboT=0;paused=false;pendingLvUps=0;
   weatherT=0;flashT=0;camOX=0;camOY=0;
@@ -4962,6 +4990,7 @@ function update(dt){
   projs.forEach(p=>p.update(dt));projs=projs.filter(p=>!p.dead);
   if(projs.length>250)projs=projs.slice(projs.length-250);
   gems.forEach(g=>g.update(dt));gems=gems.filter(g=>!g.dead);
+  coins.forEach(c=>c.update(dt));coins=coins.filter(c=>!c.dead);
   parts.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;p.dead=p.life<=0});
   parts=parts.filter(p=>!p.dead);
   dmgTexts.forEach(d=>{d.y+=d.vy*dt;d.vy+=80*dt;d.life-=dt;d.dead=d.life<=0});
@@ -5016,6 +5045,7 @@ function render(){
   // 픽업 (배경 위)
   pickups.forEach(pk=>drawPickup(pk));
   gems.forEach(g=>g.draw());
+  coins.forEach(c=>c.draw());
   parts.forEach(p=>{G.save();G.globalAlpha=p.life/p.ml*0.9;G.fillStyle=p.col;G.fillRect(p.x-3,p.y-3,6,6);G.restore()});
   enemies.forEach(e=>e.draw());
   if(boss)boss.draw();
