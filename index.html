@@ -1684,7 +1684,7 @@ function fireWpn(type,p,wlv){
       const bc=type==='bitcoin';
       if(!p.orbitCoins)p.orbitCoins=[];
       p.orbitCoins=p.orbitCoins.filter(c=>!c.dead);
-      const cnt=Math.min((bc?4:2)+Math.floor(wlv/2),9);        // 동전 개수 (레벨↑)
+      const cnt=Math.min((bc?7:2)+Math.floor(wlv/2),bc?11:7);  // 동전 개수: 동전 2~6, 비트코인 7~11 (진화가 항상 더 많게)
       const orbR=(60+wlv*4)*am, cDmg=dmg*(bc?1.7:1.1), cSz=(7.5+wlv*0.4)*am*(bc?1.25:1), cSpin=bc?2.6:2.1;
       p.orbitCoins.forEach(c=>{c.orbR=orbR;c.dmg=cDmg;c.sz=cSz;c.bc=bc;c.spin=cSpin;c.wt=bc?'bitcoin':'coin';});  // 능력치 동기화
       while(p.orbitCoins.length<cnt){
