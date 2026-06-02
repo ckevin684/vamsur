@@ -4236,12 +4236,10 @@ function triggerLvUp(){
     Object.entries(EVOS).forEach(([base,def])=>{
       if(owned.includes(def.res))evolvedOwned.add(base);
     });
-    // 최초는 컴패니언 전문가 — 다른 베이스 무기 못 들음 (mungchi만 사용)
-    const isCho=player.cd.id==='co';
+    // co도 다른 캐릭처럼 추가 무기 주울 수 있게 (뭉치만 고정 제한 제거 — 무기 카드 마름 방지)
     BASE_WPNS.filter(t=>{
       if(owned.includes(t))return false;
       if(evolvedOwned.has(t))return false;
-      if(isCho&&t!=='mungchi')return false;
       return true;
     }).forEach(wt=>{
       wpnPool.push({
