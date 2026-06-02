@@ -1835,25 +1835,57 @@ function fireWpn(type,p,wlv){
         let dd=wdmg; if(e===boss)dd*=p.bdm; const cr=Math.random()<p.crit; if(cr)dd*=2;
         e.hurt(dd,cr,'wave');
       });
-      // 큰 할퀴기 비주얼 (발톱 4줄이 앞으로 크게 긁음)
-      projs.push({x:p.x,y:p.y,ang:wa,R,span,life:0.32,ml:0.32,dead:false,isAoe:true,wt:'wave',
+      // 큰 할퀴기 비주얼 (붉은 발톱 상처 4줄 — 칼날형, 거친 가장자리)
+      projs.push({x:p.x,y:p.y,ang:wa,R,span,life:0.34,ml:0.34,dead:false,isAoe:true,wt:'wave',
         update(dt){this.life-=dt;if(this.life<=0)this.dead=true;},
         draw(){
-          const al=clamp(this.life/this.ml,0,1),tt=1-al, sw=Math.min(1,tt*1.8);
+          const al=clamp(this.life/this.ml,0,1),tt=1-al, sw=Math.min(1,tt*2.0);
           G.save();G.translate(this.x,this.y);G.rotate(this.ang);
-          G.lineCap='round';
-          // 발톱 자국 4줄 — 평행하게 비스듬히 긁힘(촤악), 살짝 곡선·끝 가늘게. 레이저 느낌 제거
-          for(let i=0;i<4;i++){
-            const off=(i-1.5)*this.R*0.18;                 // 수직 간격(평행)
-            const x0=this.R*(0.18+sw*0.1), y0=off-this.R*0.14;
-            const x1=this.R*(0.5+sw*0.5),  y1=off+this.R*0.14;
-            const mx=(x0+x1)/2, my=(y0+y1)/2-this.R*0.05;  // 살짝 휨
-            G.globalAlpha=al*0.75*(0.5+sw*0.5);
-            G.strokeStyle=i%2?'rgba(255,255,255,0.95)':'rgba(255,238,200,0.9)';
-            G.lineWidth=Math.max(1.5,this.R*0.035)*(1-tt*0.6);
-            G.beginPath();G.moveTo(x0,y0);G.quadraticCurveTo(mx,my,x1,y1);G.stroke();
+          G.lineCap='round';G.lineJoin='round';
+          const R=this.R, N=4, S=16;
+          // 4줄 평행 발톱 — 양끝 가늘고 가운데 굵은 칼날, 가장자리 톱니(찢긴 상처), 붉은 그라데이션
+          for(let i=0;i<N;i++){
+            const off=(i-(N-1)/2)*R*0.22;                  // 평행 간격
+            const len=R*(0.5+sw*0.5);                       // 스와이프 진행에 따라 길어짐
+            const x0=R*0.12, x1=x0+len;
+            const y0=off-R*0.18, y1=off+R*0.20;             // 비스듬히 내려긋기
+            const cx=(x0+x1)/2, cy=(y0+y1)/2-R*0.10;        // 베지어 제어점(살짝 휨)
+            const maxW=Math.max(2,R*0.055)*(1-tt*0.35);     // 최대 두께
+            const mid=[],top=[],bot=[];
+            for(let s=0;s<=S;s++){
+              const u=s/S, iu=1-u;
+              const px=iu*iu*x0+2*iu*u*cx+u*u*x1;
+              const py=iu*iu*y0+2*iu*u*cy+u*u*y1;
+              const tx=2*iu*(cx-x0)+2*u*(x1-cx), ty=2*iu*(cy-y0)+2*u*(y1-cy);
+              const tl=Math.hypot(tx,ty)||1, nx=-ty/tl, ny=tx/tl;
+              // 폭: 양끝 0, 살짝 앞쪽이 두꺼운 칼날 + 결정적 톱니노이즈
+              let hw=maxW*Math.pow(Math.sin(Math.PI*u),0.6);
+              hw*=1+0.24*Math.sin(u*27+i*2.3)*Math.sin(u*9+i);
+              mid.push([px,py]);
+              top.push([px+nx*hw,py+ny*hw]);
+              bot.push([px-nx*hw,py-ny*hw]);
+            }
+            // 채우기(붉은 상처)
+            G.beginPath();G.moveTo(top[0][0],top[0][1]);
+            for(let s=1;s<=S;s++)G.lineTo(top[s][0],top[s][1]);
+            for(let s=S;s>=0;s--)G.lineTo(bot[s][0],bot[s][1]);
+            G.closePath();
+            const g=G.createLinearGradient(x0,y0,x1,y1);
+            g.addColorStop(0,'rgba(110,0,0,0)');
+            g.addColorStop(0.18,'rgba(150,5,5,0.9)');
+            g.addColorStop(0.5,'rgba(225,25,20,0.96)');
+            g.addColorStop(0.82,'rgba(160,5,5,0.9)');
+            g.addColorStop(1,'rgba(100,0,0,0)');
+            G.globalAlpha=al*(0.55+sw*0.45);G.fillStyle=g;G.fill();
+            // 깊은 속살 밝은 선
+            G.globalAlpha=al*0.55*(0.4+sw*0.6);
+            G.strokeStyle='rgba(255,140,110,0.85)';
+            G.lineWidth=Math.max(1,maxW*0.3);
+            G.beginPath();G.moveTo(mid[0][0],mid[0][1]);
+            for(let s=1;s<=S;s++)G.lineTo(mid[s][0],mid[s][1]);
+            G.stroke();
           }
-          G.lineCap='butt';
+          G.lineCap='butt';G.lineJoin='miter';
           G.restore();
         }
       });
