@@ -822,8 +822,8 @@ let gameTime=0,spawnT=0,bossIdx=0,bossActive=false;
 let hitStop=0;  // 히트스톱 — 큰 타격 순간 게임 잠깐 정지 (타격감 juice)
 
 // ═══ 메타 진행 (영구 업그레이드 — localStorage, VS 스타일) ═══
-const META_DEFAULTS={gold:0, up:{hp:0,dmg:0,spd:0,xp:0,crit:0,armor:0,revive:0}, roulette:0,
-  best:{time:0,kills:0,dmg:0,wins:0,plays:0}};  // 하이스코어(영구): 최고 생존/킬/데미지, 승리·플레이 횟수
+const META_DEFAULTS={gold:0, up:{hp:0,dmg:0,spd:0,xp:0,crit:0,armor:0,revive:0}, roulette:0, diff:1,
+  best:{time:0,kills:0,dmg:0,wins:0,plays:0}};  // 하이스코어(영구) + 난이도 인덱스(1=노말)
 const META_UPGRADES=[
   {id:'hp',   name:'❤️ 체력 강화', desc:'최대 HP',   max:5, cost:l=>40+l*40, eff:l=>1+l*0.08, fmt:l=>'+'+Math.round(l*8)+'%'},
   {id:'dmg',  name:'⚔️ 공격 강화', desc:'데미지',     max:5, cost:l=>50+l*55, eff:l=>1+l*0.05, fmt:l=>'+'+Math.round(l*5)+'%'},
@@ -834,6 +834,13 @@ const META_UPGRADES=[
   {id:'revive',name:'💗 부활',     desc:'사망 시 HP50% 부활(판당)', max:2, cost:l=>250+l*350, eff:l=>l, fmt:l=>l+'회'},
 ];
 const ROULETTE_COST=300;
+// 난이도 옵션 — 적 HP·물량·골드 배수. META.diff(인덱스)로 영속 저장.
+const DIFFS=[
+  {id:'easy',  name:'이지',col:'#66dd88', hpMul:0.75, spawnMul:0.85, goldMul:0.8, desc:'적 체력↓ 물량↓ (골드 0.8×)'},
+  {id:'normal',name:'노말',col:'#ffcc44', hpMul:1.0,  spawnMul:1.0,  goldMul:1.0, desc:'표준 밸런스'},
+  {id:'hard',  name:'하드',col:'#ff5555', hpMul:1.35, spawnMul:1.25, goldMul:1.5, desc:'적 체력↑ 물량↑ (골드 1.5×)'},
+];
+function curDiff(){return DIFFS[Math.min(DIFFS.length-1,Math.max(0,META.diff||0))]||DIFFS[1];}
 function loadMeta(){
   try{ const r=JSON.parse(localStorage.getItem('vamsur_meta'));
     if(r&&typeof r==='object') return Object.assign({},META_DEFAULTS,r,{up:Object.assign({},META_DEFAULTS.up,r.up||{}),best:Object.assign({},META_DEFAULTS.best,r.best||{})});
@@ -2614,7 +2621,7 @@ class Enemy{
     this.kvx=0;this.kvy=0;
     const w=Math.floor(gameTime/30),em=elite?2.2:1;
     // 적 HP 배수: 11분(660s)에 무릎 → 이후 기울기 0.013→0.005로 꺾어 후반 스펀지 완화 (물량은 spawnEnemies에서 보상)
-    const hs=gameTime<=660?1+gameTime*0.013:1+660*0.013+(gameTime-660)*0.005;
+    const hs=(gameTime<=660?1+gameTime*0.013:1+660*0.013+(gameTime-660)*0.005)*curDiff().hpMul;  // 난이도 HP 배수
     if(type==='zombie'){
       this.hp=this.mhp=(35+w*8)*hs*em;this.spd=(38+w*1.5)*(elite?1.2:1);
       this.dmg=(10+w)*em;this.col='#44bb44';this.sz=12*(elite?1.3:1);this.xv=3*(elite?3:1);
@@ -2716,7 +2723,7 @@ class Enemy{
   die(){
     this.dead=true;killCount++;bumpCombo();
     // 골드 코인 드랍 (기존 골드량 그대로 — 자석으로 흡수해야 적립). 새끼는 안 떨굼(스팸 방지)
-    const gv=this.elite?0.45:(this.type==='tank'?0.25:(this.type==='splitling'?0:0.08));
+    const gv=(this.elite?0.45:(this.type==='tank'?0.25:(this.type==='splitling'?0:0.08)))*curDiff().goldMul;
     if(gv>0)coins.push(new Coin(this.x,this.y,gv));
     gems.push(new Gem(this.x,this.y,this.xv));
     spawnParts(this.x,this.y,this.col,this.elite?14:7);
@@ -2890,7 +2897,7 @@ class Boss{
   die(){
     this.dead=true;bossActive=false;boss=null;player.gainXp(this.bxp);hitStop=Math.max(hitStop,0.16);
     killCount++;bumpCombo();  // 보스 처치도 처치수/콤보에 카운트 (최종원 폭주 트리거에도 기여)
-    for(let i=0;i<8;i++)coins.push(new Coin(this.x+rnd(-30,30),this.y+rnd(-30,30),1));  // 코인 8개 버스트 (총 8골드, 기존 동일)
+    for(let i=0;i<8;i++)coins.push(new Coin(this.x+rnd(-30,30),this.y+rnd(-30,30),curDiff().goldMul));  // 코인 8개 버스트 (난이도 골드배수)
     for(let i=0;i<12;i++)gems.push(new Gem(this.x+rnd(-40,40),this.y+rnd(-40,40),10));
     spawnParts(this.x,this.y,this.col,30);shake(0.6,10);spark(this.x,this.y,this.col,20);
     // 보스 사망 데칼도 제거 (가시성)
@@ -4224,6 +4231,7 @@ const TITLE_BTNS=[
   {label:'🛒 강화 상점',y:374,w:240,h:36,action:'shop'},
   {label:'⚙ 설정',y:416,w:240,h:34,action:'settings'},
 ];
+function diffBarRect(){return {x:LW/2-120,y:278,w:240,h:24};}
 function renderTitle(){
   // 배경 - 어두운 그라데이션 + 파티클
   const bg=G.createRadialGradient(LW/2,LH*0.4,40,LW/2,LH*0.4,LH*0.9);
@@ -4265,11 +4273,15 @@ function renderTitle(){
   G.fillText('━━ 친구들의 서바이벌 ━━',LW/2,204);
   G.fillStyle='#666';G.font='13px Courier New';
   G.fillText('15분간 살아남아 협곡의 망령을 처치하라',LW/2,228);
-  // 깜빡이는 효과 (시작하라는 안내)
-  const blink=Math.sin(titleFr*0.15)*0.5+0.5;
-  G.fillStyle=`rgba(255,${180+blink*40},${100+blink*40},${0.6+blink*0.4})`;
-  G.font='bold 11px Courier New';
-  G.fillText('▼  ▼  ▼',LW/2,275);
+  // 난이도 선택 바 (클릭 시 순환)
+  {
+    const d=curDiff(),r=diffBarRect();
+    G.fillStyle='rgba(0,0,0,0.55)';G.fillRect(r.x,r.y,r.w,r.h);
+    G.strokeStyle=d.col;G.lineWidth=2;G.strokeRect(r.x,r.y,r.w,r.h);
+    G.textAlign='left';G.fillStyle='#888';G.font='bold 11px Courier New';G.fillText('난이도',r.x+12,r.y+18);
+    G.textAlign='center';G.fillStyle=d.col;G.font='bold 15px Courier New';G.fillText('◀  '+d.name+'  ▶',LW/2+22,r.y+18);
+    G.textAlign='center';G.fillStyle='#777';G.font='9px Courier New';G.fillText(d.desc,LW/2,r.y+r.h+12);
+  }
   // 버튼들
   TITLE_BTNS.forEach((b,i)=>{
     const bw=b.w,bh=b.h,bx=LW/2-bw/2,by=b.y;
@@ -4774,7 +4786,7 @@ function spawnEnemies(dt){
   // 11분(660s) 이후 후반 램프: HP 완화분을 물량으로 보상. 분당 +1, 최대 +5 (상한 15→20)
   const lateMin=Math.max(0,(gameTime-660)/60);
   const capBoost=Math.min(5,Math.round(lateMin));
-  const cnt=Math.min(3+wave*2,15+capBoost);
+  const cnt=Math.max(1,Math.round(Math.min(3+wave*2,15+capBoost)*curDiff().spawnMul));  // 난이도 물량 배수
   // 플레이어 진행(이동) 방향 ±35° 콘은 스폰 절반으로 줄여 '도망 통로' 형성
   const fang=Math.atan2(player.facing.y,player.facing.x);
   for(let i=0;i<cnt;i++){
@@ -4805,7 +4817,7 @@ function spawnEnemies(dt){
     const elite=Math.random()<0.08;
     enemies.push(new Enemy(ex,ey,type,elite));
   }
-  spawnT=Math.max(Math.max(0.42,0.5-lateMin*0.02),2.2-wave*0.15);  // 11분 이후 간격 하한 0.5→0.42로 점감 (물량 보상)
+  spawnT=Math.max(Math.max(0.42,0.5-lateMin*0.02),2.2-wave*0.15)/curDiff().spawnMul;  // 11분+ 간격 점감 + 난이도 물량(짧을수록 多)
 }
 
 // ═══ MAIN ═══
@@ -4934,6 +4946,11 @@ c.addEventListener('click',e=>{
     return;
   }
   if(state==='title'){
+    // 난이도 바 클릭 → 다음 난이도로 순환 (이지→노말→하드→이지)
+    const r=diffBarRect();
+    if(m.x>=r.x&&m.x<=r.x+r.w&&m.y>=r.y&&m.y<=r.y+r.h){
+      META.diff=((META.diff||0)+1)%DIFFS.length; saveMeta(); SFX.shoot(); return;
+    }
     const i=getTitleBtnAt(m.x,m.y);
     if(i>=0){const a=TITLE_BTNS[i].action;
       if(a==='start'){state='select';playBgm('title')}       // 게임 시작 → 캐릭 선택

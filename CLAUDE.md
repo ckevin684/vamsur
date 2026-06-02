@@ -139,6 +139,12 @@ start firefox index.html
 
 ## 🆕 이번 세션 추가/변경 (위 시스템 외 — 최신)
 
+### 자동 패치 세션 (전적/픽업/난이도)
+- **무기별 데미지 집계**: `dmgByWpn`(wt별) + `WFAM` 패밀리 라벨 → 결과화면 막대그래프. `totalDmg`/`dmgPeak`도. 모든 `hurt(v,crit,src)`에 src 전달(오버킬 제외).
+- **하이스코어**: `META.best{time,kills,dmg,wins,plays}` localStorage 영속. `bankRun(win)`서 갱신, `runRecords`로 결과화면 🏆배지, 타이틀에 최고기록.
+- **🪙 골드 코인 픽업(VS식)**: `Coin` 클래스, 처치 시 드랍→자석 흡수→`runGold`. 기존 골드량 보존.
+- **난이도 옵션**: `DIFFS`(이지/노말/하드) + `META.diff`. `curDiff()`로 적HP(`hs×hpMul`)·물량(`cnt×spawnMul`,`spawnT/spawnMul`)·골드(`goldMul`) 배수. 타이틀 `diffBarRect()` 클릭 순환.
+
 - **보스 시그니처 패턴** (구현 완료): 트럭/싸비 = 돌진(윈드업 정지 텔레그래프 = 반투명 위험레인+화살표 → 고속 락온 대시, ×1.6 강타), 불편러 = 시야차단 안개(`boss.fogT`), 망령 = 분신 소환(엘리트 러셔 3). `Boss.signature()` + `sigEvery/sigT/chargeWind/chargeT/chargeDir/fogT`.
 - **💗 부활 메타 업그레이드**: `META.up.revive`(판당 최대 2회), 사망 시 HP50%+주변 넉백. `runRevives`로 카운트, `takeDmg` 분기.
 - **아이템 슬롯 4→6** (`P_SLOTS=6`, 무기는 4). 렌더링 자동 대응.
