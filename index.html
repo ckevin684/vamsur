@@ -1482,17 +1482,12 @@ class Player{
       G.beginPath();G.arc(this.x,this.y,32+pulse*6,0,Math.PI*2);G.fill();
       G.restore();
     }
-    // 🐕 황금 뭉치 오라 (초사이언 — 진화 시)
+    // 🐕 황금 뭉치 — 은은한 금빛 오라 (풍선/불꽃 제거, 빛 확 줄임)
     if(this.wpns.some(w=>w.type==='unleash')){
-      const pl=0.5+0.5*Math.sin(gameTime*14);
+      const pl=0.5+0.5*Math.sin(gameTime*7);
       G.save();
-      G.globalAlpha=0.35+pl*0.25;G.fillStyle='#ffdd22';
-      G.beginPath();G.arc(this.x,this.y-2,20+pl*5,0,Math.PI*2);G.fill();
-      G.globalAlpha=0.18+pl*0.12;G.fillStyle='#ffffaa';
-      G.beginPath();G.arc(this.x,this.y-2,30+pl*8,0,Math.PI*2);G.fill();
-      // 위로 솟는 금빛 불꽃 줄기
-      G.globalAlpha=0.5+pl*0.3;G.strokeStyle='#ffe855';G.lineWidth=2;
-      for(let i=-2;i<=2;i++){G.beginPath();G.moveTo(this.x+i*5,this.y-8);G.lineTo(this.x+i*5+Math.sin(gameTime*10+i)*3,this.y-26-pl*8);G.stroke();}
+      G.globalAlpha=0.09+pl*0.06;G.fillStyle='#ffcc33';
+      G.beginPath();G.arc(this.x,this.y,17+pl*3,0,Math.PI*2);G.fill();
       G.restore();
     }
     G.save();G.translate(this.x,this.y);
@@ -1508,8 +1503,8 @@ class Player{
       G.save();G.translate(this.x,this.y);G.scale(1.45,1.45);G.translate(-this.x,-this.y);  // 플레이어 사이즈감
       drawCocker(this.x,this.y,afr,false,false);
       G.globalCompositeOperation='lighter';
-      G.globalAlpha=0.3+0.18*Math.sin(gameTime*12);
-      G.fillStyle='#ffcc22';G.beginPath();G.arc(this.x,this.y-1,12,0,Math.PI*2);G.fill();
+      G.globalAlpha=0.1+0.06*Math.sin(gameTime*8);  // 은은하게
+      G.fillStyle='#ffcc22';G.beginPath();G.arc(this.x,this.y-1,11,0,Math.PI*2);G.fill();
       G.restore();
     }
     else sChar(this.x,this.y,this.cd,afr,fl);
@@ -1844,17 +1839,21 @@ function fireWpn(type,p,wlv){
       projs.push({x:p.x,y:p.y,ang:wa,R,span,life:0.32,ml:0.32,dead:false,isAoe:true,wt:'wave',
         update(dt){this.life-=dt;if(this.life<=0)this.dead=true;},
         draw(){
-          const al=clamp(this.life/this.ml,0,1),tt=1-al, sw=Math.min(1,tt*1.6);
+          const al=clamp(this.life/this.ml,0,1),tt=1-al, sw=Math.min(1,tt*1.8);
           G.save();G.translate(this.x,this.y);G.rotate(this.ang);
-          G.lineCap='round';G.shadowColor='#ffcc33';G.shadowBlur=8;
+          G.lineCap='round';
+          // 발톱 자국 4줄 — 평행하게 비스듬히 긁힘(촤악), 살짝 곡선·끝 가늘게. 레이저 느낌 제거
           for(let i=0;i<4;i++){
-            const a=(-this.span*0.42)+(this.span*0.84)*(i/3);
-            const r0=this.R*0.15, r1=this.R*(0.4+sw*0.6);
-            G.globalAlpha=al*0.95;G.strokeStyle=i%2?'#ffffff':'#ffe24a';G.lineWidth=Math.max(3,this.R*0.06)*(1-tt*0.35);
-            G.beginPath();G.moveTo(Math.cos(a)*r0,Math.sin(a)*r0);G.lineTo(Math.cos(a)*r1,Math.sin(a)*r1);G.stroke();
+            const off=(i-1.5)*this.R*0.18;                 // 수직 간격(평행)
+            const x0=this.R*(0.18+sw*0.1), y0=off-this.R*0.14;
+            const x1=this.R*(0.5+sw*0.5),  y1=off+this.R*0.14;
+            const mx=(x0+x1)/2, my=(y0+y1)/2-this.R*0.05;  // 살짝 휨
+            G.globalAlpha=al*0.75*(0.5+sw*0.5);
+            G.strokeStyle=i%2?'rgba(255,255,255,0.95)':'rgba(255,238,200,0.9)';
+            G.lineWidth=Math.max(1.5,this.R*0.035)*(1-tt*0.6);
+            G.beginPath();G.moveTo(x0,y0);G.quadraticCurveTo(mx,my,x1,y1);G.stroke();
           }
-          G.shadowBlur=0;G.lineCap='butt';
-          if(tt<0.3){G.globalAlpha=al*(1-tt*3.3)*0.5;G.fillStyle='#fff';G.beginPath();G.arc(0,0,this.R*0.18,0,Math.PI*2);G.fill();}
+          G.lineCap='butt';
           G.restore();
         }
       });
