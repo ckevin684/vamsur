@@ -617,6 +617,7 @@ const BAL={
       rushKills:12,        // 발동 필요 킬 수
       rushWnd:4,           // 콤보 윈도우 (초) — 3→4 (초반 발동 용이)
       rushDur:5,           // 폭주 지속 시간
+      rushCd:7,            // 폭주 종료 후 재충전 쿨다운 — 상시발동 방지 (후반 거의 항시 발동 너프)
       rushAsMul:2,         // 폭주 시 공속 배율
       lateScaleStart:120,  // 시간 데미지 스케일링 시작 (초)
       lateScaleRate:0.3,   // 스케일링 속도 (1+t*0.3) — 0.4→0.3 (후반 폭딜 캡, 15분 ×4.0→×3.25)
@@ -1046,6 +1047,7 @@ class Player{
     this.repairFx=0;        // 발동 시 시각 이펙트 시간
     // 최종원 — 🍳 주문 폭주 (콤보 트리거 → 일정 시간 공속 2배)
     this.rushT=0;           // 활성 시간 (>0이면 발동 중)
+    this.rushCdT=0;         // 폭주 종료 후 쿨다운 (>0이면 콤보 안 쌓임)
     this.rushKills=0;       // 5초 윈도우 내 누적 킬
     this.rushWnd=0;         // 윈도우 카운트다운
     // 최기종 — 💥 분노/휠체어/신경주사 사이클 (discPain 누적 → 분노 → 휠체어)
@@ -1117,7 +1119,8 @@ class Player{
         this.rushWnd-=dt;
         if(this.rushWnd<=0)this.rushKills=0;
       }
-      if(this.rushT>0)this.rushT-=dt;
+      if(this.rushT>0){this.rushT-=dt;if(this.rushT<=0)this.rushCdT=BAL.char.jw.rushCd;}  // 폭주 종료 → 쿨다운 시작
+      else if(this.rushCdT>0)this.rushCdT-=dt;  // 쿨다운 소모
     }
     // 최기종 — 이동 기반 게이지 + 분노 타이머 + 휠체어 신경주사 추적
     if(this.cd.id==='gj'){
@@ -1160,7 +1163,7 @@ class Player{
   // 최종원 — 처치 1건 알림 — BAL.char.jw 참조
   notifyKill(){
     if(this.cd.id!=='jw')return;
-    if(this.rushT>0)return;
+    if(this.rushT>0||this.rushCdT>0)return;  // 폭주 중/쿨다운 중엔 콤보 안 쌓임
     const B=BAL.char.jw;
     this.rushKills++;
     this.rushWnd=B.rushWnd;
@@ -2876,9 +2879,9 @@ class Boss{
     if(this.bt==='truck'||this.bt==='sabi'){
       // 돌진: 플레이어 방향 락온 + 윈드업 텔레그래프 → 고속 대시
       this.chargeDir={x:Math.cos(a),y:Math.sin(a)};
-      this.chargeWind=this.bt==='sabi'?0.4:0.7;
-      this.chargeDur=this.bt==='sabi'?0.35:0.6;
-      this.chargeSpd=this.bt==='sabi'?440:580;
+      this.chargeWind=this.bt==='sabi'?0.45:0.7;
+      this.chargeDur=this.bt==='sabi'?0.9:0.6;   // 싸비: 짧은 돌진(0.35) → 끝까지 풀차지(0.9)로 예측 가능하게
+      this.chargeSpd=this.bt==='sabi'?560:580;   // 거리 ≈ 504 (텔레그래프 레인 길이와 일치)
       notify(this.bt==='sabi'?'🐕 싸비 돌진!':'🚚 트럭 돌진!','경로 피하기','#ffaa44');
     }else if(this.bt==='uncomfy'){
       // 시야 차단: "불편한 안개"로 화면 어두워짐
@@ -5201,42 +5204,51 @@ function drawPickup(pk){
   G.restore();
 }
 
-// 미니맵 (우하단)
+// 미니맵 (우하단) — 플레이어 중심 + 줌인. 플레이어가 항상 정중앙(눈에 띄게), 주변 적/픽업은 상대좌표.
 function drawMinimap(){
-  const mw=110,mh=110,mx=LW-mw-10,my=LH-mh-10,scale=mw/3800;
-  G.save();
-  G.fillStyle='rgba(0,0,0,0.7)';G.fillRect(mx,my,mw,mh);
-  G.strokeStyle='#444';G.lineWidth=1;G.strokeRect(mx,my,mw,mh);
-  // 맵 경계
-  G.strokeStyle='#660000';G.lineWidth=1;G.strokeRect(mx+1,my+1,mw-2,mh-2);
+  const mw=120,mh=120,mx=LW-mw-10,my=LH-mh-10,scale=mw/1500;  // ±750 유닛 줌인 (이전 ±1900 → 너무 멀어서 플레이어 안 보임)
   const cx=mx+mw/2,cy=my+mh/2;
+  G.save();
+  G.fillStyle='rgba(0,0,0,0.72)';G.fillRect(mx,my,mw,mh);
+  G.strokeStyle='#444';G.lineWidth=1;G.strokeRect(mx,my,mw,mh);
+  // 클리핑 (맵 영역 밖 그리기 방지)
+  G.save();G.beginPath();G.rect(mx,my,mw,mh);G.clip();
+  const rel=(wx,wy)=>({x:cx+(wx-player.x)*scale,y:cy+(wy-player.y)*scale});  // 플레이어 기준 상대좌표
+  const inMap=p=>p.x>mx&&p.x<mx+mw&&p.y>my&&p.y<my+mh;
   // 적
-  G.fillStyle='#ff4444';
-  enemies.forEach(e=>{const ex=cx+e.x*scale,ey=cy+e.y*scale;if(ex>mx&&ex<mx+mw&&ey>my&&ey<my+mh)G.fillRect(ex-1,ey-1,2,2)});
+  G.fillStyle='#ff5555';
+  enemies.forEach(e=>{const p=rel(e.x,e.y);if(inMap(p))G.fillRect(p.x-1.2,p.y-1.2,2.6,2.6)});
+  // 코인
+  G.fillStyle='#ffcc22';
+  coins.forEach(c=>{const p=rel(c.x,c.y);if(inMap(p))G.fillRect(p.x-1,p.y-1,2,2)});
   // 픽업
   G.fillStyle='#88ff88';
-  pickups.forEach(pk=>{const px=cx+pk.x*scale,py=cy+pk.y*scale;if(px>mx&&px<mx+mw&&py>my&&py<my+mh){G.fillRect(px-2,py-2,4,4)}});
+  pickups.forEach(pk=>{const p=rel(pk.x,pk.y);if(inMap(p))G.fillRect(p.x-2,p.y-2,4,4)});
   // 보스
   if(boss){
-    const bx=cx+boss.x*scale,by=cy+boss.y*scale;
-    G.fillStyle='#ff0000';
-    if(bx>mx&&bx<mx+mw&&by>my&&by<my+mh){
-      const bl=Math.sin(gameTime*5)*0.5+0.5;
-      G.fillStyle=`rgba(255,${30+bl*50},${30+bl*50},1)`;G.fillRect(bx-2,by-2,5,5);
-    }else{
-      // 화면 밖이면 화살표
-      const dx=boss.x-player.x,dy=boss.y-player.y,a=Math.atan2(dy,dx);
+    const p=rel(boss.x,boss.y),bl=Math.sin(gameTime*5)*0.5+0.5;
+    if(inMap(p)){G.fillStyle=`rgba(255,${30+bl*50},${30+bl*50},1)`;G.fillRect(p.x-3,p.y-3,7,7)}
+    else{ // 맵 밖이면 가장자리 화살표
+      const a=Math.atan2(boss.y-player.y,boss.x-player.x);
       const ax=cx+Math.cos(a)*(mw/2-8),ay=cy+Math.sin(a)*(mh/2-8);
       G.save();G.translate(ax,ay);G.rotate(a);
       G.fillStyle='#ff2222';G.beginPath();G.moveTo(6,0);G.lineTo(-4,-4);G.lineTo(-4,4);G.closePath();G.fill();
       G.restore();
     }
   }
-  // 플레이어 (중앙)
-  G.fillStyle=player.cd.color;G.fillRect(cx-2,cy-2,4,4);
-  G.fillStyle='#fff';G.fillRect(cx-1,cy-1,2,2);
+  G.restore();  // clip 해제
+  // 플레이어 (정중앙, 크고 명확 — 흰 링 + 캐릭색 + 진행방향 화살표)
+  G.save();G.translate(cx,cy);
+  const pulse=0.6+0.4*Math.sin(gameTime*4);
+  G.globalAlpha=pulse;G.strokeStyle='#fff';G.lineWidth=2;G.beginPath();G.arc(0,0,6,0,Math.PI*2);G.stroke();
+  G.globalAlpha=1;G.fillStyle=player.cd.color;G.beginPath();G.arc(0,0,4,0,Math.PI*2);G.fill();
+  G.fillStyle='#fff';G.beginPath();G.arc(0,0,1.5,0,Math.PI*2);G.fill();
+  // 진행방향 화살표
+  G.rotate(Math.atan2(player.facing.y,player.facing.x));
+  G.fillStyle='#ffffff';G.beginPath();G.moveTo(10,0);G.lineTo(5,-3.5);G.lineTo(5,3.5);G.closePath();G.fill();
+  G.restore();
   // 라벨
-  G.fillStyle='#666';G.font='8px Courier New';G.textAlign='left';G.fillText('MAP',mx+4,my+10);
+  G.fillStyle='#888';G.font='8px Courier New';G.textAlign='left';G.fillText('MAP',mx+4,my+10);
   G.restore();
 }
 
