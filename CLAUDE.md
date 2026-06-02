@@ -157,6 +157,7 @@ start firefox index.html
 - **📞 야근 윤소민 이벤트**: 졸린 윤소민(sleep) **2연속**(소민 전용) 시 sleep 미적용 → 전화 컷신(`drawWorkCutscene`, `player.workCut` 1=사장/2=소민, 클릭 진행) → `WORK_FORM`(손전등 2개 30초 풀가동, `applyStreamerLight` case 'workmode'). 추적: `player.lastWasSleep`. 컷신/야근 중 update 정지(`workCut>0` 가드).
 - **해골**: `BAL.enemy.skel` projSpd 150(플레이어 100~128 회피가능)·fire 4.5~8·스폰비중 200s+10%/300s+9%.
 - **기종 dm 1.3** (1.4에서), **gj def 0.85**.
+- **jh(준형전자) 약캐 버프**: 램 `BAL.wpn.ram.count` 1→**2**개 + `hitCd` 0.35→0.30. 측정 바닥DPS 6→24(co와 동급). ⚠️ 자동측정은 노이지(레벨업 정지·방향 RNG) — **실플레이 체감 검증 필요**. 타 캐릭(jw 후반강·gj AOE강)은 데이터 신뢰도 낮아 미조정.
 
 ## 🔑 핵심 난이도 인사이트 (다음 튜닝 시 필수 이해)
 

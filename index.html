@@ -663,7 +663,7 @@ const BAL={
   },
   // ━━━ 무기 데미지 배수 (fireWpn 안의 매직 넘버) ━━━
   wpn:{
-    ram:{dmgMul:1.4, spdBase:220, spdPerLv:10, szBase:9, szPerLv:0.3, hitCd:0.35},  // hitCd 0.5→0.35 (단일 타겟 보강) · 바운싱 램 재타격 cd
+    ram:{dmgMul:1.4, spdBase:220, spdPerLv:10, szBase:9, szPerLv:0.3, hitCd:0.30, count:2},  // jh 약캐 버프: 램 1→2개·hitCd 0.35→0.30 (접촉빈도↑)
     fullspec:{dmgMul:1.45, spdBase:270, spdPerLv:12, szBase:10, szPerLv:0.3, count:3},  // dmgMul 1.45 + 램 2→3개 (단일/군중 보강) · count는 fireWpn에서 참조
     knife:{dmgMul:1.0, spread:0.6, speed:310, life:1.5, sz:7},
     fullcourse:{dmgMul:1.35, spread:0.85, speed:340, life:1.5, sz:9},  // 1.3→1.4→1.35 (최상위라 미세 너프) · fireWpn에서 참조
@@ -1455,7 +1455,7 @@ function fireWpn(type,p,wlv){
       if(!p.bouncingRams)p.bouncingRams=[];
       // 죽은 RAM 제거
       p.bouncingRams=p.bouncingRams.filter(r=>!r.dead);
-      const wantCount=1; // 기본 1개 영구
+      const wantCount=BAL.wpn.ram.count; // 기본 2개 (jh 버프, BAL 참조)
       const ramDmg=dmg*1.4; // 단발 1개라 데미지 강화 (cd마다 새로 안 만드니 DPS 보상)
       const ramSpd=220+wlv*10; // 레벨 따라 빠름 (Lv1: 230, Lv8: 300)
       const ramSz=(9+wlv*0.3)*am; // 레벨 따라 살짝 큼 (Lv1: 9.3, Lv8: 11.4)
