@@ -661,18 +661,12 @@ const BAL={
       axeDur:5,            // 도끼 모드 지속
       axeEvoDur:6,         // 진화 도끼 모드 지속
     },
-    zw:{ // 지워니 — 📈 주식 (시드머니 모아 자동 매매 → 포트폴리오=데미지 배율 확률 변동)
-      seedPerKill:1,       // 일반 처치당 시드 (탱크3·엘리트6·보스40은 코드에서 배수)
-      seedThreshold:100,   // 이만큼 모이면 자동 매매 1회 (시드 소모)
-      portMin:0.5,         // 포트폴리오 하한 (쓰레기 방지)
-      portMax:2.5,         // 포트폴리오 상한 (사기 방지) — 밸런스 핵심 가드
-      // 매매 결과 확률/배수 (합 1.0)
-      upP:0.55,  upMul:1.12,    // 📈 상승
-      downP:0.30,downMul:0.92,  // 📉 하락
-      moonP:0.10,moonMul:1.5,   // 🚀 떡상
-      crashP:0.05,crashMul:0.6, // 💥 폭락
-      // 기댓값 ≈ 매매당 +7.2% (복리). 상한 2.5에서 정착, 변동성 큼.
-      goldMul:1.5,         // 패시브: 골드 획득 ×1.5 (빠른 업그레이드)
+    zw:{ // 지워니 — 📈 주식 (처치→현금, 투자창서 4종목 올인, 차트 변동으로 현금 ↕, 현금은 랜덤 상점서 스탯 구매)
+      cashPerKill:1.2,     // 일반 처치당 현금 (탱크3·엘리트6·보스40은 코드 배수)
+      investInterval:42,   // 투자창 주기(초) — 너무 자주 안 뜨게
+      shopInterval:185,    // 상점 스폰 주기(초) — 15분에 ~4-5번
+      subsidyCash:60,      // 돈 0원 시 맵 지원금 금액
+      goldMul:1.5,         // 패시브: 골드 획득 ×1.5
     },
   },
   // ━━━ 무기 데미지 배수 (fireWpn 안의 매직 넘버) ━━━
@@ -830,7 +824,14 @@ const PASSIVES=[
   {id:'monhun', name:'🎮 기훈의 몬헌경험',desc:'보스 데미지 +10%',fn:p=>p.bdm*=BAL.passive.monhun},  // 1.2→1.1 너프 (만렙 2.49x→1.61x)
   {id:'bark',   name:'💥 준형의 충격기',desc:'크리티컬 +12%',fn:p=>p.crit+=BAL.passive.bark},
   {id:'knife2', name:'🎯 종원의 칼솜씨',desc:'관통 +1',fn:p=>p.pierce+=BAL.passive.knife2Pierce},
-  {id:'leverage',name:'💳 지워니의 레버리지',desc:'공격력 +18% (동전→비트코인 진화)',fn:p=>p.dm*=1.18},
+  {id:'leverage',name:'📊 지워니의 분산투자',desc:'받는 피해 -12% (동전→미다스 진화)',fn:p=>p.dmgTakenMul=(p.dmgTakenMul||1)*0.88},
+];
+// 지워니 투자 종목 4개 (실존 패러디). vol=변동성, drift=평균 추세
+const STOCKS=[
+  {id:'samssung',name:'SAMSSUNG',col:'#1428a0',vol:0.10,drift:0.012, tag:'안정주'},
+  {id:'appre',   name:'APPRE',   col:'#999999',vol:0.16,drift:0.014, tag:'성장주'},
+  {id:'teslak',  name:'TESLAK',  col:'#e31937',vol:0.34,drift:0.020, tag:'테마주'},
+  {id:'kakou',   name:'KAKOU',   col:'#e8b800',vol:0.52,drift:-0.008,tag:'잡주'},
 ];
 
 // ═══ GAME STATE ═══
@@ -838,6 +839,9 @@ let state='title',player=null,enemies=[],projs=[],gems=[],coins=[],boss=null;
 let titleFr=0,hovTitleBtn=-1,settingsOpen=false,hovSetBtn=-1,dragSlider=null;
 let gameTime=0,spawnT=0,bossIdx=0,bossActive=false;
 let hitStop=0;  // 히트스톱 — 큰 타격 순간 게임 잠깐 정지 (타격감 juice)
+// 지워니 주식: 투자창/상점 상태
+let investT=0,investOpen=false,lastInvestResult=null,investToastT=0,hovInvest=-1;
+let shopT=0,shopEnt=null,shopOpen=false,shopOffers=[],hovShop=-1;
 
 // ═══ 메타 진행 (영구 업그레이드 — localStorage, VS 스타일) ═══
 const META_DEFAULTS={gold:0, up:{hp:0,dmg:0,spd:0,xp:0,crit:0,armor:0,revive:0}, roulette:0,
@@ -1059,12 +1063,13 @@ class Player{
     this.resultCardT=0;        // (deprecated, 호환용)
     this.lastWasSleep=false;   // 직전 룰렛이 졸음이었나 (2연속 → 야근 컷신 트리거)
     this.workCut=0;            // 야근 전화 컷신 진행 (0=없음, 1=사장 대사, 2=소민 대사)
-    // 지워니 — 📈 주식 (시드머니 → 자동 매매 → 포트폴리오=데미지 배율)
-    this.seedMoney=0;          // 모은 시드머니 (처치 적립)
-    this.portfolio=1.0;        // 포트폴리오 배율 (전체 무기 데미지 ×)
-    this.tradeFxT=0;           // 매매 결과 팝업 타이머
-    this.tradeResult=null;     // 마지막 매매 결과 {label,emoji,col,mul}
-    this.stockHist=[1.0];      // 포트폴리오 히스토리 (HUD 미니차트용)
+    // 지워니 — 📈 주식 (처치→현금, 투자창서 4종목 올인 → 차트 변동으로 현금↕ → 랜덤 상점서 스탯 구매)
+    this.seedMoney=0;          // 보유 현금
+    this.stocks=STOCKS.map(()=>({price:100,hist:[100]}));  // 4종목 가격
+    this.invest=null;          // 현재 투자 {idx,amount,buyPrice,lev}
+    this.leverageNext=false;   // 다음 투자 레버리지(전설 아이템)
+    this.extraSlots=0;         // 아이템 칸 +N (전설 아이템)
+    this.dmgTakenMul=1;        // 받는 피해 배율 (분산투자 패시브)
     // 준형전자 — 🔧 AS 보증 (HP 위급 시 자가 수리)
     this.repairCd=0;        // 0 이상: 사용 후 쿨다운 (초)
     this.repairFx=0;        // 발동 시 시각 이펙트 시간
@@ -1135,7 +1140,6 @@ class Player{
     if(this.regen>0&&this.regenLockT<=0&&!wheelRegenLock){this.regenT=Math.max(0,this.regenT-dt);if(this.regenT<=0){this.hp=Math.min(this.mhp,this.hp+this.regen*0.2);this.regenT=0.2}}
     if(this.cd.id==='jw')this.dm=(1+(gameTime/BAL.char.jw.lateScaleStart)*BAL.char.jw.lateScaleRate)*this.metaDmg;
     // 캐릭터별 메카닉 타이머
-    if(this.tradeFxT>0)this.tradeFxT-=dt;  // 지워니 매매 팝업
     if(this.repairCd>0)this.repairCd-=dt;
     if(this.repairFx>0)this.repairFx-=dt;
     if(this.discFx>0)this.discFx-=dt;
@@ -1202,28 +1206,36 @@ class Player{
       shake(0.15,3);
     }
   }
-  // 지워니 — 시드머니 적립 → 임계 도달 시 자동 매매
-  addSeed(n){
-    if(this.cd.id!=='zw')return;
-    this.seedMoney+=n;
-    const Z=BAL.char.zw;
-    while(this.seedMoney>=Z.seedThreshold){ this.seedMoney-=Z.seedThreshold; this.doTrade(); }
+  // 지워니 — 처치 시 현금 적립
+  addCash(n){ if(this.cd.id==='zw')this.seedMoney+=n; }
+  // 종목 가격 랜덤워크 (투자창 열릴 때마다 1스텝)
+  stepStocks(){
+    if(!this.stocks)this.stocks=STOCKS.map(()=>({price:100,hist:[100]}));
+    this.stocks.forEach((s,i)=>{
+      const mv=rnd(-STOCKS[i].vol,STOCKS[i].vol)+STOCKS[i].drift;
+      s.price=Math.max(8,s.price*(1+mv));
+      s.hist.push(s.price); if(s.hist.length>16)s.hist.shift();
+    });
   }
-  // 지워니 — 📈 주식 매매 1회: 확률로 포트폴리오 변동
-  doTrade(){
-    const Z=BAL.char.zw, r=Math.random();
-    let mul,label,emoji,col;
-    if(r<Z.crashP){mul=Z.crashMul;label='폭락';emoji='💥';col='#ff3344';}
-    else if(r<Z.crashP+Z.downP){mul=Z.downMul;label='하락';emoji='📉';col='#ff7755';}
-    else if(r<Z.crashP+Z.downP+Z.upP){mul=Z.upMul;label='상승';emoji='📈';col='#22dd88';}
-    else {mul=Z.moonMul;label='떡상';emoji='🚀';col='#ffdd33';}
-    this.portfolio=clamp(this.portfolio*mul,Z.portMin,Z.portMax);
-    this.tradeResult={label,emoji,col,mul};
-    this.tradeFxT=1.4;
-    this.stockHist.push(this.portfolio);
-    if(this.stockHist.length>40)this.stockHist.shift();
-    SFX.gem();
-    if(label==='떡상'||label==='폭락'){shake(0.1,3);spawnParts(this.x,this.y,col,10);}
+  // 보유 투자 정산 → 현금 회수 (수익/손실). 결과 객체 반환(없으면 null)
+  resolveInvest(){
+    if(!this.invest)return null;
+    const s=this.stocks[this.invest.idx];
+    let ratio=s.price/this.invest.buyPrice;
+    if(this.invest.lev)ratio=Math.max(0,1+(ratio-1)*2);  // 레버리지: 변동폭 2배 (2배 먹고 2배 잃음)
+    const ret=Math.max(0,Math.round(this.invest.amount*ratio));
+    const profit=ret-this.invest.amount;
+    this.seedMoney+=ret;
+    const r={name:STOCKS[this.invest.idx].name,profit,pct:Math.round((ratio-1)*100),lev:this.invest.lev};
+    this.invest=null;
+    if(profit>0)SFX.lvUp(); else if(profit<0)SFX.over();
+    return r;
+  }
+  // 전액(올인) 투자
+  doInvest(idx){
+    if(this.seedMoney<=0)return;
+    this.invest={idx,amount:Math.floor(this.seedMoney),buyPrice:this.stocks[idx].price,lev:!!this.leverageNext};
+    this.leverageNext=false; this.seedMoney=0; SFX.shoot();
   }
   nearest(){let n=null,md=99999;(boss?[...enemies,boss]:enemies).forEach(e=>{const d=dist(this,e);if(d<md){md=d;n=e}});return n}
   takeDmg(v){
@@ -1231,7 +1243,7 @@ class Player{
     if(this.hitT>0)return;
     // 최기종 분노 모드 무적
     if(this.cd.id==='gj'&&(this.gjPhase==='rage'||(this.gjPhase==='wheelchair'&&this.curedGj())))return;  // 분노/완치질주 무적
-    const dmg=v*this.def;
+    const dmg=v*this.def*(this.dmgTakenMul||1);  // 분산투자 패시브: 받는 피해 감소
     this.hp-=dmg;this.hitT=this.iframes;this.flashT=0.25;
     if(dmg>this.mhp*0.18)hitStop=Math.max(hitStop,0.08);  // 큰 피격 시 짧은 정지(oof)
     this.regenLockT=BAL.regen.combatLockDur;  // 전투 중 회복 정지
@@ -1489,7 +1501,7 @@ function fireWpn(type,p,wlv){
   const gjRageMul=(p.cd.id==='gj'&&p.gjPhase==='rage')?gjB.rageDmgMul:1;
   const gjWheelDmgMul=(p.cd.id==='gj'&&p.gjPhase==='wheelchair')?(p.curedGj()?gjB.curedWheelDmgMul:gjB.wheelDmgMul):1;
   const gjWheelAmMul=(p.cd.id==='gj'&&p.gjPhase==='wheelchair')?gjB.wheelAmMul:1;
-  const dmg=18*p.dm*dM*(1+Math.max(0,p.lv-1)*0.04)*gjRageMul*gjWheelDmgMul*streamerBuff(p)*(p.cd.id==='zw'?p.portfolio:1);  // 지워니: 포트폴리오 배율
+  const dmg=18*p.dm*dM*(1+Math.max(0,p.lv-1)*0.04)*gjRageMul*gjWheelDmgMul*streamerBuff(p);
   const am=p.am*gjWheelAmMul,pierce=p.pierce+pB; // 크기는 패시브만 영향, 레벨로는 안 커짐
   const t=p.nearest(),ang=t?Math.atan2(t.y-p.y,t.x-p.x):Math.atan2(p.facing.y,p.facing.x);
   // 부채꼴 발사 헬퍼
@@ -2869,8 +2881,8 @@ class Enemy{
   }
   die(){
     this.dead=true;killCount++;bumpCombo();
-    // 지워니 시드머니 적립 (탱크3·엘리트6·일반1·새끼0)
-    if(player.cd.id==='zw'){const Z=BAL.char.zw;player.addSeed(this.elite?Z.seedPerKill*6:(this.type==='tank'?Z.seedPerKill*3:(this.type==='splitling'?0:Z.seedPerKill)));}
+    // 지워니 현금 적립 (탱크3·엘리트6·일반1·새끼0)
+    if(player.cd.id==='zw'){const Z=BAL.char.zw;player.addCash(this.elite?Z.cashPerKill*6:(this.type==='tank'?Z.cashPerKill*3:(this.type==='splitling'?0:Z.cashPerKill)));}
     // 골드 코인 드랍 (기존 골드량 그대로 — 자석으로 흡수해야 적립). 지워니 패시브 골드 ×1.5. 새끼는 안 떨굼
     let gv=this.elite?0.45:(this.type==='tank'?0.25:(this.type==='splitling'?0:0.08));
     if(player.cd.id==='zw')gv*=BAL.char.zw.goldMul;
@@ -3047,7 +3059,7 @@ class Boss{
   die(){
     this.dead=true;bossActive=false;boss=null;player.gainXp(this.bxp);hitStop=Math.max(hitStop,0.16);
     killCount++;bumpCombo();  // 보스 처치도 처치수/콤보에 카운트 (최종원 폭주 트리거에도 기여)
-    if(player.cd.id==='zw')player.addSeed(40);  // 지워니: 보스 처치 시드 대량
+    if(player.cd.id==='zw')player.addCash(40);  // 지워니: 보스 처치 현금 대량
     const bossCoinV=player.cd.id==='zw'?BAL.char.zw.goldMul:1;  // 지워니 골드 패시브
     for(let i=0;i<8;i++)coins.push(new Coin(this.x+rnd(-30,30),this.y+rnd(-30,30),bossCoinV));  // 코인 8개 버스트
     for(let i=0;i<12;i++)gems.push(new Gem(this.x+rnd(-40,40),this.y+rnd(-40,40),10));
@@ -3444,35 +3456,82 @@ class Companion{
 // 📈 지워니 주식 HUD — 좌측 플레이어 패널 아래. 포트폴리오/시드게이지/미니차트/매매팝업
 function drawStockHUD(){
   if(!player||player.cd.id!=='zw')return;
-  const Z=BAL.char.zw, x=12,y=104,w=164,h=70;
+  const x=12,y=104,w=170,h=58;
   G.save();
   G.fillStyle='rgba(8,20,16,0.82)';G.fillRect(x,y,w,h);
   G.strokeStyle='#13b88a';G.lineWidth=1.5;G.strokeRect(x,y,w,h);
-  const p=player.portfolio, up=p>=1;
-  G.textAlign='left';G.font='bold 11px Courier New';G.fillStyle='#88ccbb';G.fillText('📈 포트폴리오',x+6,y+15);
-  G.textAlign='right';G.font='bold 15px Courier New';G.fillStyle=up?'#22dd88':'#ff6655';G.fillText('×'+p.toFixed(2),x+w-6,y+16);
-  // 시드 게이지
-  const sf=clamp(player.seedMoney/Z.seedThreshold,0,1);
-  G.fillStyle='#222';G.fillRect(x+6,y+22,w-12,6);
-  G.fillStyle='#ffd24a';G.fillRect(x+6,y+22,(w-12)*sf,6);
-  G.textAlign='left';G.fillStyle='#aa9966';G.font='8px Courier New';G.fillText('💵 시드 '+Math.floor(player.seedMoney)+'/'+Z.seedThreshold,x+6,y+35);
-  // 미니 주식차트
-  const hist=player.stockHist;
-  if(hist&&hist.length>1){
-    const cx0=x+6,cy0=y+40,cw=w-12,ch=18;
-    let mn=Math.min(...hist),mx=Math.max(...hist); if(mx-mn<0.3){mn-=0.15;mx+=0.15;}
-    G.strokeStyle=up?'#2ada88':'#ff7766';G.lineWidth=1.3;G.beginPath();
-    hist.forEach((v,i)=>{const px=cx0+cw*(i/(hist.length-1)),py=cy0+ch-(v-mn)/(mx-mn)*ch;i?G.lineTo(px,py):G.moveTo(px,py);});
-    G.stroke();
+  // 보유 현금
+  G.textAlign='left';G.font='bold 11px Courier New';G.fillStyle='#88ccbb';G.fillText('💵 보유 현금',x+6,y+16);
+  G.textAlign='right';G.font='bold 14px Courier New';G.fillStyle='#ffd24a';G.fillText(Math.floor(player.seedMoney).toLocaleString()+'원',x+w-6,y+16);
+  // 투자 현황
+  G.textAlign='left';G.font='9px Courier New';
+  if(player.invest){
+    const st=STOCKS[player.invest.idx], cur=player.stocks[player.invest.idx].price;
+    const pct=Math.round((cur/player.invest.buyPrice-1)*100*(player.invest.lev?2:1));
+    G.fillStyle='#999';G.fillText('📊 투자중: '+st.name+(player.invest.lev?' ⚡':''),x+6,y+32);
+    G.fillStyle=pct>=0?'#22dd88':'#ff5566';G.textAlign='right';G.fillText((pct>=0?'+':'')+pct+'%',x+w-6,y+32);
+  }else{
+    G.fillStyle='#777';G.fillText('📊 미투자 (다음 투자창 대기)',x+6,y+32);
   }
-  // 매매 결과 플래시 (패널 위)
-  if(player.tradeFxT>0&&player.tradeResult){
-    const tr=player.tradeResult,a=clamp(player.tradeFxT/1.4,0,1);
-    G.globalAlpha=0.45+a*0.55;G.textAlign='center';G.font='bold 13px Courier New';
-    G.fillStyle='#000';G.fillText(tr.emoji+' '+tr.label+' ×'+tr.mul,x+w/2+1,y-5+1);
-    G.fillStyle=tr.col;G.fillText(tr.emoji+' '+tr.label+' ×'+tr.mul,x+w/2,y-5);
+  // 다음 투자창 타이머
+  G.textAlign='left';G.fillStyle='#667';G.font='8px Courier New';
+  G.fillText('⏱ 다음 투자 '+Math.max(0,Math.ceil(investT))+'s',x+6,y+47);
+  if(player.leverageNext){G.textAlign='right';G.fillStyle='#ff5555';G.font='bold 8px Courier New';G.fillText('⚡레버리지 장전',x+w-6,y+47);}
+  // 투자 정산 토스트 (패널 위)
+  if(investToastT>0&&lastInvestResult){
+    const r=lastInvestResult,a=clamp(investToastT/2.6,0,1),up=r.profit>=0;
+    G.globalAlpha=0.5+a*0.5;G.textAlign='center';G.font='bold 12px Courier New';
+    const msg=(up?'📈 ':'📉 ')+r.name+' '+(up?'+':'')+r.profit.toLocaleString()+'원 ('+(up?'+':'')+r.pct+'%)'+(r.lev?' ⚡':'');
+    G.fillStyle='#000';G.fillText(msg,x+w/2+1,y-5+1);
+    G.fillStyle=up?'#33ee99':'#ff5566';G.fillText(msg,x+w/2,y-5);
   }
   G.restore();
+}
+// 📈 투자창 (룰렛처럼 일시정지 후 4종목 중 올인 선택)
+function renderInvest(){
+  if(!investOpen||!player)return;
+  G.save();
+  G.fillStyle='rgba(0,0,0,0.8)';G.fillRect(0,0,LW,LH);
+  G.textAlign='center';G.fillStyle='#13b88a';G.font='bold 24px Courier New';
+  G.fillText('📈 어디에 투자할까? (전액 올인)',LW/2,52);
+  G.fillStyle='#ffd24a';G.font='bold 16px Courier New';
+  G.fillText('💵 보유 현금  '+Math.floor(player.seedMoney).toLocaleString()+'원',LW/2,80);
+  if(player.leverageNext){G.fillStyle='#ff5555';G.font='bold 13px Courier New';G.fillText('⚡ 레버리지 장전됨 — 이번 투자 변동 2배!',LW/2,100);}
+  const n=4,cw=150,gap=14,totalW=n*cw+(n-1)*gap,sx=LW/2-totalW/2,cy=118,cardH=300;
+  for(let i=0;i<n;i++){
+    const s=player.stocks[i],st=STOCKS[i],bx=sx+i*(cw+gap),hov=hovInvest===i;
+    const ch0=s.hist.length>1?(s.price/s.hist[s.hist.length-2]-1)*100:0,up=ch0>=0;
+    G.fillStyle=hov?'#1e2230':'#141420';G.fillRect(bx,cy,cw,cardH);
+    G.strokeStyle=hov?st.col:'#444';G.lineWidth=hov?3:1.5;G.strokeRect(bx,cy,cw,cardH);
+    G.fillStyle=st.col;G.fillRect(bx,cy,cw,32);
+    G.fillStyle='#fff';G.font='bold 15px Courier New';G.textAlign='center';G.fillText(st.name,bx+cw/2,cy+21);
+    G.fillStyle='#999';G.font='9px Courier New';G.fillText(st.tag+' · 변동성 '+(st.vol>0.4?'★★★':st.vol>0.2?'★★':'★'),bx+cw/2,cy+46);
+    G.fillStyle='#ddd';G.font='bold 16px Courier New';G.fillText(Math.round(s.price)+'원',bx+cw/2,cy+70);
+    G.fillStyle=up?'#22dd88':'#ff5566';G.font='bold 13px Courier New';G.fillText((up?'▲ +':'▼ ')+ch0.toFixed(1)+'%',bx+cw/2,cy+90);
+    // 차트
+    const gx=bx+12,gy=cy+102,gw=cw-24,gh=120;
+    let mn=Math.min(...s.hist),mx=Math.max(...s.hist);if(mx-mn<1){mn-=1;mx+=1;}
+    G.strokeStyle=st.col;G.lineWidth=2;G.beginPath();
+    s.hist.forEach((v,j)=>{const px=gx+gw*(j/(s.hist.length-1)),py=gy+gh-(v-mn)/(mx-mn)*gh;j?G.lineTo(px,py):G.moveTo(px,py);});
+    G.stroke();
+    // 투자 버튼
+    G.fillStyle=hov?st.col:'#2a2a3a';G.fillRect(bx+12,cy+cardH-28,cw-24,20);
+    G.fillStyle=hov?'#000':'#ccc';G.font='bold 12px Courier New';G.fillText(hov?'▶ 올인 ◀':'올인 투자',bx+cw/2,cy+cardH-14);
+  }
+  // 패스(현금 보유)
+  const pby=cy+cardH+16,pbw=260,pbx=LW/2-pbw/2,phov=hovInvest===99;
+  G.fillStyle=phov?'#3a3a4a':'#1a1a22';G.fillRect(pbx,pby,pbw,28);
+  G.strokeStyle='#777';G.lineWidth=1.5;G.strokeRect(pbx,pby,pbw,28);
+  G.fillStyle='#ccc';G.font='bold 12px Courier New';G.textAlign='center';
+  G.fillText('💵 현금 보유 (투자 안 함 → 상점에서 쓰기)',LW/2,pby+18);
+  G.restore();
+}
+function getInvestClick(mx,my){
+  const n=4,cw=150,gap=14,totalW=n*cw+(n-1)*gap,sx=LW/2-totalW/2,cy=118,cardH=300;
+  for(let i=0;i<n;i++){const bx=sx+i*(cw+gap);if(mx>=bx&&mx<=bx+cw&&my>=cy&&my<=cy+cardH)return i;}
+  const pby=cy+cardH+16,pbw=260,pbx=LW/2-pbw/2;
+  if(mx>=pbx&&mx<=pbx+pbw&&my>=pby&&my<=pby+28)return 99;
+  return -1;
 }
 // 페이얼 게이지: 화면 좌하단 고정 위치 (콤보 카운터 위) — 머리 위 UI 혼잡 회피
 // 신경주사 화살표 (휠체어 모드, 신경주사가 화면 밖에 있으면 화면 가장자리에 방향 표시)
@@ -4996,6 +5055,8 @@ function startGame(cd){
   applyMetaUpgrades(player);  // 영구 업그레이드 적용
   runGold=0;runBanked=false;runRevives=0;runRecords={time:false,kills:false,dmg:false};  // 이번 판 골드/부활/신기록 초기화
   gameTime=0;spawnT=0;bossIdx=0;bossActive=false;killCount=0;afr=0;afrT=0;totalDmg=0;dmgPeak=0;dmgByWpn={};
+  investT=BAL.char.zw.investInterval;investOpen=false;lastInvestResult=null;investToastT=0;hovInvest=-1;
+  shopT=BAL.char.zw.shopInterval;shopEnt=null;shopOpen=false;shopOffers=[];hovShop=-1;
   dmgTexts=[];hitSparks=[];notifs=[];pickups=[];decals=[];lvUpBursts=[];
   shakeT=0;shakeM=0;paused=false;pendingLvUps=0;
   weatherT=0;flashT=0;camOX=0;camOY=0;hitStop=0;
@@ -5044,6 +5105,8 @@ c.addEventListener('mousemove',e=>{
   if(state==='title')hovTitleBtn=getTitleBtnAt(m.x,m.y);
   if(state==='select')hovChar=getCharAt(m.x,m.y);
   if(state==='levelup')hovUI=getUpgradeAt(m.x,m.y);
+  if(investOpen)hovInvest=getInvestClick(m.x,m.y);
+  if(shopOpen)hovShop=getShopClick2(m.x,m.y);
 });
 c.addEventListener('mousedown',e=>{
   const m=getMouse(e);
@@ -5078,6 +5141,13 @@ c.addEventListener('click',e=>{
     const sb=getSettingsCloseAt(m.x,m.y);
     if(sb===0){settingsOpen=false;hovSetBtn=-1}
     else if(sb===1){canvasAutoFit=!canvasAutoFit;if(canvasAutoFit)autoFitCanvas()}
+    return;
+  }
+  // 📈 지워니 투자창 클릭 (4종목 올인 / 패스)
+  if(investOpen&&player){
+    const i=getInvestClick(m.x,m.y);
+    if(i===99){investOpen=false;}                 // 패스: 현금 보유
+    else if(i>=0){player.doInvest(i);investOpen=false;}  // 올인 투자
     return;
   }
   // 📞 야근 전화 컷신 진행 (사장 대사 → 소민 대사 → 야근모드 발동)
@@ -5160,6 +5230,20 @@ function update(dt){
   // 룰렛 결과 카드 클릭 대기 / 야근 전화 컷신 중에도 게임 정지
   if(player&&player.awaitingClick&&rouletteOn(player))return;
   if(player&&player.workCut>0&&rouletteOn(player))return;
+  // 📈 지워니 주식: 투자창 주기 (창 닫혀있을 때만 타이머 진행)
+  if(player&&player.cd.id==='zw'&&!investOpen&&!shopOpen){
+    const Z=BAL.char.zw;
+    investT-=dt;
+    if(investT<=0){
+      investT=Z.investInterval;
+      player.stepStocks();
+      lastInvestResult=player.resolveInvest();
+      if(lastInvestResult)investToastT=2.6;
+      if(player.seedMoney>0){investOpen=true;hovInvest=-1;}  // 현금 있으면 투자 선택창
+    }
+    if(investToastT>0)investToastT-=dt;
+  }
+  if(investOpen||shopOpen)return;  // 투자창/상점 열림 → 게임 정지
   gameTime+=dt;
   afrT+=dt;if(afrT>0.18){afr++;afrT=0}
   player.update(dt);spawnEnemies(dt);
@@ -5321,6 +5405,7 @@ function render(){
   drawRouletteAnim();
   drawResultCard();
   drawWorkCutscene();
+  renderInvest();  // 지워니 투자창
   if(paused)drawPauseOverlay();
   if(state==='levelup')renderLevelUp();
   if(state==='dead')renderResult(false);
