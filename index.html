@@ -852,14 +852,18 @@ const SHOP_LEGENDARY=[
 ];
 function openShop(){
   shopOpen=true; hovShop=-1; shopOffers=[];
+  // 가격 = 현재 보유 현금 비중 기반. 초반(현금 적음)=쌈, 부자=비쌈, 파산해도 살 만큼만.
+  const cash=player?player.seedMoney:0;
   const pool=SHOP_STATS.slice();
   for(let i=0;i<4;i++){
     if(i===3 && Math.random()<0.35){
       const L=SHOP_LEGENDARY[Math.floor(Math.random()*SHOP_LEGENDARY.length)];
-      shopOffers.push(Object.assign({},L,{leg:true,sold:false,price:850+Math.floor(Math.random()*4)*120}));
+      const price=Math.max(300,Math.round(cash*(0.55+Math.random()*0.30)/10)*10);  // 현금의 55~85% (전설=큰 투자)
+      shopOffers.push(Object.assign({},L,{leg:true,sold:false,price}));
     }else{
       const s=pool.splice(Math.floor(Math.random()*pool.length),1)[0]||SHOP_STATS[i];
-      shopOffers.push(Object.assign({},s,{leg:false,sold:false,price:180+Math.floor(Math.random()*5)*55}));
+      const price=Math.max(60,Math.round(cash*(0.18+Math.random()*0.14)/10)*10);  // 현금의 18~32% (스탯 3~5개 살 만큼)
+      shopOffers.push(Object.assign({},s,{leg:false,sold:false,price}));
     }
   }
   SFX.lvUp();
@@ -3645,47 +3649,59 @@ function getInvestClick(mx,my){
 function renderInvestResult(){
   if(!investResultOpen||!lastInvestResult)return;
   const r=lastInvestResult, up=r.profit>=0;
-  const t=clamp((performance.now()-investResultStart)/1400,0,1);
-  const ease=1-Math.pow(1-t,3);  // ease-out (극적 마무리)
+  const t=clamp((performance.now()-investResultStart)/1900,0,1);
+  const ANT=0.42;                          // 움찔움찔(긴장) 구간 끝
+  const p2=t<ANT?0:clamp((t-ANT)/(1-ANT),0,1);  // 리빌(스냅) 진행
+  const c1=2.2,c3=c1+1, eob=x=>x>=1?1:1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2);  // ease-out-back(오버슈트)
+  const reveal=eob(p2);
+  const delta=r.endPrice-r.buyPrice;
   G.save();
   G.fillStyle='rgba(0,0,0,0.84)';G.fillRect(0,0,LW,LH);
-  // 결과색 펄스 배경
-  G.fillStyle=(up?'rgba(20,200,100,':'rgba(220,40,40,')+(0.05+0.05*Math.sin(performance.now()/130))+')';G.fillRect(0,0,LW,LH);
-  // 종목명
+  G.fillStyle=(up?'rgba(20,200,100,':'rgba(220,40,40,')+(0.04+(p2>0?0.07:0)+0.04*Math.sin(performance.now()/110))+')';G.fillRect(0,0,LW,LH);
+  // 스냅 순간 흰 플래시
+  if(t>ANT-0.02&&t<ANT+0.13){G.globalAlpha=(1-(t-(ANT-0.02))/0.15)*0.55;G.fillStyle='#fff';G.fillRect(0,0,LW,LH);G.globalAlpha=1;}
   G.textAlign='center';G.fillStyle=r.col;G.font='bold 22px Courier New';
-  G.fillText('📊 '+r.name+(r.lev?'  ⚡레버리지':''),LW/2,64);
-  // ── 큰 차트 (마지막 점이 매수가→현재가로 극적 애니) ──
+  G.fillText('📊 '+r.name+(r.lev?'  ⚡레버리지':''),LW/2,60);
+  // ── 차트 ──
   const gx=LW/2-230,gy=110,gw=460,gh=210, hist=r.hist, n=hist.length;
-  const animEnd=r.buyPrice+(r.endPrice-r.buyPrice)*ease;
-  const vals=hist.slice(0,n-1).concat([r.buyPrice,animEnd,r.endPrice]);
+  // 움찔 단계: 매수가 근처에서 떨림(긴장 고조). 리빌: 매수가→현재가 스냅(오버슈트)
+  let animEnd;
+  if(t<ANT){
+    const tension=0.25+(t/ANT)*0.75;
+    animEnd=r.buyPrice+(Math.random()-0.5)*Math.abs(delta)*0.45*tension;
+  }else animEnd=r.buyPrice+delta*reveal;
+  const vals=hist.slice(0,n-1).concat([r.buyPrice,animEnd,r.endPrice,r.buyPrice+delta*1.1]);
   let mn=Math.min(...vals),mx=Math.max(...vals); if(mx-mn<1){mn-=1;mx+=1;}
   const yOf=v=>gy+gh-(v-mn)/(mx-mn)*gh;
-  // 매수가 점선
   G.strokeStyle='rgba(255,255,255,0.35)';G.setLineDash([5,4]);G.lineWidth=1;
   G.beginPath();G.moveTo(gx,yOf(r.buyPrice));G.lineTo(gx+gw,yOf(r.buyPrice));G.stroke();G.setLineDash([]);
   G.fillStyle='#999';G.font='10px Courier New';G.textAlign='left';G.fillText('매수가 '+Math.round(r.buyPrice)+'원',gx+4,yOf(r.buyPrice)-5);
-  // 차트 라인 (마지막 값만 애니)
   G.strokeStyle=r.col;G.lineWidth=3;G.beginPath();
   for(let i=0;i<n;i++){const v=(i===n-1)?animEnd:hist[i];const px=gx+gw*(i/(n-1)),py=yOf(v);i?G.lineTo(px,py):G.moveTo(px,py);}
   G.stroke();
-  // 끝점 마커 + 글로우
   const epx=gx+gw,epy=yOf(animEnd);
   G.globalAlpha=0.4;G.fillStyle=up?'#22ee88':'#ff4455';G.beginPath();G.arc(epx,epy,11,0,Math.PI*2);G.fill();G.globalAlpha=1;
   G.fillStyle=up?'#33ff99':'#ff5566';G.beginPath();G.arc(epx,epy,6,0,Math.PI*2);G.fill();
-  G.fillStyle='#fff';G.font='bold 11px Courier New';G.textAlign='left';G.fillText((up?'▲':'▼')+Math.round(animEnd)+'원',epx-44,epy+(up?-12:20));
-  // ── 큰 손익 숫자 (카운트업) ──
-  const shown=Math.round(r.profit*ease);
-  const popScale=1+(1-ease)*0.5;
-  G.save();G.translate(LW/2,392);G.scale(popScale,popScale);
-  G.textAlign='center';G.font='bold 46px Courier New';
-  G.fillStyle='#000';G.fillText((up?'+':'')+shown.toLocaleString()+'원',2,2);
-  G.fillStyle=up?'#33ee99':'#ff4455';G.fillText((up?'+':'')+shown.toLocaleString()+'원',0,0);
+  if(t>=ANT){G.fillStyle='#fff';G.font='bold 11px Courier New';G.textAlign='left';G.fillText((up?'▲':'▼')+Math.round(animEnd)+'원',epx-46,epy+(up?-12:20));}
+  // ── 큰 손익 숫자 ──
+  const shown=t<ANT?0:Math.round(r.profit*clamp(p2*1.15,0,1));
+  const pop=t<ANT?1:1+(1-p2)*0.6;
+  G.save();G.translate(LW/2,392);G.scale(pop,pop);G.textAlign='center';G.font='bold 46px Courier New';
+  const numTxt=t<ANT?'？？？':((up?'+':'')+shown.toLocaleString()+'원');
+  G.fillStyle='#000';G.fillText(numTxt,2,2);
+  G.fillStyle=t<ANT?'#999':(up?'#33ee99':'#ff4455');G.fillText(numTxt,0,0);
   G.restore();
-  // 라벨 (떡상/폭락)
-  const label=r.pct>=40?'🚀 떡상!!':r.pct>=8?'📈 상승':r.pct>-8?'➖ 보합':r.pct>-30?'📉 하락':'💥 폭락!!';
-  G.textAlign='center';G.font='bold 20px Courier New';G.fillStyle=up?'#88ffbb':'#ff9999';
-  G.fillText(label+'   ('+(up?'+':'')+r.pct+'%)',LW/2,430);
-  G.font='14px Courier New';G.fillStyle='#ffd24a';G.fillText('💵 보유 현금  '+Math.floor(player.seedMoney).toLocaleString()+'원',LW/2,462);
+  // ── 라벨 ──
+  if(t<ANT){
+    G.textAlign='center';G.font='bold 18px Courier New';G.fillStyle='#bbb';
+    G.fillText('📊 집계 중'+'.'.repeat(1+Math.floor(performance.now()/250%3)),LW/2,430);
+  }else{
+    const label=r.pct>=40?'🚀 떡상!!!':r.pct>=8?'📈 상승':r.pct>-8?'➖ 보합':r.pct>-30?'📉 하락':'💥 떡락!!!';
+    const lpop=1+(1-p2)*0.5;
+    G.save();G.translate(LW/2,425);G.scale(lpop,lpop);G.textAlign='center';G.font='bold 20px Courier New';
+    G.fillStyle=up?'#88ffbb':'#ff9999';G.fillText(label+'   ('+(up?'+':'')+r.pct+'%)',0,0);G.restore();
+  }
+  G.font='14px Courier New';G.fillStyle='#ffd24a';G.textAlign='center';G.fillText('💵 보유 현금  '+Math.floor(player.seedMoney).toLocaleString()+'원',LW/2,462);
   if(t>=1){const bl=0.5+0.5*Math.sin(performance.now()/250);G.globalAlpha=0.5+bl*0.5;G.fillStyle='#fff';G.font='bold 14px Courier New';G.fillText('▶ 클릭하여 계속 ◀',LW/2,502);}
   G.restore();
 }
@@ -5302,7 +5318,7 @@ c.addEventListener('click',e=>{
   }
   // 📊 지워니 투자 결과 애니 → 클릭하면 다음(현금 있으면 투자창)
   if(investResultOpen&&player){
-    if(performance.now()-investResultStart>500){  // 애니 최소 0.5s 후 클릭 허용
+    if(performance.now()-investResultStart>1000){  // 스냅(떡상/떡락) 본 뒤 클릭 허용
       investResultOpen=false;
       if(player.seedMoney>0){investOpen=true;hovInvest=-1;}
     }
