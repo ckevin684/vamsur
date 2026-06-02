@@ -151,6 +151,9 @@ start firefox index.html
 - **미니맵 플레이어중심**: 버그였음(플레이어가 항상 world 0,0에 그려짐) → `rel()`로 플레이어 기준 상대좌표, ±750 줌인, 흰링+방향화살표.
 - **비주얼**: 풀코스=🍣사시미 draw, 칼 텀블링 회전, 뭉치 짖기 `barkX/barkY` 위치고정+풀사거리링, 손전등 빔 `globalCompositeOperation='lighter'`(가산혼합, 적 가독성↑).
 - **(소민 룰렛: 검증결과 이미 손전등 전용 — `streamerBuff(sm)=1`, 데미지 누수 없음)**
+- **콤보 제거**: 순수 표시용(게임플레이 효과 0)이라 삭제. `bumpCombo`는 jw `notifyKill` 호출만 유지.
+- **🦯 지팡이 = 거리감쇠 킬존**: `aoeHit(...,falloff={max,min})` — 중심 ×2.2 / 가장자리 ×1.2 (`BAL.wpn.staff.maxMul/minMul`). 범위(`am`)↑ 먹으면 R 커져서 같은 거리가 더 안쪽 비율=강해짐 → "최대뎀 구간이 멀어짐". 적HP↑+거리감쇠 상호작용 = '킬존 원'이 후반 쪼그라들고 업글 시 확장(VS 재미).
+- **🦯 진화(각성한기종) = 쌍지팡이 좌우 슬램**: 투사체→AOE. `p.gjSlamSide` 좌(-1)/우(+1) 토글, `slamOffset`만큼 빗겨서 왼손/오른손 쿵쿵. 각 슬램=거리감쇠 킬존(maxMul 3.2/minMul 1.8, R 155). 눈 보호: 진화는 흰 플래시 약하게+봉 내려찍기 연출+미세 흔들림.
 
 - **보스 시그니처 패턴** (구현 완료): 트럭/싸비 = 돌진(윈드업 정지 텔레그래프 = 반투명 위험레인+화살표 → 고속 락온 대시, ×1.6 강타), 불편러 = 시야차단 안개(`boss.fogT`), 망령 = 분신 소환(엘리트 러셔 3). `Boss.signature()` + `sigEvery/sigT/chargeWind/chargeT/chargeDir/fogT`.
 - **💗 부활 메타 업그레이드**: `META.up.revive`(판당 최대 2회), 사망 시 HP50%+주변 넉백. `runRevives`로 카운트, `takeDmg` 분기.
