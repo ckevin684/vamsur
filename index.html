@@ -2200,6 +2200,7 @@ function spawnBeam(p,ang,opts){
       const va=this.visAlpha;  // 시각 투명도 배율
       const cr=parseInt(this.col.slice(1,3),16),cg=parseInt(this.col.slice(3,5),16),cb=parseInt(this.col.slice(5,7),16);
       G.save();
+      G.globalCompositeOperation='lighter';  // 가산 혼합 — 빔이 적을 덮지 않고 '빛을 더함' (초록빔+초록좀비 가독성 ↑)
       G.translate(this.x,this.y);
       G.rotate(this.ang);
       // 손에서 출발하는 약간의 오프셋
@@ -2288,16 +2289,29 @@ class Proj{
     const spinT=(this.ml-this.life)*10;
     G.translate(this.x,this.y);
     switch(this.wt){
-      case 'knife':case 'fullcourse':{
+      case 'fullcourse':{
+        // 🍣 진화: 일본 사시미(연어회) 슬라이스 — 모든 적 관통. 둥근 회 한 점이 날아감
         G.rotate(ang);
-        const fancy=this.wt==='fullcourse';
-        // 트레일 (fullcourse만 불꽃)
-        if(fancy){
-          G.fillStyle=`rgba(255,140,40,${al*0.5})`;
-          G.beginPath();G.moveTo(-s*1.8,-s*0.45);G.lineTo(-s*3.2,0);G.lineTo(-s*1.8,s*0.45);G.closePath();G.fill();
-          G.fillStyle=`rgba(255,220,80,${al*0.7})`;
-          G.beginPath();G.moveTo(-s*1.8,-s*0.18);G.lineTo(-s*2.5,0);G.lineTo(-s*1.8,s*0.18);G.closePath();G.fill();
-        }
+        // 모션 트레일
+        G.fillStyle=`rgba(255,150,120,${al*0.32})`;
+        G.beginPath();G.ellipse(-s*1.3,0,s*1.7,s*0.55,0,0,Math.PI*2);G.fill();
+        // 회 본체 (주황핑크 타원)
+        G.fillStyle='#ff8a66';
+        G.beginPath();G.ellipse(0,0,s*1.45,s*0.9,0,0,Math.PI*2);G.fill();
+        // 진한 가장자리
+        G.strokeStyle='#e25a42';G.lineWidth=Math.max(1,s*0.16);
+        G.beginPath();G.ellipse(0,0,s*1.45,s*0.9,0,0,Math.PI*2);G.stroke();
+        // 흰 마블링 (지방 줄 3개)
+        G.strokeStyle=`rgba(255,238,228,${al})`;G.lineWidth=Math.max(1,s*0.15);
+        for(let i=-1;i<=1;i++){G.beginPath();G.moveTo(-s*1.15,i*s*0.42);G.quadraticCurveTo(0,i*s*0.42+s*0.18,s*1.15,i*s*0.42);G.stroke();}
+        // 하이라이트(윤기)
+        G.globalAlpha=al*0.85;G.fillStyle='#ffffff';
+        G.beginPath();G.ellipse(-s*0.45,-s*0.38,s*0.4,s*0.2,0.35,0,Math.PI*2);G.fill();
+        break;
+      }
+      case 'knife':{
+        G.rotate(ang+spinT*0.8);  // 던진 칼 텀블링 회전 (정적 페이드 → 활발한 투사체)
+        const fancy=false;
         // 칼날 (커다란 삼각형)
         G.fillStyle=fancy?'#ffcc66':'#dddddd';
         G.beginPath();G.moveTo(s*2.1,0);G.lineTo(-s*0.4,-s*0.38);G.lineTo(-s*0.4,s*0.38);G.closePath();G.fill();
@@ -3095,6 +3109,7 @@ class Companion{
     });
     this.barkAnimT=0.7;  // 더 오래 보이게
     this.barkR=r;
+    this.barkX=this.x;this.barkY=this.y;  // 짖은 위치 고정(손전등처럼) — 피격 영역 명확
     playBark();  // 실제 뭉치 짖음 (영상에서 추출)
   }
   doScratch(){
@@ -3210,39 +3225,27 @@ class Companion{
     // 짖기 시각 효과 (확장하는 노란 링 + "멍!" 큰 글씨)
     if(this.barkAnimT>0){
       const t=1-this.barkAnimT/0.7;  // 0.7s 지속
-      const baseR=this.barkR||80;
+      const R=this.barkR||80;
+      const bx=this.barkX!==undefined?this.barkX:this.x, by=this.barkY!==undefined?this.barkY:this.y;  // 짖은 위치 고정
       G.save();
-      // 외곽 충격파 링 (가장 큰, 가장 두꺼움)
-      G.shadowColor='#ffdd44';G.shadowBlur=18;
-      G.globalAlpha=(1-t)*0.85;
-      G.strokeStyle='#ffdd44';G.lineWidth=6;
-      G.beginPath();G.arc(this.x,this.y,baseR*t,0,Math.PI*2);G.stroke();
-      // 중간 링
-      G.shadowBlur=10;
-      G.globalAlpha=(1-t)*0.65;
-      G.strokeStyle='#ffaa22';G.lineWidth=4;
-      G.beginPath();G.arc(this.x,this.y,baseR*t*0.85,0,Math.PI*2);G.stroke();
-      // 안쪽 흰 코어
-      G.shadowBlur=0;
-      G.globalAlpha=(1-t)*0.75;
-      G.strokeStyle='#ffffff';G.lineWidth=2;
-      G.beginPath();G.arc(this.x,this.y,baseR*t*0.65,0,Math.PI*2);G.stroke();
-      // 충격파 채움 (반투명)
-      G.globalAlpha=(1-t)*0.15;
-      G.fillStyle='#ffee88';
-      G.beginPath();G.arc(this.x,this.y,baseR*t,0,Math.PI*2);G.fill();
-      // "멍!" 큰 글씨 (오래 보임)
+      // 고정 피격 영역 채움 (어디까지 맞았는지 명확)
+      G.globalAlpha=(1-t)*0.18;G.fillStyle='#ffee88';
+      G.beginPath();G.arc(bx,by,R,0,Math.PI*2);G.fill();
+      // 고정 외곽 링 = 정확한 피격 경계 (사거리)
+      G.shadowColor='#ffdd44';G.shadowBlur=12;
+      G.globalAlpha=(1-t)*0.85;G.strokeStyle='#ffdd44';G.lineWidth=3;
+      G.beginPath();G.arc(bx,by,R,0,Math.PI*2);G.stroke();
+      // 확장 충격파 링 (연출)
+      G.shadowBlur=14;G.globalAlpha=(1-t)*0.7;G.strokeStyle='#ffffff';G.lineWidth=4;
+      G.beginPath();G.arc(bx,by,R*t,0,Math.PI*2);G.stroke();
+      // "멍!" 큰 글씨 (바크 위치 고정)
       if(t<0.6){
         const fade=1-t/0.6;
-        G.globalAlpha=fade;
-        const sz=20+t*14;  // 점점 커짐
-        const ty=this.y-22-t*18;
+        G.shadowBlur=0;G.globalAlpha=fade;
+        const sz=20+t*14, ty=by-R*0.45-t*16;
         G.font=`bold ${sz}px Courier New`;G.textAlign='center';
-        // 검은 외곽
-        G.strokeStyle='#000';G.lineWidth=3;
-        G.strokeText('멍!',this.x,ty);
-        // 노란 본체
-        G.fillStyle='#ffdd44';G.fillText('멍!',this.x,ty);
+        G.strokeStyle='#000';G.lineWidth=3;G.strokeText('멍!',bx,ty);
+        G.fillStyle='#ffdd44';G.fillText('멍!',bx,ty);
       }
       G.restore();
     }
