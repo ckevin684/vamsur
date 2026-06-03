@@ -1839,40 +1839,39 @@ function fireWpn(type,p,wlv){
       projs.push({x:p.x,y:p.y,ang:wa,R,span,life:0.34,ml:0.34,dead:false,isAoe:true,wt:'wave',
         update(dt){this.life-=dt;if(this.life<=0)this.dead=true;},
         draw(){
-          const al=clamp(this.life/this.ml,0,1),tt=1-al, sw=Math.min(1,tt*2.0);
-          // 할퀴는 호: 수명 동안 위→아래로 휘둘러 긁는 회전(레이저 직선 X)
-          const swing=(0.5-tt)*0.95;
-          G.save();G.translate(this.x,this.y);G.rotate(this.ang+swing);
+          const al=clamp(this.life/this.ml,0,1),tt=1-al, sw=Math.min(1,tt*2.2);
+          G.save();G.translate(this.x,this.y);G.rotate(this.ang);
           G.lineCap='round';G.lineJoin='round';
-          const R=this.R, N=4, S=16;
-          // 4줄 평행 발톱 — 양끝 가늘고 가운데 굵은 칼날, 가장자리 톱니(찢긴 상처), 붉은 그라데이션
+          const R=this.R, N=4, S=18, span=this.span;
+          // 4줄 발톱을 부채꼴 호(할퀸 궤도)로 배치 — 캐릭터서 띄우고 가운데가 더 길게 휘어 크레센트
           for(let i=0;i<N;i++){
-            const off=(i-(N-1)/2)*R*0.22;                  // 평행 간격
-            const len=R*(0.5+sw*0.5);                       // 스와이프 진행에 따라 길어짐
-            const x0=R*0.12, x1=x0+len;
-            const y0=off-R*0.18, y1=off+R*0.20;             // 비스듬히 내려긋기
-            const cx=(x0+x1)/2, cy=(y0+y1)/2-R*0.10;        // 베지어 제어점(살짝 휨)
-            const maxW=Math.max(2,R*0.055)*(1-tt*0.35);     // 최대 두께
-            const mid=[],top=[],bot=[];
+            const k=(i-(N-1)/2)/((N-1)/2);                  // -1..1 (발톱 위치)
+            const ca=k*span*0.62;                            // 부채꼴 중심각
+            const inner=R*(0.34+sw*0.04);                    // 시작 반경(캐릭터서 띄움 → 발사느낌 제거)
+            const outer=R*(0.80+sw*0.12)*(1-0.14*Math.abs(k)); // 가운데 발톱 길게 = 크레센트
+            const rake=0.18*k;                               // 끝으로 갈수록 휘는 양(호 따라)
+            const maxW=Math.max(2,R*0.05)*(1-tt*0.35);
+            const cxA=[],cyA=[];
             for(let s=0;s<=S;s++){
-              const u=s/S, iu=1-u;
-              const px=iu*iu*x0+2*iu*u*cx+u*u*x1;
-              const py=iu*iu*y0+2*iu*u*cy+u*u*y1;
-              const tx=2*iu*(cx-x0)+2*u*(x1-cx), ty=2*iu*(cy-y0)+2*u*(y1-cy);
-              const tl=Math.hypot(tx,ty)||1, nx=-ty/tl, ny=tx/tl;
-              // 폭: 양끝 0, 살짝 앞쪽이 두꺼운 칼날 + 결정적 톱니노이즈
+              const u=s/S, rr=inner+(outer-inner)*u, aa=ca+rake*Math.sin(Math.PI*u);
+              cxA.push(Math.cos(aa)*rr); cyA.push(Math.sin(aa)*rr);
+            }
+            const top=[],bot=[];
+            for(let s=0;s<=S;s++){
+              const u=s/S, a0=Math.max(0,s-1), b0=Math.min(S,s+1);
+              const tx=cxA[b0]-cxA[a0], ty=cyA[b0]-cyA[a0], tl=Math.hypot(tx,ty)||1, nx=-ty/tl, ny=tx/tl;
+              // 폭: 양끝 0, 가운데 굵은 칼날 + 결정적 톱니노이즈
               let hw=maxW*Math.pow(Math.sin(Math.PI*u),0.6);
-              hw*=1+0.24*Math.sin(u*27+i*2.3)*Math.sin(u*9+i);
-              mid.push([px,py]);
-              top.push([px+nx*hw,py+ny*hw]);
-              bot.push([px-nx*hw,py-ny*hw]);
+              hw*=1+0.22*Math.sin(u*27+i*2.3)*Math.sin(u*9+i);
+              top.push([cxA[s]+nx*hw,cyA[s]+ny*hw]);
+              bot.push([cxA[s]-nx*hw,cyA[s]-ny*hw]);
             }
             // 채우기(붉은 상처)
             G.beginPath();G.moveTo(top[0][0],top[0][1]);
             for(let s=1;s<=S;s++)G.lineTo(top[s][0],top[s][1]);
             for(let s=S;s>=0;s--)G.lineTo(bot[s][0],bot[s][1]);
             G.closePath();
-            const g=G.createLinearGradient(x0,y0,x1,y1);
+            const g=G.createLinearGradient(cxA[0],cyA[0],cxA[S],cyA[S]);
             g.addColorStop(0,'rgba(110,0,0,0)');
             g.addColorStop(0.18,'rgba(150,5,5,0.9)');
             g.addColorStop(0.5,'rgba(225,25,20,0.96)');
@@ -1883,8 +1882,8 @@ function fireWpn(type,p,wlv){
             G.globalAlpha=al*0.55*(0.4+sw*0.6);
             G.strokeStyle='rgba(255,140,110,0.85)';
             G.lineWidth=Math.max(1,maxW*0.3);
-            G.beginPath();G.moveTo(mid[0][0],mid[0][1]);
-            for(let s=1;s<=S;s++)G.lineTo(mid[s][0],mid[s][1]);
+            G.beginPath();G.moveTo(cxA[0],cyA[0]);
+            for(let s=1;s<=S;s++)G.lineTo(cxA[s],cyA[s]);
             G.stroke();
           }
           G.lineCap='butt';G.lineJoin='miter';
