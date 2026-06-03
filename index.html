@@ -1840,18 +1840,18 @@ function fireWpn(type,p,wlv){
         update(dt){this.life-=dt;if(this.life<=0)this.dead=true;},
         draw(){
           const al=clamp(this.life/this.ml,0,1),tt=1-al, sw=Math.min(1,tt*2.0);
-          // 디자인은 그대로, 발톱 그룹만 캐릭터 기준으로 회전 → 직선 발사(레이저) 느낌 제거, 비스듬한 할퀸 슬래시
-          const CLAW_ROT=-0.95;
-          G.save();G.translate(this.x,this.y);G.rotate(this.ang+CLAW_ROT);
+          G.save();G.translate(this.x,this.y);G.rotate(this.ang);
           G.lineCap='round';G.lineJoin='round';
           const R=this.R, N=4, S=16;
-          // 4줄 평행 발톱 — 양끝 가늘고 가운데 굵은 칼날, 가장자리 톱니(찢긴 상처), 붉은 그라데이션
+          // 4줄 평행 발톱 — 조준방향에 '수직'으로 세로로 긋고 앞쪽에 나란히 배치(발사느낌X, 옆구리 할퀸 슬래시)
           for(let i=0;i<N;i++){
-            const off=(i-(N-1)/2)*R*0.22;                  // 평행 간격
-            const len=R*(0.5+sw*0.5);                       // 스와이프 진행에 따라 길어짐
-            const x0=R*0.12, x1=x0+len;
-            const y0=off-R*0.18, y1=off+R*0.20;             // 비스듬히 내려긋기
-            const cx=(x0+x1)/2, cy=(y0+y1)/2-R*0.10;        // 베지어 제어점(살짝 휨)
+            const k=(i-(N-1)/2);                            // -1.5..1.5
+            const bx=R*(0.46+sw*0.10)+k*R*0.20;             // 조준방향으로 나란히 간격(평행), 앞쪽에 배치
+            const half=R*(0.40+sw*0.10);                    // 세로 반길이
+            const tilt=R*0.12;                              // 위→아래 살짝 비스듬(슬래시 느낌)
+            const x0=bx-tilt, y0=-half;                     // 위 끝
+            const x1=bx+tilt, y1= half;                     // 아래 끝
+            const cx=bx+R*0.16, cy=0;                       // 제어점: 바깥(앞)으로 볼록하게 활처럼 휨
             const maxW=Math.max(2,R*0.055)*(1-tt*0.35);     // 최대 두께
             const mid=[],top=[],bot=[];
             for(let s=0;s<=S;s++){
