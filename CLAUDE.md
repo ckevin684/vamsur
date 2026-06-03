@@ -19,10 +19,13 @@
 
 1. `index.html` 수정
 2. 검증 (프리뷰 하네스 등)
-3. **Claude가 변경 묶음마다 `git commit` 직접 실행** (의미있는 한국어 메시지)
-4. 사용자가 GitHub Desktop에서 **Push만** 직접
+3. **🛑 커밋 전 반드시 프리뷰 스크린샷으로 사용자에게 먼저 보여주고 컨펌 받기** (비주얼/게임 변경 시)
+4. 사용자 컨펌 후에만 **Claude가 `git commit` 실행** (의미있는 한국어 메시지)
+5. 사용자가 GitHub Desktop에서 **Push만** 직접
 
-> ✅ **Claude는 `git commit`까지 한다** — 의미있는 변경 묶음마다 한국어 메시지로 자동 커밋.
+> ✅ **Claude는 `git commit`까지 한다.**
+> 🛑 **게임/비주얼 변경은 커밋 전 프리뷰로 보여주고 컨펌 받기** (규칙 추가: 2026-06, 사용자 요청). 컨펌 전 커밋 금지.
+> ✅ **문서·비주얼 아닌 변경(CLAUDE.md/주석/리팩터 등)은 컨펌 없이 바로 커밋 OK.**
 > ⛔ **`git push`는 하지 않는다** — 푸시는 사용자가 GitHub Desktop으로 직접.
 > (규칙 변경: 2026-06. 이전엔 커밋도 안 했으나 이제 커밋은 Claude가, 푸시만 사용자. 커밋 committer가 `unknown <ckevin@kaist.ac.kr>`로 박혀도 OK — 사용자 승인.)
 >
@@ -224,7 +227,9 @@ start firefox index.html
 3. **비주얼 전반** 사용자 플레이 검증 필요(스샷 불가였음): 황금뭉치·할퀴기·투자창/상점/결과애니·동전/레이저 생김새.
 
 ## ⚠️ 커밋/푸시
-- Claude가 변경마다 `git commit` 완료. **푸시는 사용자가 GitHub Desktop으로** (committer `unknown <ckevin@kaist.ac.kr>` OK).
+- **🛑 게임/비주얼 변경은 커밋 전 프리뷰 스크린샷으로 보여주고 컨펌 받기.** 컨펌 전엔 `git commit` 금지 (사용자 요청, 2026-06).
+- **문서·주석·리팩터 등 비주얼 아닌 변경은 컨펌 없이 바로 커밋 OK.**
+- 커밋은 Claude가 실행. **푸시는 사용자가 GitHub Desktop으로** (committer `unknown <ckevin@kaist.ac.kr>` OK).
 
 ## 다음 작업 후보 (백로그)
 1. **진화 접근성 개선** (위 우선검토 1) ⬅ 제일 중요
