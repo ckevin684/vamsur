@@ -1842,8 +1842,8 @@ function fireWpn(type,p,wlv){
           const al=clamp(this.life/this.ml,0,1),tt=1-al, sw=Math.min(1,tt*2.0);
           G.save();G.translate(this.x,this.y);G.rotate(this.ang);
           G.lineCap='round';G.lineJoin='round';
-          const R=this.R, N=4, S=16;
-          // 4줄 평행 발톱 — 조준방향에 '수직'으로 세로로 긋고 앞쪽에 나란히 배치(발사느낌X, 옆구리 할퀸 슬래시)
+          const R=this.R, N=3, S=16;
+          // 3줄 평행 발톱 — 조준방향에 '수직'으로 세로로 긋고 앞쪽에 나란히 배치(발사느낌X, 옆구리 할퀸 슬래시)
           for(let i=0;i<N;i++){
             const k=(i-(N-1)/2);                            // -1.5..1.5
             const bx=R*(0.46+sw*0.10)+k*R*0.20;             // 조준방향으로 나란히 간격(평행), 앞쪽에 배치
