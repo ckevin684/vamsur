@@ -962,7 +962,7 @@ function cookableRecipes(){
   if(!player)return [];
   return DISHES.filter(r=>r.pair.every(k=>(player.pantry[k]||0)>=r.pair.filter(x=>x===k).length));
 }
-function openHotel(){ hotelOpen=true; hovHotel=-1; SFX.lvUp(); }
+function openHotel(){ hotelOpen=true; const ck=cookableRecipes(); hovHotel=ck.length?DISHES.indexOf(ck[0]):0; SFX.lvUp(); }  // 첫 요리가능 항목 기본 선택 (키보드 바로 확정 가능)
 function closeHotel(){ hotelOpen=false; hotelEnt=null; hotelT=BAL.char.jw.hotelInterval; }
 function getHotelClick(mx,my){
   const n=DISHES.length,cw=132,gap=12,totalW=n*cw+(n-1)*gap,sx=LW/2-totalW/2,cy=140,ch=200;
@@ -1290,13 +1290,12 @@ function menuKey(e){
   const k=e.key,code=e.code,fresh=!e.repeat;  // fresh: 오토리피트 무시 (홀드로 다중 발동 방지)
   const L=(k==='ArrowLeft'||k==='a'||k==='A'),R=(k==='ArrowRight'||k==='d'||k==='D');
   const U=(k==='ArrowUp'||k==='w'||k==='W'),D=(k==='ArrowDown'||k==='s'||k==='S');
-  const OK=fresh&&(k==='Enter'||code==='Enter');  // 메뉴 확정 = Enter 전용
-  const CUT=fresh&&(k==='Enter'||code==='Enter'||k===' '||code==='Space');  // 칼질 컷 = Space/Enter (의도적 타이밍)
+  const OK=fresh&&(k==='Enter'||code==='Enter'||k===' '||code==='Space');  // 확정/선택 = Space·Enter (대시는 Shift로 분리 → 오발 없음)
   const ESC=(k==='Escape');
   const wrap=(i,n,d)=>n>0?(((i<0?0:i)+d)%n+n)%n:0;
   // ── 오버레이 (정지 게이트) 우선 ──
   if(settingsOpen){ if(ESC||OK){settingsOpen=false;hovSetBtn=-1;} return true; }
-  if(cookOpen){ if(CUT&&(cookStage==='cut1'||cookStage==='cut2'))doCut(); return true; }  // 🔪 칼질 (Space/Enter)
+  if(cookOpen){ if(OK&&(cookStage==='cut1'||cookStage==='cut2'))doCut(); return true; }  // 🔪 칼질 (Space/Enter)
   if(hotelOpen){
     if(ESC){closeHotel();return true;}
     if(L||U){hovHotel=wrap(hovHotel,DISHES.length,-1);return true;}
@@ -1363,7 +1362,7 @@ document.addEventListener('keydown',e=>{
   if(menuKey(e)){e.preventDefault();return;}  // ⌨️ 메뉴/선택 화면 키보드 조작 (소비 시 게임키 차단)
   if((e.key==='p'||e.key==='P'||e.key==='Escape')&&state==='playing'){paused=!paused;e.preventDefault()}
   if(e.key==='Escape'&&state==='shop'){state='title';e.preventDefault()}  // 상점 → 타이틀
-  if(e.code==='Space'&&state==='playing'&&!paused){if(player)player.tryDash();e.preventDefault()}
+  if((e.key==='Shift'||e.code==='ShiftLeft'||e.code==='ShiftRight')&&state==='playing'&&!paused){if(player)player.tryDash();e.preventDefault()}  // 대시 = Shift (Space는 선택)
   if(e.key==='`'||e.code==='Backquote'){godMode=!godMode;notify(godMode?'🛡️ 무적 ON':'무적 OFF','디버그','#ffdd44');e.preventDefault()}
 });
 document.addEventListener('keyup',e=>{keys[e.key]=false;keys[e.code]=false});
@@ -4934,7 +4933,7 @@ function drawHUD(){
   G.fillStyle='rgba(0,0,0,0.6)';G.fillRect(dashX,dashY-9,32,10);
   G.fillStyle=ready?'#88ddff':'#444';G.fillRect(dashX,dashY-9,32*(ready?1:1-p.dashCd/p.dashCdMax),10);
   G.fillStyle=ready?'#000':'#888';G.font='bold 8px Courier New';G.textAlign='center';
-  G.fillText(ready?'⚡ SPACE':`${p.dashCd.toFixed(1)}s`,dashX+16,dashY-1);
+  G.fillText(ready?'⚡ SHIFT':`${p.dashCd.toFixed(1)}s`,dashX+16,dashY-1);
   // 캐릭터별 메카닉 인디케이터 (대시 옆, 폭 확장 — 텍스트 잘림 방지)
   const mX=50,mW=56,mY=92;
   if(p.cd.id==='jh'){
@@ -5287,7 +5286,7 @@ function renderSettings(){
   G.fillStyle='#666';G.font='10px Courier New';G.textAlign='center';
   G.fillText('━ 조작 ━',LW/2,py+255);
   G.fillStyle='#aaa';G.font='10px Courier New';
-  G.fillText('이동 WASD / 방향키  ·  대시 SPACE  ·  일시정지 P/ESC',LW/2,py+272);
+  G.fillText('이동 WASD / 방향키  ·  대시 SHIFT  ·  선택 SPACE/ENTER  ·  일시정지 P/ESC',LW/2,py+272);
   G.fillText('창 크기를 바꾸면 자동으로 화면이 맞춰져요',LW/2,py+288);
   // 닫기 버튼
   const cbW=120,cbH=32,cbX=LW/2-cbW/2,cbY=py+ph-46;
@@ -5697,7 +5696,7 @@ function startGame(cd){
   shakeT=0;shakeM=0;paused=false;pendingLvUps=0;
   weatherT=0;flashT=0;camOX=0;camOY=0;hitStop=0;
   initWorld();state='playing';
-  notify('▶  GAME START','WASD/방향키 · SPACE 대시 · P 일시정지','#ffaa66');
+  notify('▶  GAME START','WASD/방향키 · SHIFT 대시 · SPACE 선택 · P 일시정지','#ffaa66');
   playBgm('battle');
 }
 function reset(){
