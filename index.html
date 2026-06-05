@@ -87,6 +87,7 @@ const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const rnd=(a,b)=>a+Math.random()*(b-a);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function shade(h,a){const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return`rgb(${clamp(r+a,0,255)},${clamp(g+a,0,255)},${clamp(b+a,0,255)})`}
+const hex2rgb=h=>`${parseInt(h.slice(1,3),16)},${parseInt(h.slice(3,5),16)},${parseInt(h.slice(5,7),16)}`;  // '#rrggbb' → 'r,g,b' (rgba 합성용)
 
 // ═══ SPRITES ═══
 function shadow(x,y,rx,ry,al){G.save();G.fillStyle=`rgba(0,0,0,${al||0.4})`;G.beginPath();G.ellipse(x,y,rx,ry,0,0,Math.PI*2);G.fill();G.restore()}
@@ -3725,12 +3726,30 @@ class Ingred{
     }
   }
   draw(){
-    const bob=Math.sin(this.t)*2,ing=INGS[this.k];
+    const ing=INGS[this.k],cav=this.k==='caviar';
+    const bob=Math.sin(this.t)*2.5, pulse=0.5+0.5*Math.sin(this.t*2.2);
+    const y=this.y+bob, sz=cav?16:14;  // 박스 반크기 (적 ~25px 대비 큼 = 잘 보임)
     G.save();
-    G.globalAlpha=this.k==='caviar'?(0.35+0.2*Math.sin(this.t*1.5)):0.3;
-    G.fillStyle=ing.col;G.beginPath();G.arc(this.x,this.y+bob,9,0,6.28);G.fill();
-    G.globalAlpha=1;G.font='15px serif';G.textAlign='center';G.textBaseline='middle';
-    G.fillText(ing.emoji,this.x,this.y+bob);
+    // 빛기둥 비콘 (호드 속에서도 위로 솟는 빛 — 멀리서 식별)
+    const beamH=cav?54:42, bg=G.createLinearGradient(this.x,y-beamH,this.x,y);
+    bg.addColorStop(0,'rgba(0,0,0,0)');bg.addColorStop(1,cav?`rgba(255,210,90,${0.35+pulse*0.25})`:`rgba(${hex2rgb(ing.col)},${0.22+pulse*0.18})`);
+    G.fillStyle=bg;G.beginPath();G.moveTo(this.x-6,y);G.lineTo(this.x-2,y-beamH);G.lineTo(this.x+2,y-beamH);G.lineTo(this.x+6,y);G.closePath();G.fill();
+    // 바닥 그림자
+    G.globalAlpha=0.4;G.fillStyle='#000';G.beginPath();G.ellipse(this.x,this.y+12,10,3.5,0,0,6.28);G.fill();G.globalAlpha=1;
+    // 외곽 펄스 글로우
+    G.globalAlpha=0.3+pulse*0.3;G.fillStyle=ing.col;G.beginPath();G.arc(this.x,y,sz+7+pulse*4,0,6.28);G.fill();G.globalAlpha=1;
+    // 박스 (둥근 사각 — VS 아이템 박스)
+    const r=5,bx=this.x-sz,by=y-sz,bs=sz*2;
+    G.beginPath();G.moveTo(bx+r,by);G.arcTo(bx+bs,by,bx+bs,by+bs,r);G.arcTo(bx+bs,by+bs,bx,by+bs,r);G.arcTo(bx,by+bs,bx,by,r);G.arcTo(bx,by,bx+bs,by,r);G.closePath();
+    G.fillStyle='rgba(18,14,8,0.94)';G.fill();
+    // 밝은 테두리 (재료 색, 굵게) + 안쪽 화이트 하이라이트
+    G.lineWidth=cav?3.5:3;G.strokeStyle=ing.col;G.stroke();
+    G.lineWidth=1;G.strokeStyle='rgba(255,255,255,0.55)';G.stroke();
+    // 이모지 (크게)
+    G.font=`${cav?24:21}px serif`;G.textAlign='center';G.textBaseline='middle';
+    G.fillText(ing.emoji,this.x,y+1);
+    // 캐비아: 반짝임 + 회전 별
+    if(cav){G.globalAlpha=0.5+0.5*Math.sin(this.t*5);G.font='11px serif';G.fillText('✨',this.x+sz-1,y-sz+3);G.globalAlpha=1;}
     G.textBaseline='alphabetic';G.restore();
   }
 }
