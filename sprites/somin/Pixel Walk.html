@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pixel Walk</title>
+<style>
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; }
+  body{
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    background:#14160f; color:#e7e3d4; overflow:hidden;
+  }
+  #stage{ position:fixed; inset:0; display:grid; place-items:center; transition: background .3s ease; }
+  #stage.bg-grass{
+    background:
+      radial-gradient(120% 90% at 50% 18%, #46592f 0%, transparent 60%),
+      repeating-linear-gradient(0deg, #3a4d2b 0 14px, #2f3f23 14px 28px);
+    background-color:#2f3f23;
+  }
+  #stage.bg-dark{ background: radial-gradient(80% 70% at 50% 40%, #21241a 0%, #111309 80%); }
+  #stage.bg-flat{ background-color:#1b1d14; }
+  #stage.bg-check{
+    background-color:#1d1f16;
+    background-image:
+      linear-gradient(45deg,#23261b 25%,transparent 25%,transparent 75%,#23261b 75%),
+      linear-gradient(45deg,#23261b 25%,transparent 25%,transparent 75%,#23261b 75%);
+    background-size:40px 40px; background-position:0 0,20px 20px;
+  }
+  #wrap{ position:relative; image-rendering: pixelated; }
+  canvas{ display:block; image-rendering:pixelated; image-rendering:crisp-edges; }
+  .hint{
+    position:fixed; left:14px; bottom:12px; font-size:11px; letter-spacing:.04em;
+    color:#8e8a78; background:rgba(0,0,0,.35); padding:6px 9px; border-radius:6px;
+    pointer-events:none; user-select:none;
+  }
+</style>
+</head>
+<body>
+  <div id="stage" class="bg-grass">
+    <div id="wrap"><canvas id="c"></canvas></div>
+  </div>
+  <div class="hint">WALK CYCLE</div>
+  <div id="panel-root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="walk.jsx"></script>
+</body>
+</html>
