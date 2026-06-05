@@ -626,14 +626,28 @@ const BAL={
       healUrgentPct:0.55,  // HP 0 직전 긴급 회복량
       healInvuln:1.5,      // 발동 후 무적 시간
     },
-    jw:{ // 최종원 — 주문 폭주
-      rushKills:12,        // 발동 필요 킬 수
-      rushWnd:4,           // 콤보 윈도우 (초) — 3→4 (초반 발동 용이)
-      rushDur:5,           // 폭주 지속 시간
-      rushCd:7,            // 폭주 종료 후 재충전 쿨다운 — 상시발동 방지 (후반 거의 항시 발동 너프)
-      rushAsMul:2,         // 폭주 시 공속 배율
-      lateScaleStart:120,  // 시간 데미지 스케일링 시작 (초)
-      lateScaleRate:0.3,   // 스케일링 속도 (1+t*0.3) — 0.4→0.3 (후반 폭딜 캡, 15분 ×4.0→×3.25)
+    jw:{ // 최종원 — 🏨 2시즌스 호텔 요리 (처치→재료 수집 → 호텔서 칼질 미니게임 요리 → 버프)
+      lateScaleStart:120,  // 시간 데미지 스케일링 시작 (초) — 기존 유지
+      lateScaleRate:0.3,   // 스케일링 속도 (1+t*0.3) — 기존 유지
+      // 재료 드랍 (쿨다운 pity 방식 — 킬 속도 무관 판당 ~25개)
+      dropCd:48,           // 재료 드랍 후 쿨다운(s): 이 동안 절대 안 떨어짐 (30→48 빈도↓)
+      dropChance:0.04,     // 쿨다운 끝난 뒤 킬당 드랍 확률
+      caviarChance:0.0001, // 👑 캐비아 일반 몹 독립 롤 (0.01%)
+      pantryCap:9,         // 재료별 보유 상한
+      // 🏨 호텔 (맵 스폰 건물 — 증권상점 패턴)
+      hotelInterval:100,   // 스폰 주기(s)
+      hotelEnterR:44,      // 진입 인식 거리
+      // 요리 버프
+      dishDur:18,          // 일시 버프 지속(s)
+      greatMul:1.5,        // 대성공(2적중) 효과 배율
+      failAsDebuff:0.02,   // 실패(0적중) 시 영구 공속 -2% (누적, 상한 0.8)
+      caviarDmg:0.08,      // 👑 캐비아 코스 영구 데미지 +8%/스택
+      // 🔪 칼질 미니게임 (판정값 0~1, 칼끝이 sin 왕복)
+      knifeSpd:3.8,        // 칼 왕복 각속도 (rad/s) — 5.0→3.8 살짝 느리게
+      zoneEasyW:0.20,      // 컷1 구간 폭 (바 비율, 쉬움)
+      zoneHardW:0.11,      // 컷2 구간 폭 (어려움)
+      caviarSpdMul:1.4,    // 캐비아: 칼 속도 배율
+      caviarZoneMul:0.6,   // 캐비아: 구간 폭 배율 (더 좁게)
     },
     gj:{ // 최기종 — 분노/휠체어 (이동 기반 게이지 시스템)
       painPerMove:0.022,   // 이동 중 매초 누적 (1/0.022 ≈ 45s 이동 시 1회 분노 — 후반 보장)
@@ -756,7 +770,7 @@ const BAL={
 // ═══ DEFINITIONS ═══
 const CHARS=[
   {id:'jh',name:'준형전자',sub:'조립의 신',color:'#4488cc',hp:130,spd:100,startWpn:'ram',pdesc:'방어 +10% · 🔧 위급시 자가수리',def:0.9},
-  {id:'jw',name:'최종원',sub:'셰프',color:'#dd6622',hp:100,spd:110,startWpn:'knife',pdesc:'시간↑공격↑ · 🍳 8콤보→폭주',def:1.0},
+  {id:'jw',name:'최종원',sub:'셰프',color:'#dd6622',hp:100,spd:110,startWpn:'knife',pdesc:'시간↑공격↑ · 🏨 호텔 요리(칼질)',def:1.0},
   {id:'sm',name:'윤소민',sub:'심야경비+버튜버',color:'#33aa66',hp:110,spd:128,startWpn:'light',pdesc:'이동 +15% · 🎰 변신 룰렛',def:1.0},
   {id:'gj',name:'최기종',sub:'허리디스크레전드',color:'#9955cc',hp:160,spd:70,startWpn:'staff',pdesc:'공격+30% · 이동→허리부담↑→💥분노→🦽휠체어→💉',def:0.85},
   {id:'co',name:'최초',sub:'뭉치 주인',color:'#cc8800',hp:100,spd:120,startWpn:'mungchi',pdesc:'크리 +20% · 🐕 뭉치 컴패니언',def:1.0},
@@ -843,6 +857,23 @@ const PASSIVES=[
   {id:'knife2', name:'🎯 종원의 칼솜씨',desc:'관통 +1',fn:p=>p.pierce+=BAL.passive.knife2Pierce},
   {id:'leverage',name:'📊 지워니의 분산투자',desc:'받는 피해 -7% (동전→비트코인 진화)',fn:p=>p.dmgTakenMul=(p.dmgTakenMul||1)*0.93},
 ];
+// ═══ 🍳 종원 요리 시스템 — 재료 4종+캐비아 / 레시피 5종 ═══
+const INGS={
+  steak:  {emoji:'🥩',name:'채끝등심',  col:'#c0506a'},
+  lobster:{emoji:'🦞',name:'랍스터',    col:'#e0563a'},
+  truffle:{emoji:'🍄',name:'트러플',    col:'#7a5a44'},
+  veg:    {emoji:'🥬',name:'유기농채소',col:'#7ac04a'},
+  caviar: {emoji:'👑',name:'캐비아',    col:'#ffd24a'},
+};
+const ING_KEYS=['steak','lobster','truffle','veg'];  // 일반 드랍 4종 (캐비아는 별도)
+// 페어 조합 5종 — 모든 재료가 정확히 2개 요리에 사용. kind=효과타입
+const DISHES=[
+  {id:'steakdish', emoji:'🥩',name:'트러플 스테이크',pair:['steak','truffle'], desc:'데미지 ×1.7',      kind:'dm',     mul:1.7},
+  {id:'surfturf',  emoji:'🍖',name:'서프 앤 터프',  pair:['steak','lobster'], desc:'공속 ×1.7',        kind:'as',     mul:1.7},
+  {id:'lobsalad',  emoji:'🥗',name:'랍스터 샐러드', pair:['lobster','veg'],   desc:'이속 ×1.35·크리+25%',kind:'spdcrit',mul:1.35, crit:0.25},
+  {id:'truffsoup', emoji:'🍲',name:'트러플 수프',   pair:['truffle','veg'],   desc:'HP 35% 즉시회복',   kind:'heal',   mul:0.35},
+  {id:'caviardish',emoji:'👑',name:'캐비아 코스',   pair:['caviar'],          desc:'영구 데미지 +8%',   kind:'caviar'},
+];
 // 지워니 투자 종목 4개 (실존 패러디). vol=변동성, drift=평균 추세
 const STOCKS=[
   {id:'samssung',name:'SAMSSUNG',col:'#1428a0',vol:0.10,drift:0.012, tag:'안정주'},
@@ -925,15 +956,149 @@ function renderShop2(){
   G.restore();
 }
 
+// ═══ 🏨 종원 2시즌스 호텔 + 🔪 칼질 미니게임 ═══
+function cookableRecipes(){
+  if(!player)return [];
+  return DISHES.filter(r=>r.pair.every(k=>(player.pantry[k]||0)>=r.pair.filter(x=>x===k).length));
+}
+function openHotel(){ hotelOpen=true; hovHotel=-1; SFX.lvUp(); }
+function closeHotel(){ hotelOpen=false; hotelEnt=null; hotelT=BAL.char.jw.hotelInterval; }
+function getHotelClick(mx,my){
+  const n=DISHES.length,cw=132,gap=12,totalW=n*cw+(n-1)*gap,sx=LW/2-totalW/2,cy=140,ch=200;
+  for(let i=0;i<n;i++){const bx=sx+i*(cw+gap);if(mx>=bx&&mx<=bx+cw&&my>=cy&&my<=cy+ch)return i;}
+  const eby=cy+ch+24,ebw=200,ebx=LW/2-ebw/2;
+  if(mx>=ebx&&mx<=ebx+ebw&&my>=eby&&my<=eby+30)return 99;
+  return -1;
+}
+function startCook(recipe){
+  recipe.pair.forEach(k=>player.pantry[k]--);  // 재료 소모
+  cookDish=recipe; cookOpen=true; hotelOpen=false;
+  cookStage='intro'; cookT=1.0; cookKnifeT=0; cookCuts=[]; cookHits=0;
+  const J=BAL.char.jw, zm=recipe.kind==='caviar'?J.caviarZoneMul:1;
+  cookZones=[{c:rnd(0.15,0.85),w:J.zoneEasyW*zm},{c:rnd(0.15,0.85),w:J.zoneHardW*zm}];
+  SFX.shoot();
+}
+function knifePos(){ // 칼끝 위치 0~1 (sin 왕복)
+  const J=BAL.char.jw, spd=J.knifeSpd*(cookDish&&cookDish.kind==='caviar'?J.caviarSpdMul:1);
+  return (Math.sin(cookKnifeT*spd)+1)/2;
+}
+function doCut(){
+  const idx=cookStage==='cut1'?0:1, z=cookZones[idx], k=knifePos(), hit=Math.abs(k-z.c)<=z.w/2;
+  cookCuts.push({k,hit}); if(hit)cookHits++;
+  SFX.hit(); spawnParts(player.x,player.y,hit?'#ffcc44':'#ff4444',hit?8:5);
+  if(cookStage==='cut1')cookStage='cut2'; else resolveCook();
+}
+function resolveCook(){
+  cookStage='result'; cookT=1.6;
+  const great=cookHits>=2, success=cookHits>=1;
+  if(!success){
+    cookDish.pair.forEach(k=>player.pantry[k]++);  // 재료 반환
+    player.fingerCuts++; SFX.over(); shake(0.2,5); spawnParts(player.x,player.y,'#ff2222',20);
+    notify('🩸 손가락 컷!','재료 반환 · 영구 공속 -2%','#ff5555');
+  } else {
+    player.applyDish(cookDish,great); SFX.lvUp(); SFX.phialReady();
+    notify(great?'🌟 대성공!':'✅ 성공!',cookDish.emoji+' '+cookDish.name+(great?' (효과 ×1.5)':''),'#ffcc44');
+    spawnParts(player.x,player.y,'#ffcc44',great?22:12);
+  }
+}
+function stepCook(dt){
+  cookKnifeT+=dt;
+  if(cookStage==='intro'){ cookT-=dt; if(cookT<=0)cookStage='cut1'; }
+  else if(cookStage==='result'){ cookT-=dt; if(cookT<=0)closeCook(); }
+}
+function closeCook(){
+  cookOpen=false; cookStage=''; cookDish=null;
+  hotelEnt=null; hotelT=BAL.char.jw.hotelInterval;  // 호텔 소멸
+  for(const k in keys)keys[k]=false;  // 정지 중 눌린 키 초기화
+}
+function renderHotel(){
+  if(!hotelOpen||!player)return;
+  G.save();
+  G.fillStyle='rgba(0,0,0,0.82)';G.fillRect(0,0,LW,LH);
+  G.textAlign='center';
+  G.fillStyle='#ffcc44';G.font='bold 22px Courier New';G.fillText('🏨 2 SEASONS 호텔 — 요리 선택',LW/2,52);
+  G.font='14px Courier New';G.fillStyle='#ddd';
+  G.fillText(ING_KEYS.concat('caviar').map(k=>INGS[k].emoji+(player.pantry[k]||0)).join('   '),LW/2,80);
+  const cook=cookableRecipes(),n=DISHES.length,cw=132,gap=12,totalW=n*cw+(n-1)*gap,sx=LW/2-totalW/2,cy=140,ch=200;
+  DISHES.forEach((r,i)=>{
+    const bx=sx+i*(cw+gap),can=cook.includes(r),hov=hovHotel===i;
+    G.fillStyle=can?(hov?'#2a2418':'#1d1a12'):'#0e0e10';G.fillRect(bx,cy,cw,ch);
+    G.strokeStyle=r.kind==='caviar'?'#ffcc33':(can?'#dd8844':'#333');G.lineWidth=r.kind==='caviar'?3:1.5;G.strokeRect(bx,cy,cw,ch);
+    G.textAlign='center';G.textBaseline='alphabetic';
+    G.font='38px serif';G.fillText(r.emoji,bx+cw/2,cy+56);
+    G.fillStyle=can?'#fff':'#666';G.font='bold 13px Courier New';G.fillText(r.name,bx+cw/2,cy+88);
+    G.fillStyle=can?'#ffcc88':'#555';G.font='11px Courier New';G.fillText(r.desc,bx+cw/2,cy+110);
+    G.font='16px serif';G.fillStyle=can?'#fff':'#555';G.fillText(r.pair.map(k=>INGS[k].emoji).join(' + '),bx+cw/2,cy+148);
+    G.fillStyle=can?'#9fdd6a':'#a55';G.font='bold 12px Courier New';G.fillText(can?'✓ 요리 가능':'재료 부족',bx+cw/2,cy+ch-16);
+  });
+  const eby=cy+ch+24,ebw=200,ebx=LW/2-ebw/2;
+  G.fillStyle=hovHotel===99?'#3a3a4a':'#222';G.fillRect(ebx,eby,ebw,30);
+  G.strokeStyle='#888';G.lineWidth=1.5;G.strokeRect(ebx,eby,ebw,30);
+  G.fillStyle='#ccc';G.font='bold 13px Courier New';G.fillText('🚪 호텔 나가기',LW/2,eby+20);
+  G.restore();
+}
+function renderCook(){
+  if(!cookOpen)return;
+  G.save();
+  G.fillStyle='#0a0908';G.fillRect(0,0,LW,LH);
+  G.fillStyle='#141210';G.fillRect(0,LH*0.55,LW,LH*0.45);   // 카운터 (플레이스홀더 — 추후 AI 주방 배경)
+  G.fillStyle='#1b1916';G.fillRect(0,LH*0.55,LW,4);
+  G.textAlign='center';G.fillStyle='rgba(255,204,68,0.45)';G.font='bold 16px Courier New';
+  G.fillText('🏨 2 SEASONS HOTEL',LW/2,38);
+  if(cookStage==='intro'){
+    G.fillStyle='#fff';G.font='bold 20px Courier New';
+    G.fillText('🔪 '+cookDish.emoji+' '+cookDish.name+' 준비…',LW/2,LH/2);
+    G.restore();return;
+  }
+  // 도마 + 고기
+  const cbx=LW/2,cby=LH*0.48,cbw=320,cbh=78;
+  G.fillStyle='#5a3a22';G.fillRect(cbx-cbw/2,cby-cbh/2,cbw,cbh);
+  G.fillStyle='#4a2e1a';G.fillRect(cbx-cbw/2,cby+cbh/2-6,cbw,6);
+  G.font='50px serif';G.textBaseline='middle';
+  G.fillText(cookDish.kind==='caviar'?'👑':'🥩',cbx,cby);
+  G.textBaseline='alphabetic';
+  // 판정 바
+  const barW=420,barX=LW/2-barW/2,barY=LH-66,barH=22;
+  G.fillStyle='#000';G.fillRect(barX,barY,barW,barH);
+  G.strokeStyle='#555';G.lineWidth=1;G.strokeRect(barX,barY,barW,barH);
+  const idx=cookStage==='cut1'?0:1,z=cookZones[idx];
+  G.fillStyle='rgba(80,230,120,0.7)';G.fillRect(barX+(z.c-z.w/2)*barW,barY,z.w*barW,barH);
+  cookCuts.forEach(c=>{G.fillStyle=c.hit?'#5fef9f':'#ff4444';G.fillRect(barX+c.k*barW-1,barY-4,2,barH+8);});
+  const k=knifePos();
+  G.fillStyle='#fff';G.fillRect(barX+k*barW-2,barY-6,4,barH+12);
+  G.textAlign='center';G.fillStyle='#ffcc44';G.font='bold 15px Courier New';
+  if(cookStage!=='result')G.fillText(cookStage==='cut1'?'컷 1 — 클릭! (넓음)':'컷 2 — 클릭! (좁음)',LW/2,barY-14);
+  if(cookStage==='result'){
+    const great=cookHits>=2,success=cookHits>=1;
+    G.fillStyle=success?(great?'#ffdd44':'#9fef9f'):'#ff5555';G.font='bold 34px Courier New';
+    G.fillText(great?'🌟 대성공!':(success?'✅ 성공':'🩸 손가락 컷'),LW/2,LH*0.3);
+  }
+  drawCookKnife(barX+k*barW,cby+8);
+  G.restore();
+}
+function drawCookKnife(tipX,tipY){
+  // 코드 드로잉 칼+손 플레이스홀더 (추후 AI 에셋 교체)
+  G.save();G.translate(tipX,tipY);G.rotate(-0.5);
+  G.fillStyle='#cdd3da';G.beginPath();G.moveTo(0,0);G.lineTo(14,-70);G.lineTo(30,-66);G.lineTo(18,6);G.closePath();G.fill();
+  G.strokeStyle='#8a9098';G.lineWidth=1;G.stroke();
+  G.fillStyle='#3a2a1a';G.fillRect(14,-92,18,26);
+  G.fillStyle='#e8b88a';G.beginPath();G.arc(24,-80,15,0,6.28);G.fill();
+  G.restore();
+}
+
 // ═══ GAME STATE ═══
 let state='title',player=null,enemies=[],projs=[],gems=[],coins=[],boss=null;
-let titleFr=0,hovTitleBtn=-1,settingsOpen=false,hovSetBtn=-1,dragSlider=null;
+let titleFr=0,hovTitleBtn=-1,settingsOpen=false,hovSetBtn=-1,dragSlider=null,selMeta=0;
 let gameTime=0,spawnT=0,bossIdx=0,bossActive=false;
 let hitStop=0;  // 히트스톱 — 큰 타격 순간 게임 잠깐 정지 (타격감 juice)
 // 지워니 주식: 투자창/상점 상태
 let investT=0,investOpen=false,lastInvestResult=null,investToastT=0,hovInvest=-1;
 let investResultOpen=false,investResultStart=0;  // 정산 결과 애니메이션 창
 let shopT=0,shopEnt=null,shopOpen=false,shopOffers=[],hovShop=-1;
+// 🍳 종원 요리: 호텔 스폰/진입/요리선택 + 칼질 미니게임 + 재료 픽업
+let hotelT=0,hotelEnt=null,hotelOpen=false,hovHotel=-1;
+let cookOpen=false,cookStage='',cookDish=null,cookT=0,cookKnifeT=0,cookCuts=[],cookZones=[],cookHits=0;
+let ingreds=[];
 
 // ═══ 메타 진행 (영구 업그레이드 — localStorage, VS 스타일) ═══
 const META_DEFAULTS={gold:0, up:{hp:0,dmg:0,spd:0,xp:0,crit:0,armor:0,revive:0,reroll:0}, roulette:0,
@@ -1119,8 +1284,80 @@ function applyPickup(pk){
   }
 }
 const keys={};
+// ⌨️ 키보드만으로 모든 선택 화면 조작 — ←→↑↓/WASD 이동, Enter·Space 확정, Esc 취소/뒤로
+function menuKey(e){
+  const k=e.key,code=e.code;
+  const L=(k==='ArrowLeft'||k==='a'||k==='A'),R=(k==='ArrowRight'||k==='d'||k==='D');
+  const U=(k==='ArrowUp'||k==='w'||k==='W'),D=(k==='ArrowDown'||k==='s'||k==='S');
+  const OK=(k==='Enter'||k===' '||code==='Space'||code==='Enter'),ESC=(k==='Escape');
+  const wrap=(i,n,d)=>n>0?(((i<0?0:i)+d)%n+n)%n:0;
+  // ── 오버레이 (정지 게이트) 우선 ──
+  if(settingsOpen){ if(ESC||OK){settingsOpen=false;hovSetBtn=-1;} return true; }
+  if(cookOpen){ if(OK&&(cookStage==='cut1'||cookStage==='cut2'))doCut(); return true; }  // 🔪 칼질
+  if(hotelOpen){
+    if(ESC){closeHotel();return true;}
+    if(L||U){hovHotel=wrap(hovHotel,DISHES.length,-1);return true;}
+    if(R||D){hovHotel=wrap(hovHotel,DISHES.length,1);return true;}
+    if(OK&&hovHotel>=0){const r=DISHES[hovHotel];if(cookableRecipes().includes(r))startCook(r);return true;}
+    return true;
+  }
+  if(investResultOpen){ if(OK&&performance.now()-investResultStart>1000){investResultOpen=false;if(player&&player.seedMoney>0){investOpen=true;hovInvest=-1;}} return true; }
+  if(investOpen){
+    if(ESC){investOpen=false;return true;}
+    if(L||U){hovInvest=hovInvest===99?3:wrap(hovInvest,4,-1);return true;}
+    if(R||D){hovInvest=(hovInvest<0)?0:(hovInvest>=3?99:hovInvest+1);return true;}  // 3 다음=패스(99)
+    if(OK){ if(hovInvest===99||hovInvest<0)investOpen=false; else {player.doInvest(hovInvest);investOpen=false;} return true; }
+    return true;
+  }
+  if(shopOpen){
+    const n=shopOffers.length;
+    if(ESC){shopBuy2(99);return true;}
+    if(L||U){hovShop=wrap(hovShop,n,-1);return true;}
+    if(R||D){hovShop=wrap(hovShop,n,1);return true;}
+    if(OK&&hovShop>=0){shopBuy2(hovShop);return true;}
+    return true;
+  }
+  if(player&&player.workCut>0&&rouletteOn(player)){ if(OK)advanceWorkCut(); return true; }
+  if(player&&player.awaitingClick&&rouletteOn(player)){ if(OK)advanceRoulette(); return true; }
+  // ── 상태 화면 ──
+  if(state==='title'){
+    const n=TITLE_BTNS.length;
+    if(U){hovTitleBtn=wrap(hovTitleBtn,n,-1);return true;}
+    if(D){hovTitleBtn=wrap(hovTitleBtn,n,1);return true;}
+    if(OK){doTitleAction(TITLE_BTNS[hovTitleBtn<0?0:hovTitleBtn].action);return true;}
+    return false;
+  }
+  if(state==='shop'){
+    const rows=shopLayout(),n=rows.length;
+    if(ESC){state='title';return true;}
+    if(U){selMeta=wrap(selMeta,n,-1);return true;}
+    if(D){selMeta=wrap(selMeta,n,1);return true;}
+    if(OK){const r=rows[selMeta]||rows[0];shopBuy(r.kind==='back'?{action:'back'}:r.kind==='up'?{action:'buy',id:r.u.id}:{action:'unlock'});return true;}
+    return true;
+  }
+  if(state==='select'){
+    const n=CHARS.length;
+    if(L){hovChar=wrap(hovChar,n,-1);return true;}
+    if(R){hovChar=wrap(hovChar,n,1);return true;}
+    if(U){hovChar=(hovChar<0)?0:Math.max(0,hovChar-CCOLS);return true;}
+    if(D){hovChar=(hovChar<0)?0:Math.min(n-1,hovChar+CCOLS);return true;}
+    if(OK){startGame(CHARS[hovChar<0?0:hovChar]);return true;}
+    return true;
+  }
+  if(state==='levelup'){
+    const n=upgradeChoices.length;
+    if(L){hovUI=wrap(hovUI,n,-1);return true;}
+    if(R){hovUI=wrap(hovUI,n,1);return true;}
+    if(k==='r'||k==='R'){rerollLvUp();return true;}
+    if(OK){pickUpgrade(hovUI<0?0:hovUI);return true;}
+    return true;
+  }
+  if(state==='dead'||state==='win'){ if(OK)reset(); return true; }
+  return false;
+}
 document.addEventListener('keydown',e=>{
   iac();keys[e.key]=true;keys[e.code]=true;
+  if(menuKey(e)){e.preventDefault();return;}  // ⌨️ 메뉴/선택 화면 키보드 조작 (소비 시 게임키 차단)
   if((e.key==='p'||e.key==='P'||e.key==='Escape')&&state==='playing'){paused=!paused;e.preventDefault()}
   if(e.key==='Escape'&&state==='shop'){state='title';e.preventDefault()}  // 상점 → 타이틀
   if(e.code==='Space'&&state==='playing'&&!paused){if(player)player.tryDash();e.preventDefault()}
@@ -1173,11 +1410,12 @@ class Player{
     // 준형전자 — 🔧 AS 보증 (HP 위급 시 자가 수리)
     this.repairCd=0;        // 0 이상: 사용 후 쿨다운 (초)
     this.repairFx=0;        // 발동 시 시각 이펙트 시간
-    // 최종원 — 🍳 주문 폭주 (콤보 트리거 → 일정 시간 공속 2배)
-    this.rushT=0;           // 활성 시간 (>0이면 발동 중)
-    this.rushCdT=0;         // 폭주 종료 후 쿨다운 (>0이면 콤보 안 쌓임)
-    this.rushKills=0;       // 5초 윈도우 내 누적 킬
-    this.rushWnd=0;         // 윈도우 카운트다운
+    // 🍳 종원 요리 시스템
+    this.pantry={steak:0,lobster:0,truffle:0,veg:0,caviar:0};  // 재료 보유
+    this.dishBuff=null;     // 활성 일시버프 {recipe,mul,t,applied:{as,spd,crit}}
+    this.caviarBonus=0;     // 영구 데미지 가산 (캐비아 스택, 0.08씩)
+    this.fingerCuts=0;      // 손가락 컷 누적 (영구 공속 -2%/회)
+    this.dropCdT=0;         // 재료 드랍 쿨다운 타이머
     // 최기종 — 💥 분노/휠체어/신경주사 사이클 (discPain 누적 → 분노 → 휠체어)
     this.discPain=0;          // 0~1, 1 도달 시 분노 진입
     this.discFx=0;            // 분노 진입 시 시각 이펙트 (광역 폭발)
@@ -1225,14 +1463,14 @@ class Player{
     this.x=clamp(this.x,-1800,1800);this.y=clamp(this.y,-1800,1800);
     if(this.hitT>0)this.hitT-=dt;
     if(this.flashT>0)this.flashT-=dt;
-    // 최종원 주문 폭주 활성 시 발사 속도 ×2 / 기종 분노/휠체어 — BAL 참조
-    const rushAsMul=(this.cd.id==='jw'&&this.rushT>0)?BAL.char.jw.rushAsMul:1;
+    // 최종원 손가락컷 영구 공속 디버프(누적, 상한 0.8) / 기종 분노·휠체어 — BAL 참조
+    const jwAs=(this.cd.id==='jw')?(1-Math.min(0.8,this.fingerCuts*BAL.char.jw.failAsDebuff)):1;
     const gjAsMul=(this.cd.id==='gj'&&this.gjPhase==='rage')?BAL.char.gj.rageAsMul:(this.cd.id==='gj'&&this.gjPhase==='wheelchair')?(this.curedGj()?BAL.char.gj.curedWheelAsMul:BAL.char.gj.wheelAsMul):1;
     // 휠체어 중엔 무적+한방 돌진이라 모든 무기 발사 정지 (주운 무기 포함). 타이머는 계속 돌려 종료 후 정상 재개
     const wheelLock=(this.cd.id==='gj'&&this.gjPhase==='wheelchair');
     this.wpns.forEach(w=>{
       w.t-=dt;
-      if(w.t<=0){if(!wheelLock)fireWpn(w.type,this,w.lv||1);w.t=(WDEFS[w.type]?.cd||1)*wlvAt(WLV.cdM,w.lv||1)/(this.as*rushAsMul*gjAsMul)}
+      if(w.t<=0){if(!wheelLock)fireWpn(w.type,this,w.lv||1);w.t=(WDEFS[w.type]?.cd||1)*wlvAt(WLV.cdM,w.lv||1)/(this.as*jwAs*gjAsMul)}
     });
     // 💎 비트코인 진화: 일정 주기마다 사방 관통레이저
     if(this.wpns.some(w=>w.type==='bitcoin')){
@@ -1244,19 +1482,21 @@ class Player{
     if(this.regenLockT>0)this.regenLockT-=dt;
     const wheelRegenLock=(this.cd.id==='gj'&&this.gjPhase==='wheelchair');
     if(this.regen>0&&this.regenLockT<=0&&!wheelRegenLock){this.regenT=Math.max(0,this.regenT-dt);if(this.regenT<=0){this.hp=Math.min(this.mhp,this.hp+this.regen*0.2);this.regenT=0.2}}
-    if(this.cd.id==='jw')this.dm=(1+(gameTime/BAL.char.jw.lateScaleStart)*BAL.char.jw.lateScaleRate)*this.metaDmg;
+    if(this.cd.id==='jw'){
+      const Jb=BAL.char.jw;
+      let d=(1+(gameTime/Jb.lateScaleStart)*Jb.lateScaleRate)*this.metaDmg;  // 시간↑공격↑ 유지
+      d*=(1+this.caviarBonus);                                               // 👑 캐비아 영구 스택
+      if(this.dishBuff&&this.dishBuff.recipe.kind==='dm')d*=this.dishBuff.mul; // 🥩 스테이크 일시버프 (매프레임 재계산 → 만료 자동복원)
+      this.dm=d;
+    }
     // 캐릭터별 메카닉 타이머
     if(this.repairCd>0)this.repairCd-=dt;
     if(this.repairFx>0)this.repairFx-=dt;
     if(this.discFx>0)this.discFx-=dt;
-    // 최종원 — 콤보 윈도우 카운트다운 (5초 안에 8킬 도달해야 발동)
+    // 최종원 — 요리 타이머 (재료 드랍 쿨다운 + 일시버프 지속)
     if(this.cd.id==='jw'){
-      if(this.rushWnd>0){
-        this.rushWnd-=dt;
-        if(this.rushWnd<=0)this.rushKills=0;
-      }
-      if(this.rushT>0){this.rushT-=dt;if(this.rushT<=0)this.rushCdT=BAL.char.jw.rushCd;}  // 폭주 종료 → 쿨다운 시작
-      else if(this.rushCdT>0)this.rushCdT-=dt;  // 쿨다운 소모
+      if(this.dropCdT>0)this.dropCdT-=dt;
+      if(this.dishBuff){this.dishBuff.t-=dt;if(this.dishBuff.t<=0)this.clearDishBuff();}
     }
     // 최기종 — 이동 기반 게이지 + 분노 타이머 + 휠체어 신경주사 추적
     if(this.cd.id==='gj'){
@@ -1296,21 +1536,26 @@ class Player{
       }
     }
   }
-  // 최종원 — 처치 1건 알림 — BAL.char.jw 참조
-  notifyKill(){
-    if(this.cd.id!=='jw')return;
-    if(this.rushT>0||this.rushCdT>0)return;  // 폭주 중/쿨다운 중엔 콤보 안 쌓임
-    const B=BAL.char.jw;
-    this.rushKills++;
-    this.rushWnd=B.rushWnd;
-    if(this.rushKills>=B.rushKills){
-      this.rushT=B.rushDur;
-      this.rushKills=0;this.rushWnd=0;
-      SFX.lvUp();SFX.phialReady();
-      notify('🍳 주문 폭주!',`${B.rushDur}초간 공속 ×${B.rushAsMul}`,'#ff8844');
-      spawnParts(this.x,this.y,'#ff8844',14);
-      shake(0.15,3);
-    }
+  // (구 주문폭주 제거 — 처치 알림은 호출부 호환 위해 noop 유지. 재료 드랍은 Enemy.die에서 처리)
+  notifyKill(){}
+  // 🍳 요리 버프 적용 (great=대성공 2적중 → 효과 ×greatMul)
+  applyDish(recipe,great){
+    this.clearDishBuff();  // 기존 일시버프 원복 (상태형 스탯 중복 방지)
+    const J=BAL.char.jw, g=great?J.greatMul:1;
+    if(recipe.kind==='heal'){ this.hp=Math.min(this.mhp,this.hp+this.mhp*recipe.mul*g); return; }
+    if(recipe.kind==='caviar'){ this.caviarBonus+=J.caviarDmg*g; return; }  // 영구 스택
+    const buff={recipe,mul:1,t:J.dishDur,applied:{}};
+    if(recipe.kind==='dm'){ buff.mul=1+(recipe.mul-1)*g; }  // dm은 update에서 매프레임 곱 (applied 없음)
+    else if(recipe.kind==='as'){ const m=1+(recipe.mul-1)*g; this.as*=m; buff.applied.as=m; }
+    else if(recipe.kind==='spdcrit'){ const m=1+(recipe.mul-1)*g, cr=recipe.crit*g; this.spd*=m;this.bspd*=m;this.crit+=cr; buff.applied.spd=m; buff.applied.crit=cr; }
+    this.dishBuff=buff;
+  }
+  clearDishBuff(){
+    const b=this.dishBuff; if(!b)return;
+    if(b.applied.as){ this.as/=b.applied.as; }
+    if(b.applied.spd){ this.spd/=b.applied.spd; this.bspd/=b.applied.spd; }
+    if(b.applied.crit){ this.crit-=b.applied.crit; }
+    this.dishBuff=null;
   }
   // 지워니 — 처치 시 현금 적립
   addCash(n){ if(this.cd.id==='zw')this.seedMoney+=n; }
@@ -1544,19 +1789,19 @@ class Player{
       G.fillText('🔧',this.x,this.y-22-t*8);
       G.restore();
     }
-    // 최종원 주문 폭주 활성 중: 🍳 위에 + 주황 글로우
-    if(this.cd.id==='jw'&&this.rushT>0){
-      const pulse=0.5+0.5*Math.sin(gameTime*10);
+    // 최종원 요리 버프 활성 중: 요리 이모지 + 금색 글로우
+    if(this.cd.id==='jw'&&this.dishBuff){
+      const pulse=0.5+0.5*Math.sin(gameTime*8);
       G.save();
-      G.globalAlpha=0.3+pulse*0.3;
-      G.fillStyle='#ff8844';
+      G.globalAlpha=0.25+pulse*0.25;
+      G.fillStyle='#ffcc44';
       G.beginPath();G.arc(this.x,this.y+2,15+pulse*3,0,Math.PI*2);G.fill();
       G.globalAlpha=1;
       G.font='14px serif';G.textAlign='center';
-      G.fillText('🍳',this.x,this.y-22);
+      G.fillText(this.dishBuff.recipe.emoji,this.x,this.y-22);
       // 잔여 시간 바
       G.fillStyle='#332211';G.fillRect(this.x-12,this.y-30,24,3);
-      G.fillStyle='#ff8844';G.fillRect(this.x-12,this.y-30,24*(this.rushT/5),3);
+      G.fillStyle='#ffcc44';G.fillRect(this.x-12,this.y-30,24*(this.dishBuff.t/BAL.char.jw.dishDur),3);
       G.restore();
     }
     // 최기종 정상 상태 통증 게이지 (머리 위 보라 바)
@@ -3118,6 +3363,15 @@ class Enemy{
     this.dead=true;killCount++;bumpCombo();
     // 지워니 현금 적립 (탱크3·엘리트6·일반1·새끼0)
     if(player.cd.id==='zw'){const Z=BAL.char.zw;player.addCash(this.elite?Z.cashPerKill*6:(this.type==='tank'?Z.cashPerKill*3:(this.type==='splitling'?0:Z.cashPerKill)));}
+    // 🍳 종원 재료 드랍 (쿨다운 pity: 드랍 후 dropCd초 안 떨어짐 → 킬속도 무관 판당 ~25개)
+    if(player.cd.id==='jw'&&this.type!=='splitling'){
+      const J=BAL.char.jw;
+      if(player.dropCdT<=0&&Math.random()<J.dropChance){
+        ingreds.push(new Ingred(this.x,this.y,ING_KEYS[Math.floor(Math.random()*ING_KEYS.length)]));
+        player.dropCdT=J.dropCd;
+      }
+      if(Math.random()<J.caviarChance)ingreds.push(new Ingred(this.x,this.y,'caviar'));  // 캐비아 독립 극악롤
+    }
     // 골드 코인 드랍 (기존 골드량 그대로 — 자석으로 흡수해야 적립). 지워니 패시브 골드 ×1.5. 새끼는 안 떨굼
     let gv=this.elite?0.45:(this.type==='tank'?0.25:(this.type==='splitling'?0:0.08));
     if(player.cd.id==='zw')gv*=BAL.char.zw.goldMul;
@@ -3295,6 +3549,7 @@ class Boss{
     this.dead=true;bossActive=false;boss=null;player.gainXp(this.bxp);hitStop=Math.max(hitStop,0.16);
     killCount++;bumpCombo();  // 보스 처치도 처치수/콤보에 카운트 (최종원 폭주 트리거에도 기여)
     if(player.cd.id==='zw')player.addCash(40);  // 지워니: 보스 처치 현금 대량
+    if(player.cd.id==='jw')for(let i=0;i<2;i++)ingreds.push(new Ingred(this.x+rnd(-25,25),this.y+rnd(-25,25),'caviar'));  // 🍳 종원: 보스 캐비아 확정 2개
     const bossCoinV=player.cd.id==='zw'?BAL.char.zw.goldMul:1;  // 지워니 골드 패시브
     for(let i=0;i<8;i++)coins.push(new Coin(this.x+rnd(-30,30),this.y+rnd(-30,30),bossCoinV));  // 코인 8개 버스트
     for(let i=0;i<12;i++)gems.push(new Gem(this.x+rnd(-40,40),this.y+rnd(-40,40),10));
@@ -3450,6 +3705,33 @@ class Coin{
     G.fillStyle='#8a6510';G.beginPath();G.arc(this.x,this.y,s*0.55,0,Math.PI*2);G.stroke();  // 안쪽 링
     G.fillStyle='rgba(255,240,160,0.9)';G.beginPath();G.arc(this.x-s*0.3,this.y-s*0.3,s*0.32,0,Math.PI*2);G.fill();  // 하이라이트
     G.restore();
+  }
+}
+
+// ═══ 🍳 종원 재료 픽업 (Coin 패턴 — 튕김+자석) ═══
+class Ingred{
+  constructor(x,y,k){this.x=x;this.y=y;this.k=k;this.dead=false;this.t=Math.random()*6.28;
+    const a=Math.random()*6.28,s=rnd(25,75);this.vx=Math.cos(a)*s;this.vy=Math.sin(a)*s;
+  }
+  update(dt){
+    this.t+=dt*4;
+    this.x+=this.vx*dt;this.y+=this.vy*dt;this.vx*=0.88;this.vy*=0.88;
+    const d=dist(this,player),magR=player.magrBoost>0?99999:player.magr*1.15;
+    if(d<magR){const a=Math.atan2(player.y-this.y,player.x-this.x),s=Math.max(player.magrBoost>0?520:220,(magR-d)*5);let step=s*dt;if(step>d)step=d;this.x+=Math.cos(a)*step;this.y+=Math.sin(a)*step}
+    if(dist(this,player)<16){
+      const cap=BAL.char.jw.pantryCap;
+      if((player.pantry[this.k]||0)<cap){player.pantry[this.k]++;SFX.gem();}
+      this.dead=true;
+    }
+  }
+  draw(){
+    const bob=Math.sin(this.t)*2,ing=INGS[this.k];
+    G.save();
+    G.globalAlpha=this.k==='caviar'?(0.35+0.2*Math.sin(this.t*1.5)):0.3;
+    G.fillStyle=ing.col;G.beginPath();G.arc(this.x,this.y+bob,9,0,6.28);G.fill();
+    G.globalAlpha=1;G.font='15px serif';G.textAlign='center';G.textBaseline='middle';
+    G.fillText(ing.emoji,this.x,this.y+bob);
+    G.textBaseline='alphabetic';G.restore();
   }
 }
 
@@ -3689,6 +3971,28 @@ class Companion{
   }
 }
 // 📈 지워니 주식 HUD — 좌측 플레이어 패널 아래. 포트폴리오/시드게이지/미니차트/매매팝업
+function drawCookHUD(){
+  if(!player||player.cd.id!=='jw')return;
+  const x=12,y=104,w=176,h=58;
+  G.save();
+  G.fillStyle='rgba(24,16,8,0.82)';G.fillRect(x,y,w,h);
+  G.strokeStyle='#dd8844';G.lineWidth=1.5;G.strokeRect(x,y,w,h);
+  // 팬트리 (재료 보유)
+  G.textAlign='left';G.font='12px serif';G.textBaseline='middle';
+  let ix=x+8;const keys=ING_KEYS.concat('caviar');
+  keys.forEach(k=>{const c=player.pantry[k]||0;G.globalAlpha=c>0?1:0.35;G.font='13px serif';G.fillText(INGS[k].emoji,ix,y+15);G.globalAlpha=1;G.fillStyle='#ffe0a0';G.font='bold 11px Courier New';G.fillText(c,ix+13,y+15);ix+=33;});
+  // 활성 버프 / 손가락컷
+  G.textAlign='left';G.font='bold 11px Courier New';
+  if(player.dishBuff){const b=player.dishBuff;G.fillStyle='#ffcc44';G.fillText(`${b.recipe.emoji} ${b.recipe.desc}  ${b.t.toFixed(1)}s`,x+8,y+36);}
+  else {G.fillStyle='#998866';G.fillText('🏨 호텔서 요리하기',x+8,y+36);}
+  // 영구 보너스
+  G.fillStyle='#aaccff';G.font='10px Courier New';
+  let perm=[];
+  if(player.caviarBonus>0)perm.push(`👑+${Math.round(player.caviarBonus*100)}%뎀`);
+  if(player.fingerCuts>0)perm.push(`🩸-${Math.round(Math.min(0.8,player.fingerCuts*BAL.char.jw.failAsDebuff)*100)}%공속`);
+  G.fillStyle=player.fingerCuts>0?'#ff8888':'#aaccff';G.fillText(perm.join('  ')||'',x+8,y+51);
+  G.textBaseline='alphabetic';G.restore();
+}
 function drawStockHUD(){
   if(!player||player.cd.id!=='zw')return;
   const x=12,y=104,w=170,h=58;
@@ -4620,18 +4924,16 @@ function drawHUD(){
     G.fillStyle=r?'#001':'#88aacc';G.font='bold 8px Courier New';G.textAlign='center';
     G.fillText(r?'🔧 AS':`🔧 ${Math.ceil(p.repairCd)}s`,mX+mW/2,mY-1);
   }else if(p.cd.id==='jw'){
-    // 주문 폭주: 활성 시 잔여 시간 / 대기 중 콤보 카운트
-    const active=p.rushT>0;
+    // 요리: 활성 버프 잔여 시간 / 없으면 호텔 안내
     G.fillStyle='rgba(0,0,0,0.6)';G.fillRect(mX,mY-9,mW,10);
-    if(active){
-      G.fillStyle='#ff8844';G.fillRect(mX,mY-9,mW*(p.rushT/5),10);
+    if(p.dishBuff){
+      G.fillStyle='#ffcc44';G.fillRect(mX,mY-9,mW*(p.dishBuff.t/BAL.char.jw.dishDur),10);
       G.fillStyle='#000';G.font='bold 8px Courier New';G.textAlign='center';
-      G.fillText(`🍳 ${p.rushT.toFixed(1)}s`,mX+mW/2,mY-1);
+      G.fillText(`${p.dishBuff.recipe.emoji} ${p.dishBuff.t.toFixed(1)}s`,mX+mW/2,mY-1);
     }else{
-      const frac=Math.min(1,p.rushKills/12);
-      G.fillStyle='#552';G.fillRect(mX,mY-9,mW*frac,10);
+      G.fillStyle='#3a2a18';G.fillRect(mX,mY-9,mW,10);
       G.fillStyle='#ffaa66';G.font='bold 8px Courier New';G.textAlign='center';
-      G.fillText(`🍳 ${p.rushKills}/12`,mX+mW/2,mY-1);
+      G.fillText('🏨 호텔',mX+mW/2,mY-1);
     }
   }else if(p.cd.id==='gj'){
     // 기종 phase별 표시
@@ -4874,17 +5176,17 @@ function renderShop(){
   G.fillText('판이 끝나면 모은 골드가 적립됩니다 · 모든 강화는 영구 적용',LW/2,72);
   G.fillStyle='#ffdd55';G.font='bold 16px Courier New';
   G.fillText('보유 🪙 '+META.gold,LW/2,96);
-  shopLayout().forEach(r=>{
-    const bx=LW/2-270,bw=540,by=r.y,bh=r.h;
+  shopLayout().forEach((r,ri)=>{
+    const bx=LW/2-270,bw=540,by=r.y,bh=r.h,sel=ri===selMeta;  // 키보드 선택 행
     if(r.kind==='back'){
       const w=160,x=LW/2-w/2;
-      G.fillStyle='#2a2a3a';G.fillRect(x,by,w,bh);
-      G.strokeStyle='#888';G.lineWidth=1.5;G.strokeRect(x,by,w,bh);
+      G.fillStyle=sel?'#3a3a55':'#2a2a3a';G.fillRect(x,by,w,bh);
+      G.strokeStyle=sel?'#ffcc44':'#888';G.lineWidth=sel?2.5:1.5;G.strokeRect(x,by,w,bh);
       G.fillStyle='#eee';G.font='bold 15px Courier New';G.textAlign='center';
       G.fillText('◀ 뒤로',LW/2,by+bh/2+5);return;
     }
-    G.fillStyle='rgba(255,255,255,0.04)';G.fillRect(bx,by,bw,bh);
-    G.strokeStyle='#3a3a4a';G.lineWidth=1;G.strokeRect(bx,by,bw,bh);
+    G.fillStyle=sel?'rgba(255,204,68,0.1)':'rgba(255,255,255,0.04)';G.fillRect(bx,by,bw,bh);
+    G.strokeStyle=sel?'#ffcc44':'#3a3a4a';G.lineWidth=sel?2.5:1;G.strokeRect(bx,by,bw,bh);
     let name,desc,lv,max,cost,owned,buyable;
     if(r.kind==='up'){const u=r.u;lv=META.up[u.id]||0;max=u.max;name=u.name;desc=u.desc;owned=lv>=max;cost=u.cost(lv);buyable=!owned&&META.gold>=cost;}
     else{name='🎰 룰렛 해금';desc='소민 외 모든 캐릭터도 변신 룰렛 사용 가능';lv=META.roulette?1:0;max=1;owned=!!META.roulette;cost=ROULETTE_COST;buyable=!owned&&META.gold>=cost;}
@@ -5330,7 +5632,7 @@ function spawnEnemies(dt){
   spawnT-=dt;if(spawnT>0)return;
   const wave=Math.floor(gameTime/30);
   // 후반 물량은 '벽'이 되므로 늘리지 않음(이전 +33% 롤백). 동시 스폰 상한 15 고정.
-  const cnt=Math.min(3+wave*2,15);  // 동시 스폰 상한 15
+  const cnt=Math.min(3+wave*2,13);  // 동시 스폰 상한 15→13 (후반 물량 벽 소폭 완화, 패시브 너프 보상)
   // 플레이어 진행(이동) 방향 ±35° 콘은 스폰 절반으로 줄여 '도망 통로' 형성
   const fang=Math.atan2(player.facing.y,player.facing.x);
   for(let i=0;i<cnt;i++){
@@ -5362,7 +5664,7 @@ function spawnEnemies(dt){
     enemies.push(new Enemy(ex,ey,type,elite));
   }
   // 10분부터 스폰 간격을 늘려 화면 밀도↓ (스폰율 30→ 11분 27 → 15분 19/s). 처치율과 균형 맞춰 '벽' 완화
-  const lateFloor=0.5+Math.min(0.4,Math.max(0,(gameTime-600)/60)*0.06);
+  const lateFloor=0.55+Math.min(0.4,Math.max(0,(gameTime-600)/60)*0.06);  // 하한 0.5→0.55 (스폰 간격↑ = 밀도↓, 6~11분 벽 완화)
   spawnT=Math.max(lateFloor,2.2-wave*0.15);
 }
 
@@ -5374,6 +5676,7 @@ function startGame(cd){
   gameTime=0;spawnT=0;bossIdx=0;bossActive=false;killCount=0;afr=0;afrT=0;totalDmg=0;dmgPeak=0;dmgByWpn={};
   investT=BAL.char.zw.investInterval;investOpen=false;lastInvestResult=null;investToastT=0;hovInvest=-1;investResultOpen=false;
   shopT=BAL.char.zw.shopInterval;shopEnt=null;shopOpen=false;shopOffers=[];hovShop=-1;
+  hotelT=BAL.char.jw.hotelInterval;hotelEnt=null;hotelOpen=false;hovHotel=-1;cookOpen=false;cookStage='';cookDish=null;ingreds=[];  // 🍳 종원 요리
   dmgTexts=[];hitSparks=[];notifs=[];pickups=[];decals=[];lvUpBursts=[];
   shakeT=0;shakeM=0;paused=false;pendingLvUps=0;
   weatherT=0;flashT=0;camOX=0;camOY=0;hitStop=0;
@@ -5383,6 +5686,7 @@ function startGame(cd){
 }
 function reset(){
   state='title';player=null;enemies=[];projs=[];gems=[];coins=[];parts=[];boss=null;bossActive=false;
+  hotelEnt=null;hotelOpen=false;cookOpen=false;cookStage='';cookDish=null;ingreds=[];  // 🍳 종원 요리 정리
   dmgTexts=[];hitSparks=[];notifs=[];pickups=[];decals=[];lvUpBursts=[];
   shakeT=0;shakeM=0;paused=false;pendingLvUps=0;
   weatherT=0;flashT=0;camOX=0;camOY=0;
@@ -5481,48 +5785,26 @@ c.addEventListener('click',e=>{
     if(i>=0)shopBuy2(i);
     return;
   }
+  // 🔪 종원 칼질 미니게임 — 클릭 = 컷 (intro/result 중엔 무시)
+  if(cookOpen){
+    if(cookStage==='cut1'||cookStage==='cut2')doCut();
+    return;
+  }
+  // 🏨 종원 호텔 요리 선택 (요리 가능한 것만 / 나가기)
+  if(hotelOpen&&player){
+    const i=getHotelClick(m.x,m.y);
+    if(i===99)closeHotel();
+    else if(i>=0){ const r=DISHES[i]; if(cookableRecipes().includes(r))startCook(r); }
+    return;
+  }
   // 📞 야근 전화 컷신 진행 (사장 대사 → 소민 대사 → 야근모드 발동)
-  if(state==='playing'&&player&&player.workCut>0&&rouletteOn(player)){
-    player.workCut++;
-    if(player.workCut>2){
-      // 컷신 끝 → 야근 윤소민 발동 (손전등 2개 30초)
-      player.workCut=0;
-      player.streamerForm=WORK_FORM;
-      player.streamerT=30;
-      player.lastWasSleep=false;
-      paused=false;
-      for(const k in keys)keys[k]=false;
-      SFX.phialReady();
-      notify('📞 야근 윤소민!','손전등 2개 풀가동 — 30초','#ffcc22');
-    }else SFX.shoot();
-    return;
-  }
+  if(state==='playing'&&player&&player.workCut>0&&rouletteOn(player)){ advanceWorkCut(); return; }
   // 윤소민 룰렛 결과 카드 클릭 → 변신 적용 + 게임 재개
-  if(state==='playing'&&player&&player.awaitingClick&&rouletteOn(player)){
-    // 졸린 윤소민 2연속 (소민 전용) → sleep 미적용, 전화 컷신으로 전환
-    if(player.rouletteResult&&player.rouletteResult.id==='sleep'&&player.lastWasSleep&&player.cd.id==='sm'){
-      player.awaitingClick=false;
-      player.workCut=1;
-      SFX.over();
-      return;
-    }
-    player.streamerForm=player.rouletteResult;
-    player.streamerT=30;
-    player.awaitingClick=false;
-    player.lastWasSleep=(player.rouletteResult&&player.rouletteResult.id==='sleep');  // 졸음 연속 추적
-    paused=false;  // 룰렛 중 실수로 P 눌러도 클릭 시 자동으로 일시정지 해제
-    for(const k in keys)keys[k]=false;  // 룰렛 중 눌린 키 초기화 (클릭 후 이동 고정 버그 방지)
-    SFX.lvUp();
-    if(player.streamerForm.id==='sleep')SFX.over();
-    return;
-  }
+  if(state==='playing'&&player&&player.awaitingClick&&rouletteOn(player)){ advanceRoulette(); return; }
   if(state==='title'){
     const i=getTitleBtnAt(m.x,m.y);
-    if(i>=0){const a=TITLE_BTNS[i].action;
-      if(a==='start'){state='select';playBgm('title')}       // 게임 시작 → 캐릭 선택
-      else if(a==='shop'){state='shop';playBgm('title')}      // 강화 상점
-      else if(a==='settings'){settingsOpen=true}
-    }else playBgm('title');  // 빈 곳 클릭 - BGM 트리거
+    if(i>=0){const a=TITLE_BTNS[i].action; doTitleAction(a); }
+    else playBgm('title');  // 빈 곳 클릭 - BGM 트리거
     return;
   }
   if(state==='shop'){ shopBuy(getShopClick(m.x,m.y)); return; }
@@ -5531,16 +5813,43 @@ c.addEventListener('click',e=>{
     // 🔄 새로고침 버튼
     const rb=rerollBtnRect();
     if(m.x>=rb.x&&m.x<=rb.x+rb.w&&m.y>=rb.y&&m.y<=rb.y+rb.h){ rerollLvUp(); return; }
-    const i=getUpgradeAt(m.x,m.y);if(i>=0){
-    const choice=upgradeChoices[i];
-    choice.fn(player);
-    if(choice.tag==='무기 NEW')notify('⚔ 새 무기',choice.name,'#ff8844');
-    else if(choice.tag==='아이템 NEW')notify('🎁 새 아이템',choice.name,'#88ccff');
-    if(pendingLvUps>0){pendingLvUps--;triggerLvUp()}
-    else state='playing';
-  }}
+    const i=getUpgradeAt(m.x,m.y);if(i>=0)pickUpgrade(i);
+  }
   if(state==='dead'||state==='win')reset();
 });
+// 메뉴 액션 공용 함수 (클릭·키보드 공용)
+function advanceWorkCut(){
+  if(!(player&&player.workCut>0))return;
+  player.workCut++;
+  if(player.workCut>2){
+    player.workCut=0; player.streamerForm=WORK_FORM; player.streamerT=30; player.lastWasSleep=false;
+    paused=false; for(const k in keys)keys[k]=false;
+    SFX.phialReady(); notify('📞 야근 윤소민!','손전등 2개 풀가동 — 30초','#ffcc22');
+  }else SFX.shoot();
+}
+function advanceRoulette(){
+  if(!(player&&player.awaitingClick))return;
+  if(player.rouletteResult&&player.rouletteResult.id==='sleep'&&player.lastWasSleep&&player.cd.id==='sm'){
+    player.awaitingClick=false; player.workCut=1; SFX.over(); return;
+  }
+  player.streamerForm=player.rouletteResult; player.streamerT=30; player.awaitingClick=false;
+  player.lastWasSleep=(player.rouletteResult&&player.rouletteResult.id==='sleep');
+  paused=false; for(const k in keys)keys[k]=false;
+  SFX.lvUp(); if(player.streamerForm.id==='sleep')SFX.over();
+}
+function doTitleAction(a){
+  if(a==='start'){state='select';playBgm('title')}
+  else if(a==='shop'){state='shop';selMeta=0;playBgm('title')}
+  else if(a==='settings'){settingsOpen=true}
+}
+function pickUpgrade(i){
+  const choice=upgradeChoices[i]; if(!choice)return;
+  choice.fn(player);
+  if(choice.tag==='무기 NEW')notify('⚔ 새 무기',choice.name,'#ff8844');
+  else if(choice.tag==='아이템 NEW')notify('🎁 새 아이템',choice.name,'#88ccff');
+  if(pendingLvUps>0){pendingLvUps--;triggerLvUp()}
+  else state='playing';
+}
 
 function update(dt){
   if(state!=='playing'){
@@ -5590,6 +5899,15 @@ function update(dt){
       spawnPickup(player.x+Math.cos(a)*r,player.y+Math.sin(a)*r,'subsidy');
     }
   }
+  // 🍳 종원 호텔 스폰/진입 (창 닫혀있을 때만 타이머 진행) + 미니게임 진행
+  if(player&&player.cd.id==='jw'&&!hotelOpen&&!cookOpen){
+    const J=BAL.char.jw;
+    hotelT-=dt;
+    if(hotelT<=0&&!hotelEnt){ hotelT=J.hotelInterval; const a=Math.random()*Math.PI*2,r=rnd(260,400); hotelEnt={x:player.x+Math.cos(a)*r,y:player.y+Math.sin(a)*r,fr:0}; notify('🏨 2시즌스 호텔 등장!','맵 표시 — 찾아가서 요리','#ffcc44'); }
+    if(hotelEnt){ hotelEnt.fr+=dt; if(dist(player,hotelEnt)<J.hotelEnterR)openHotel(); }
+  }
+  if(cookOpen){ stepCook(dt); return; }  // 칼질 미니게임 = 게임 정지(미니게임만 진행)
+  if(hotelOpen)return;                    // 요리 선택 화면 = 게임 정지
   if(investOpen||shopOpen||investResultOpen)return;  // 투자창/상점/결과창 → 게임 정지
   gameTime+=dt;
   afrT+=dt;if(afrT>0.18){afr++;afrT=0}
@@ -5604,6 +5922,8 @@ function update(dt){
   if(projs.length>250)projs=projs.slice(projs.length-250);
   gems.forEach(g=>g.update(dt));gems=gems.filter(g=>!g.dead);
   coins.forEach(c=>c.update(dt));coins=coins.filter(c=>!c.dead);
+  ingreds.forEach(g=>g.update(dt));ingreds=ingreds.filter(g=>!g.dead);  // 🍳 종원 재료 픽업
+  if(ingreds.length>200)ingreds=ingreds.slice(ingreds.length-200);
   parts.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;p.dead=p.life<=0});
   parts=parts.filter(p=>!p.dead);
   dmgTexts.forEach(d=>{d.y+=d.vy*dt;d.vy+=80*dt;d.life-=dt;d.dead=d.life<=0});
@@ -5670,8 +5990,24 @@ function render(){
     G.fillText('🛒 증권상점',sx,sy-24+bob);G.globalAlpha=1;
     G.restore();
   }
+  // 🏨 종원 2시즌스 호텔 (맵 건물)
+  if(hotelEnt){
+    const hx=hotelEnt.x,hy=hotelEnt.y,bob=Math.sin(hotelEnt.fr*2)*2;
+    G.save();shadow(hx,hy+14,22,5,0.4);
+    G.fillStyle='#3a2c1e';G.fillRect(hx-22,hy-20+bob,44,32);     // 건물
+    G.fillStyle='#5a4428';G.fillRect(hx-22,hy-20+bob,44,9);      // 차양(금색 호텔)
+    G.fillStyle='#ffcc44';G.fillRect(hx-22,hy-11+bob,44,2);
+    G.fillStyle='#221a10';G.fillRect(hx-6,hy-2+bob,12,14);       // 입구
+    // 반쪽 나무 로고 (4시즌스 패러디 — 오른쪽 가지 잘림)
+    G.strokeStyle='#7ac04a';G.lineWidth=2;G.beginPath();G.moveTo(hx,hy-4+bob);G.lineTo(hx,hy-14+bob);G.moveTo(hx,hy-10+bob);G.lineTo(hx-5,hy-15+bob);G.stroke();
+    const gl=Math.sin(hotelEnt.fr*4)*0.4+0.6;
+    G.globalAlpha=gl;G.fillStyle='#ffcc44';G.font='bold 10px Courier New';G.textAlign='center';
+    G.fillText('🏨 2 SEASONS',hx,hy-26+bob);G.globalAlpha=1;
+    G.restore();
+  }
   // 픽업 (배경 위)
   pickups.forEach(pk=>drawPickup(pk));
+  ingreds.forEach(g=>g.draw());  // 🍳 종원 재료
   gems.forEach(g=>g.draw());
   coins.forEach(c=>c.draw());
   parts.forEach(p=>{G.save();G.globalAlpha=p.life/p.ml*0.9;G.fillStyle=p.col;G.fillRect(p.x-3,p.y-3,6,6);G.restore()});
@@ -5745,6 +6081,7 @@ function render(){
   drawHUD();
   drawPhialGauge();  // 차지 액스 페이얼 게이지 (좌하단 HUD)
   drawStockHUD();  // 지워니 주식 HUD
+  drawCookHUD();   // 🍳 종원 요리 HUD (팬트리/버프)
   drawNerveInjectionArrow();  // 신경주사 화살표 (휠체어 모드)
   drawMinimap();
   drawNotifs();
@@ -5772,6 +6109,8 @@ function render(){
   renderInvestResult();  // 지워니 투자 정산 결과 애니
   renderInvest();  // 지워니 투자창
   renderShop2();   // 지워니 상점
+  renderHotel();   // 🏨 종원 요리 선택
+  renderCook();    // 🔪 종원 칼질 미니게임
   if(paused)drawPauseOverlay();
   if(state==='levelup')renderLevelUp();
   if(state==='dead')renderResult(false);
@@ -5862,6 +6201,13 @@ function drawMinimap(){
     if(inMap(p)){G.fillStyle='#ffd24a';G.fillRect(p.x-3,p.y-3,6,6);G.fillStyle='#000';G.font='6px Courier New';G.textAlign='center';G.fillText('$',p.x,p.y+2);}
     else{const a=Math.atan2(shopEnt.y-player.y,shopEnt.x-player.x);const ax=cx+Math.cos(a)*(mw/2-8),ay=cy+Math.sin(a)*(mh/2-8);
       G.save();G.globalAlpha=0.6+bl*0.4;G.translate(ax,ay);G.rotate(a);G.fillStyle='#ffd24a';G.beginPath();G.moveTo(6,0);G.lineTo(-4,-4);G.lineTo(-4,4);G.closePath();G.fill();G.restore();}
+  }
+  // 🏨 종원 호텔 마커
+  if(hotelEnt){
+    const p=rel(hotelEnt.x,hotelEnt.y),bl=Math.sin(gameTime*4)*0.5+0.5;
+    if(inMap(p)){G.fillStyle='#ffcc44';G.fillRect(p.x-3,p.y-3,6,6);G.fillStyle='#000';G.font='6px Courier New';G.textAlign='center';G.fillText('H',p.x,p.y+2);}
+    else{const a=Math.atan2(hotelEnt.y-player.y,hotelEnt.x-player.x);const ax=cx+Math.cos(a)*(mw/2-8),ay=cy+Math.sin(a)*(mh/2-8);
+      G.save();G.globalAlpha=0.6+bl*0.4;G.translate(ax,ay);G.rotate(a);G.fillStyle='#ffcc44';G.beginPath();G.moveTo(6,0);G.lineTo(-4,-4);G.lineTo(-4,4);G.closePath();G.fill();G.restore();}
   }
   // 보스
   if(boss){
