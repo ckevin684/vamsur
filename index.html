@@ -731,14 +731,14 @@ const BAL={
     bark:0.12,        // 크리 +per lv
     warrant:0.3,      // 무적 +초 per lv
     log:1.25,         // 경험치 ×per lv
-    recipe:1.22,      // 데미지 ×per lv (1.2→1.22, 단일 dm 소스 보강)
-    leashAm:1.22,     // 뭉치 간식 — 공격 범위 ×per lv (1.2→1.22, 단일 스탯 가치 ↑)
-    anger:1.2,        // 공속 ×per lv
+    recipe:1.10,      // 데미지 ×per lv — 뱀서식 +10% (1.22→1.10, 증가폭 축소)
+    leashAm:1.10,     // 뭉치 간식 — 공격 범위 ×per lv — +10% (1.22→1.10)
+    anger:1.10,       // 공속 ×per lv — +10% (1.2→1.10)
     cane:40,          // HP +per lv
     torch:2,          // 자석 ×per lv
     monhun:1.07,      // 보스 ×per lv (1.1→1.07, 황기훈 보스 폭딜 추가 캡)
     knife2Pierce:1,   // 종원의 칼솜씨 — 관통 +per lv
-    coffee:1.15,      // 이동속도 ×per lv
+    coffee:1.08,      // 이동속도 ×per lv — +8% (1.15→1.08, 증가폭 축소)
   },
   // ━━━ 적 AI 튜닝 ━━━
   enemy:{
@@ -829,13 +829,13 @@ function pickStreamerForm(){
   return STREAMER_FORMS[Math.min(idx,4)];
 }
 const PASSIVES=[
-  {id:'coffee', name:'☕ 기훈의 백다방 아아',desc:'이동속도 +15%',fn:p=>{p.spd*=1.15;p.bspd*=1.15}},
+  {id:'coffee', name:'☕ 기훈의 백다방 아아',desc:'이동속도 +8%',fn:p=>{p.spd*=BAL.passive.coffee;p.bspd*=BAL.passive.coffee}},
   {id:'warrant',name:'🖥️ 준형전자 AS보증서',desc:'무적시간 +0.3초',fn:p=>p.iframes+=BAL.passive.warrant},
   {id:'pill',   name:'💊 기종의 허리진통제',desc:'비전투 시 초당 HP +1.5',fn:p=>p.regen+=BAL.passive.pill},
   {id:'log',    name:'📋 소민의 순찰일지',desc:'경험치 +25%',fn:p=>p.xpm*=1.25},
-  {id:'recipe', name:'🍖 종원의 비밀레시피',desc:'공격력 +20%',fn:p=>p.dm*=1.2},
-  {id:'leash',  name:'🦴 뭉치 간식',desc:'공격 범위 +20%',fn:p=>p.am*=BAL.passive.leashAm},
-  {id:'anger',  name:'💢 최초의 분노',desc:'공격속도 +20%',fn:p=>p.as*=1.2},
+  {id:'recipe', name:'🍖 종원의 비밀레시피',desc:'공격력 +10%',fn:p=>p.dm*=BAL.passive.recipe},
+  {id:'leash',  name:'🦴 뭉치 간식',desc:'공격 범위 +10%',fn:p=>p.am*=BAL.passive.leashAm},
+  {id:'anger',  name:'💢 최초의 분노',desc:'공격속도 +10%',fn:p=>p.as*=BAL.passive.anger},
   {id:'cane',   name:'🦯 기종의 지팡이',desc:'최대HP +40',fn:p=>{p.mhp+=40;p.hp=Math.min(p.hp+40,p.mhp)}},
   {id:'torch',  name:'🔦 소민의 야간조명',desc:'보석 흡수 범위 2배',fn:p=>p.magr*=2},
   {id:'monhun', name:'🎮 기훈의 몬헌경험',desc:'보스 데미지 +10%',fn:p=>p.bdm*=BAL.passive.monhun},  // 1.2→1.1 너프 (만렙 2.49x→1.61x)
@@ -3017,7 +3017,7 @@ class Enemy{
     // 적 HP 배수: 10분(600s)까지 상승 후 거의 평탄(상한 9.6) — 후반 폭주 억제. 11분 벽의 주 레버는 스폰/관통, HP는 보조.
     const hs=gameTime<=600?1+gameTime*0.013:Math.min(8.8+(gameTime-600)*0.002,9.6);
     if(type==='zombie'){
-      this.hp=this.mhp=(35+w*8)*hs*em;this.spd=(38+w*1.5)*(elite?1.2:1);
+      this.hp=this.mhp=(16+w*6)*hs*em;this.spd=(38+w*1.5)*(elite?1.2:1);  // 기본 HP 35+w*8→16+w*6: 시작 무기(최약 칼 18)로 한방킬 가능하게
       this.dmg=(10+w)*em;this.col='#44bb44';this.sz=12*(elite?1.3:1);this.xv=3*(elite?3:1);
     }else if(type==='bat'){
       this.hp=this.mhp=(18+w*4)*hs*em;this.spd=90+w*3;
