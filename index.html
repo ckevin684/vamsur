@@ -744,20 +744,21 @@ const BAL={
     hina:0.12,      // 잭팟 12% — 일반보다 '살짝 낮게'
     each:0.156,     // 일반 5명 각각 15.6% (×5=0.78). 0.10+0.12+0.78=1.0
   },
-  // ━━━ 패시브 아이템 효과 ━━━
+  // ━━━ 패시브 아이템 효과 (레벨당) — '효과 종류' 기준 키 (아이템 id가 아님: B개편으로 효과↔아이템 재배치) ━━━
   passive:{
-    pill:1.2,         // HP 회복 +per lv (1.5→1.2 탱킹 완화)
-    bark:0.12,        // 크리 +per lv
-    warrant:0.3,      // 무적 +초 per lv
-    log:1.25,         // 경험치 ×per lv
-    recipe:1.10,      // 데미지 ×per lv — 뱀서식 +10% (1.22→1.10, 증가폭 축소)
-    leashAm:1.10,     // 뭉치 간식 — 공격 범위 ×per lv — +10% (1.22→1.10)
-    anger:1.10,       // 공속 ×per lv — +10% (1.2→1.10)
-    cane:40,          // HP +per lv
-    torch:2,          // 자석 ×per lv
-    monhun:1.07,      // 보스 ×per lv (1.1→1.07, 황기훈 보스 폭딜 추가 캡)
-    knockback:0.35,   // 종원의 프라이팬 — 넉백 +35%/lv (관통은 칼 레벨업으로 이동)
-    coffee:1.08,      // 이동속도 ×per lv — +8% (1.15→1.08, 증가폭 축소)
+    dmgMul:1.10,      // 공격력 ×/lv (Lv5 ×1.61)
+    asMul:1.10,       // 공격속도 ×/lv (Lv5 ×1.61)
+    amMul:1.10,       // 공격범위 ×/lv (Lv5 ×1.61)
+    spdMul:1.08,      // 이동속도 ×/lv (Lv5 ×1.47)
+    crit:0.12,        // 크리 +/lv (Lv5 +60%)
+    hp:40,            // 최대HP +/lv (Lv5 +200)
+    regen:1.2,        // 비전투 HP회복 +/s/lv (Lv5 +6/s)
+    bdmMul:1.07,      // 보스뎀 ×/lv (Lv5 ×1.40)
+    iframes:0.15,     // 무적 +초/lv (0.3→0.15 너프, Lv5 +0.75s)
+    xpMul:1.15,       // 경험치 ×/lv (1.25→1.15 너프, Lv5 ×2.0)
+    magrMul:1.5,      // 자석범위 ×/lv (2→1.5 너프, Lv5 ×7.6)
+    knockback:0.12,   // 넉백 +/lv (0.35→0.12 너프, Lv5 +60%)
+    dmgTaken:0.93,    // 받는피해 ×/lv (Lv5 ×0.70)
   },
   // ━━━ 적 AI 튜닝 ━━━
   enemy:{
@@ -851,19 +852,21 @@ function pickStreamerForm(){
   return STREAMER_FORMS[Math.min(idx,4)];
 }
 const PASSIVES=[
-  {id:'coffee', name:'☕ 기훈의 백다방 아아',desc:'이동속도 +8%',fn:p=>{p.spd*=BAL.passive.coffee;p.bspd*=BAL.passive.coffee}},
-  {id:'warrant',name:'🖥️ 준형전자 AS보증서',desc:'무적시간 +0.3초',fn:p=>p.iframes+=BAL.passive.warrant},
-  {id:'pill',   name:'💊 기종의 허리진통제',desc:'비전투 시 초당 HP +1.5',fn:p=>p.regen+=BAL.passive.pill},
-  {id:'log',    name:'📋 소민의 순찰일지',desc:'경험치 +25%',fn:p=>p.xpm*=1.25},
-  {id:'recipe', name:'🍖 종원의 비밀레시피',desc:'공격력 +10%',fn:p=>p.dm*=BAL.passive.recipe},
-  {id:'leash',  name:'🦴 뭉치 간식',desc:'공격 범위 +10%',fn:p=>p.am*=BAL.passive.leashAm},
-  {id:'anger',  name:'💢 최초의 분노',desc:'공격속도 +10%',fn:p=>p.as*=BAL.passive.anger},
-  {id:'cane',   name:'🦯 기종의 지팡이',desc:'최대HP +40',fn:p=>{p.mhp+=40;p.hp=Math.min(p.hp+40,p.mhp)}},
-  {id:'torch',  name:'🔦 소민의 야간조명',desc:'보석 흡수 범위 2배',fn:p=>p.magr*=2},
-  {id:'monhun', name:'🎮 기훈의 몬헌경험',desc:'보스 데미지 +10%',fn:p=>p.bdm*=BAL.passive.monhun},  // 1.2→1.1 너프 (만렙 2.49x→1.61x)
-  {id:'bark',   name:'💥 준형의 충격기',desc:'크리티컬 +12%',fn:p=>p.crit+=BAL.passive.bark},
-  {id:'knife2', name:'🍳 종원의 프라이팬',desc:'넉백 +35%',fn:p=>p.knockback=(p.knockback||1)+BAL.passive.knockback},
-  {id:'leverage',name:'📊 지워니의 분산투자',desc:'받는 피해 -7% (동전→비트코인 진화)',fn:p=>p.dmgTakenMul=(p.dmgTakenMul||1)*0.93},
+  // ━━ ✨ 진화 아이템 7종: 이름·효과가 '그 무기'를 가리킴 (id는 진화 매핑상 유지) ━━
+  {id:'warrant', name:'🖥️ 고클럭 램',     desc:'공격속도 +10%',          fn:p=>p.as*=BAL.passive.asMul},          // →🖥️램 풀스펙 (램 빵빵=시스템 빠름)
+  {id:'recipe',  name:'🔪 셰프의 숫돌',    desc:'공격력 +10%',            fn:p=>p.dm*=BAL.passive.dmgMul},         // →🔪셰프나이프 풀코스 (칼 갈면 잘 썰림)
+  {id:'log',     name:'🔦 손전등 배터리',  desc:'보석 흡수 범위 +50%',     fn:p=>p.magr*=BAL.passive.magrMul},      // →🔦손전등 심야경계 (밝게=보석 잘보임)
+  {id:'pill',    name:'🦯 재활 지팡이',    desc:'비전투 시 초당 HP +1.2', fn:p=>p.regen+=BAL.passive.regen},       // →🦯지팡이 완치기종 (거동보조=회복)
+  {id:'leash',   name:'🦴 뭉치 간식',      desc:'공격 범위 +10%',          fn:p=>p.am*=BAL.passive.amMul},          // →🐕뭉치 언리쉬드 (간식=활발)
+  {id:'coffee',  name:'🪓 차지액스 강화날', desc:'크리티컬 +12%',          fn:p=>p.crit+=BAL.passive.crit},          // →🪓슬래시액스 개방의검 (도끼 강타=치명타)
+  {id:'leverage',name:'🪙 분산투자 동전',  desc:'받는 피해 -7%',           fn:p=>p.dmgTakenMul=(p.dmgTakenMul||1)*BAL.passive.dmgTaken}, // →💵동전 비트코인 (리스크 분산)
+  // ━━ 비진화 아이템 6종: 캐릭터 플레이버, 무기 이름과 안 겹침 ━━
+  {id:'anger',   name:'💢 최초의 분노',    desc:'이동속도 +8%',           fn:p=>{p.spd*=BAL.passive.spdMul;p.bspd*=BAL.passive.spdMul}}, // 빡쳐서 질주
+  {id:'cane',    name:'🛡️ 기종의 복대',    desc:'최대HP +40',             fn:p=>{p.mhp+=BAL.passive.hp;p.hp=Math.min(p.hp+BAL.passive.hp,p.mhp)}}, // 허리보호
+  {id:'torch',   name:'📋 소민의 순찰일지', desc:'경험치 +15%',            fn:p=>p.xpm*=BAL.passive.xpMul},          // 순찰 기록=경험
+  {id:'monhun',  name:'🎮 기훈의 몬헌경험', desc:'보스 데미지 +7%',        fn:p=>p.bdm*=BAL.passive.bdmMul},         // 보스 약점 간파
+  {id:'bark',    name:'💥 준형의 충격기',   desc:'무적시간 +0.15초',       fn:p=>p.iframes+=BAL.passive.iframes},    // 충격 방어막
+  {id:'knife2',  name:'🍳 종원의 프라이팬', desc:'넉백 +12%',              fn:p=>p.knockback=(p.knockback||1)+BAL.passive.knockback}, // 팬으로 후려치기
 ];
 // ═══ 🍳 종원 요리 시스템 — 재료 4종+캐비아 / 레시피 5종 ═══
 const INGS={
@@ -4769,7 +4772,7 @@ function rollLvUpCards(){
     const ps=PASSIVES.find(x=>x.id===id);if(!ps)return;
     const next=lv+1;
     itmPool.push({
-      tag:'아이템 ⬆',
+      tag:'아이템 ⬆', __pid:id,
       name:ps.name,
       desc:`${ps.desc}${EVO_ITEM[id]?' · ✨'+WDEFS[EVO_ITEM[id]].name.split(' ')[0]+'진화':''} (Lv.${lv}→${next}${next===P_MAX_LV?' MAX':''})`,
       lvBadge:`Lv.${next}`,
@@ -4781,7 +4784,7 @@ function rollLvUpCards(){
   if(player.pCnt()<P_SLOTS+(player.extraSlots||0)){
     PASSIVES.filter(p=>!player.hasP(p.id)).forEach(p=>{
       itmPool.push({
-        tag:'아이템 NEW',
+        tag:'아이템 NEW', __pid:p.id,
         name:p.name,
         desc:`${p.desc}${EVO_ITEM[p.id]?' · ✨'+WDEFS[EVO_ITEM[p.id]].name.split(' ')[0]+'진화':''}`,
         lvBadge:'NEW',
@@ -4790,9 +4793,28 @@ function rollLvUpCards(){
     });
   }
 
-  // 3개 선택: 진화 1개 우선, 나머지는 무기/아이템 섞어서
+  // ✨ 진화 재료 우선 노출: 보유 무기(Lv4+)의 페어 아이템을 매 레벨업 한 장 '보장 제공'.
+  // (이전엔 페어 아이템이 13종 중에 묻혀 거의 안 떠서, 잡템으로 6칸이 차면 진화가 영영 봉인됐음)
+  let evoMatCard=null;
+  {
+    const cands=[];
+    player.wpns.forEach(w=>{
+      if(WDEFS[w.type].evolved)return;
+      const ev=EVOS[w.type];if(!ev)return;
+      if((w.lv||1)<4)return;                    // 무기를 어느정도 키운 뒤부터 권유
+      if(player.pLv(ev.need)>=P_MAX_LV)return;  // 페어 아이템 이미 만렙(=진화 준비 완료)
+      cands.push({need:ev.need,wlv:(w.lv||1)});
+    });
+    cands.sort((a,b)=>b.wlv-a.wlv);             // 가장 많이 키운 무기의 페어부터
+    for(const cd of cands){
+      const idx=itmPool.findIndex(c=>c.__pid===cd.need);  // 슬롯 여유 있을 때만 itmPool에 존재
+      if(idx>=0){evoMatCard=itmPool.splice(idx,1)[0];break;}
+    }
+  }
+  // 3개 선택: 진화 1개 우선, 진화재료 1개 보장, 나머지는 무기/아이템 섞어서
   upgradeChoices=[];
   if(evoPool.length)upgradeChoices.push(evoPool[0]);
+  if(evoMatCard&&upgradeChoices.length<3)upgradeChoices.push(evoMatCard);
   // 무기/아이템 풀에서 랜덤 픽 (없으면 다른 풀에서)
   const pickFrom=arr=>{if(!arr.length)return null;const i=Math.floor(Math.random()*arr.length);return arr.splice(i,1)[0]};
   while(upgradeChoices.length<3){
