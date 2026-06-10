@@ -5751,7 +5751,8 @@ function spawnEnemies(dt){
   spawnT-=dt;if(spawnT>0)return;
   const wave=Math.floor(gameTime/30);
   // 후반 물량은 '벽'이 되므로 늘리지 않음(이전 +33% 롤백). 동시 스폰 상한 15 고정.
-  const cnt=Math.min(3+wave*2,13);  // 동시 스폰 상한 15→13 (후반 물량 벽 소폭 완화, 패시브 너프 보상)
+  let cnt=Math.min(3+wave*2,13);  // 동시 스폰 상한 15→13 (후반 물량 벽 소폭 완화, 패시브 너프 보상)
+  if(gameTime>=240&&gameTime<330)cnt+=4;  // 🆕 4~5.5분 구간만 물량 +4 (중반 체감 보강 — 후반 '벽'엔 영향 없음)
   // 플레이어 진행(이동) 방향 ±35° 콘은 스폰 절반으로 줄여 '도망 통로' 형성
   const fang=Math.atan2(player.facing.y,player.facing.x);
   for(let i=0;i<cnt;i++){
