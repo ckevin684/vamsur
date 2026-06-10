@@ -1636,7 +1636,7 @@ class Player{
         SFX.lvUp();
       }
     }
-    this.x=clamp(this.x,-1800,1800);this.y=clamp(this.y,-1800,1800);
+    this.x=clamp(this.x,-9000,9000);this.y=clamp(this.y,-9000,9000);  // 맵 5배 확장 (±1800→±9000)
     if(this.hitT>0)this.hitT-=dt;
     if(this.flashT>0)this.flashT-=dt;
     // 최종원 손가락컷 영구 공속 디버프(누적, 상한 0.8) / 기종 분노·휠체어 — BAL 참조
@@ -5048,15 +5048,15 @@ function rerollLvUp(){
 const TILES=[],GRASS=[],FOGS=[];
 function initWorld(){
   TILES.length=0;
-  for(let i=0;i<320;i++){
+  for(let i=0;i<2200;i++){
     const r=Math.random();
     const t=r<0.25?'grave':r<0.45?'tree':r<0.55?'crucifix':r<0.70?'rock':r<0.85?'bush':'bone';
-    TILES.push({x:rnd(-1900,1900),y:rnd(-1900,1900),t,seed:Math.random()});
+    TILES.push({x:rnd(-9500,9500),y:rnd(-9500,9500),t,seed:Math.random()});
   }
   GRASS.length=0;
-  for(let i=0;i<600;i++)GRASS.push({x:rnd(-1900,1900),y:rnd(-1900,1900),s:rnd(2,4),c:Math.random()<0.5?'#1d3a1d':'#244a24'});
+  for(let i=0;i<4500;i++)GRASS.push({x:rnd(-9500,9500),y:rnd(-9500,9500),s:rnd(2,4),c:Math.random()<0.5?'#1d3a1d':'#244a24'});
   FOGS.length=0;
-  for(let i=0;i<14;i++)FOGS.push({x:rnd(-1900,1900),y:rnd(-1900,1900),r:rnd(180,320),sp:rnd(8,18),ph:Math.random()*Math.PI*2});
+  for(let i=0;i<90;i++)FOGS.push({x:rnd(-9500,9500),y:rnd(-9500,9500),r:rnd(180,320),sp:rnd(8,18),ph:Math.random()*Math.PI*2});
 }
 function drawWorld(){
   // 바닥 그라데이션 base
@@ -5085,9 +5085,9 @@ function drawWorld(){
   });
   // 경계선 (피로 그려진 마법진)
   G.strokeStyle='#7a0000';G.lineWidth=3;G.setLineDash([14,10]);
-  G.strokeRect(-1900,-1900,3800,3800);G.setLineDash([]);
+  G.strokeRect(-9500,-9500,19000,19000);G.setLineDash([]);
   G.strokeStyle='rgba(170,0,0,0.3)';G.lineWidth=8;
-  G.strokeRect(-1900,-1900,3800,3800);
+  G.strokeRect(-9500,-9500,19000,19000);
   // 안개 패치
   FOGS.forEach(f=>{
     if(Math.abs(f.x-player.x)>LW/2+f.r||Math.abs(f.y-player.y)>LH/2+f.r)return;
@@ -6234,7 +6234,7 @@ function update(dt){
     if(investToastT>0)investToastT-=dt;
     // 🛒 상점 스폰 (주기) + 진입
     shopT-=dt;
-    if(shopT<=0&&!shopEnt){ shopT=Z.shopInterval; const a=Math.random()*Math.PI*2,r=rnd(260,400); shopEnt={x:player.x+Math.cos(a)*r,y:player.y+Math.sin(a)*r,fr:0}; notify('🛒 증권상점 등장!','맵 표시 — 찾아가서 스탯 구매','#ffd24a'); }
+    if(shopT<=0&&!shopEnt){ shopT=Z.shopInterval; const a=Math.random()*Math.PI*2,r=rnd(600,850); shopEnt={x:clamp(player.x+Math.cos(a)*r,-8900,8900),y:clamp(player.y+Math.sin(a)*r,-8900,8900),fr:0}; notify('🛒 증권상점 등장!','맵 표시 — 찾아가서 스탯 구매','#ffd24a'); }
     if(shopEnt){ shopEnt.fr+=dt; if(dist(player,shopEnt)<44)openShop(); }
     // 💸 돈 0원 → 맵에 지원금 (중복 방지, 25초 후부터)
     if(player.seedMoney<=0&&!player.invest&&gameTime>25&&!pickups.some(pk=>pk.t==='subsidy'&&!pk.dead)){
@@ -6246,7 +6246,7 @@ function update(dt){
   if(player&&player.cd.id==='jw'&&!hotelOpen&&!cookOpen){
     const J=BAL.char.jw;
     hotelT-=dt;
-    if(hotelT<=0&&!hotelEnt){ hotelT=J.hotelInterval; const a=Math.random()*Math.PI*2,r=rnd(260,400); hotelEnt={x:player.x+Math.cos(a)*r,y:player.y+Math.sin(a)*r,fr:0}; notify('🏨 2시즌스 호텔 등장!','맵 표시 — 찾아가서 요리','#ffcc44'); }
+    if(hotelT<=0&&!hotelEnt){ hotelT=J.hotelInterval; const a=Math.random()*Math.PI*2,r=rnd(600,850); hotelEnt={x:clamp(player.x+Math.cos(a)*r,-8900,8900),y:clamp(player.y+Math.sin(a)*r,-8900,8900),fr:0}; notify('🏨 2시즌스 호텔 등장!','맵 표시 — 찾아가서 요리','#ffcc44'); }
     if(hotelEnt){ hotelEnt.fr+=dt; if(dist(player,hotelEnt)<J.hotelEnterR)openHotel(); }
   }
   if(cookOpen){ stepCook(dt); return; }  // 칼질 미니게임 = 게임 정지(미니게임만 진행)
