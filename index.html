@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8">
-<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0a0a0a;display:flex;justify-content:center;align-items:center;min-height:100vh;overflow:hidden}canvas{display:block}</style>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{background:radial-gradient(ellipse at center,#150f1d 0%,#070509 75%);display:flex;justify-content:center;align-items:center;min-height:100vh;overflow:hidden}canvas{display:block;border:1px solid #261822;border-radius:4px;box-shadow:0 0 70px rgba(255,90,40,0.10),0 12px 50px rgba(0,0,0,0.8)}</style>
 </head><body>
 <canvas id="c"></canvas>
 <script>
@@ -952,7 +952,7 @@ function getShopClick2(mx,my){
 function renderShop2(){
   if(!shopOpen||!player)return;
   G.save();
-  G.fillStyle='rgba(0,0,0,0.8)';G.fillRect(0,0,LW,LH);
+  uiDim(0.82);
   G.textAlign='center';G.fillStyle='#ffd24a';G.font='bold 24px Courier New';
   G.fillText('🛒 랜덤 증권상점',LW/2,54);
   G.fillStyle='#13b88a';G.font='bold 16px Courier New';
@@ -1039,7 +1039,7 @@ function closeCook(){
 function renderHotel(){
   if(!hotelOpen||!player)return;
   G.save();
-  G.fillStyle='rgba(0,0,0,0.82)';G.fillRect(0,0,LW,LH);
+  uiDim(0.84);
   G.textAlign='center';
   G.fillStyle='#ffcc44';G.font='bold 22px Courier New';G.fillText('🏨 2 SEASONS 호텔 — 요리 선택',LW/2,52);
   G.font='14px Courier New';G.fillStyle='#ddd';
@@ -4280,7 +4280,7 @@ function drawStockHUD(){
 function renderInvest(){
   if(!investOpen||!player)return;
   G.save();
-  G.fillStyle='rgba(0,0,0,0.8)';G.fillRect(0,0,LW,LH);
+  uiDim(0.82);
   G.textAlign='center';G.fillStyle='#13b88a';G.font='bold 24px Courier New';
   G.fillText('📈 어디에 투자할까? (전액 올인)',LW/2,52);
   G.fillStyle='#ffd24a';G.font='bold 16px Courier New';
@@ -5467,9 +5467,10 @@ function shopLayout(){
   return rows;
 }
 function renderShop(){
-  G.fillStyle='#0d0a12';G.fillRect(0,0,LW,LH);
-  G.textAlign='center';G.fillStyle='#ffcc44';G.font='bold 26px Courier New';
-  G.fillText('🛒 강화 상점',LW/2,52);
+  const sbg=G.createRadialGradient(LW/2,LH*0.3,40,LW/2,LH*0.4,LH);
+  sbg.addColorStop(0,'#1c1426');sbg.addColorStop(1,'#070409');
+  G.fillStyle=sbg;G.fillRect(0,0,LW,LH);
+  uiHeader('🛒 강화 상점',54,'#ffeeaa','#ffaa22',28);
   G.fillStyle='#aaa';G.font='11px Courier New';
   G.fillText('판이 끝나면 모은 골드가 적립됩니다 · 모든 강화는 영구 적용',LW/2,72);
   G.fillStyle='#ffdd55';G.font='bold 16px Courier New';
@@ -5478,13 +5479,14 @@ function renderShop(){
     const bx=LW/2-270,bw=540,by=r.y,bh=r.h,sel=ri===selMeta;  // 키보드 선택 행
     if(r.kind==='back'){
       const w=160,x=LW/2-w/2;
-      G.fillStyle=sel?'#3a3a55':'#2a2a3a';G.fillRect(x,by,w,bh);
-      G.strokeStyle=sel?'#ffcc44':'#888';G.lineWidth=sel?2.5:1.5;G.strokeRect(x,by,w,bh);
-      G.fillStyle='#eee';G.font='bold 15px Courier New';G.textAlign='center';
-      G.fillText('◀ 뒤로',LW/2,by+bh/2+5);return;
+      uiBtn(x,by,w,bh,'◀ 뒤로',sel,'#ffcc44',15);return;
     }
-    G.fillStyle=sel?'rgba(255,204,68,0.1)':'rgba(255,255,255,0.04)';G.fillRect(bx,by,bw,bh);
-    G.strokeStyle=sel?'#ffcc44':'#3a3a4a';G.lineWidth=sel?2.5:1;G.strokeRect(bx,by,bw,bh);
+    const rg=G.createLinearGradient(bx,by,bx,by+bh);
+    rg.addColorStop(0,sel?'#2c2618':'#1a1a24');rg.addColorStop(1,sel?'#1d1810':'#101018');
+    G.fillStyle=rg;G.fillRect(bx,by,bw,bh);
+    G.fillStyle=sel?'#ffcc44':'#3a3a4a';G.fillRect(bx,by,3,bh);
+    if(sel){G.save();G.shadowColor='#ffcc44';G.shadowBlur=10;G.strokeStyle='#ffcc44';G.lineWidth=2;G.strokeRect(bx,by,bw,bh);G.restore();}
+    else{G.strokeStyle='rgba(255,255,255,0.08)';G.lineWidth=1;G.strokeRect(bx,by,bw,bh);}
     const u=r.u,lv=META.up[u.id]||0,max=u.max,name=u.name,desc=u.desc,owned=lv>=max,cost=u.cost(lv),buyable=!owned&&META.gold>=cost;
     G.textAlign='left';G.fillStyle='#fff';G.font='bold 14px Courier New';G.fillText(name,bx+12,by+17);
     G.fillStyle='#9aa';G.font='11px Courier New';G.fillText(desc,bx+12,by+33);
@@ -5524,17 +5526,19 @@ function shopBuy(res){
 // ═══ SETTINGS OVERLAY ═══
 const SETTINGS_PW=440,SETTINGS_PH=370;
 function renderSettings(){
-  // 어두운 오버레이
-  G.fillStyle='rgba(0,0,0,0.85)';G.fillRect(0,0,LW,LH);
-  // 패널
+  uiDim(0.85);
   const pw=SETTINGS_PW,ph=SETTINGS_PH,px=LW/2-pw/2,py=LH/2-ph/2;
-  G.fillStyle='#1a1224';G.fillRect(px,py,pw,ph);
-  G.strokeStyle='#ff8844';G.lineWidth=3;G.strokeRect(px,py,pw,ph);
-  G.strokeStyle='rgba(255,255,255,0.15)';G.lineWidth=1;G.strokeRect(px+3,py+3,pw-6,ph-6);
-  // 헤더
-  G.fillStyle='#ff8844';G.fillRect(px,py,pw,40);
-  G.fillStyle='#000';G.font='bold 18px Courier New';G.textAlign='center';
-  G.fillText('⚙  설정',LW/2,py+26);
+  uiPanel(px,py,pw,ph,'#ff8844');
+  // 헤더 바
+  G.save();
+  const hg=G.createLinearGradient(px,py,px,py+40);
+  hg.addColorStop(0,'#2c1c14');hg.addColorStop(1,'#170f15');
+  G.fillStyle=hg;G.fillRect(px+1,py+2,pw-2,38);
+  G.fillStyle='#ff8844';G.fillRect(px,py+40,pw,1);
+  G.fillStyle='#ffcc99';G.font='bold 17px Courier New';G.textAlign='center';
+  G.shadowColor='#ff8844';G.shadowBlur=10;
+  G.fillText('⚙  설  정',LW/2,py+27);
+  G.shadowBlur=0;G.restore();
   const sx=px+40,sw=pw-80;
   // BGM 슬라이더
   G.fillStyle='#fff';G.font='bold 12px Courier New';G.textAlign='left';
@@ -5551,29 +5555,20 @@ function renderSettings(){
   G.fillText('🖥️ 화면 크기',sx,py+178);
   G.fillStyle='#aaa';G.textAlign='right';
   G.fillText(`${canvasScale.toFixed(2)}x${canvasAutoFit?' (자동)':''}`,sx+sw,py+178);
-  const scaleNorm=(canvasScale-0.5)/2.5;  // 0.5x ~ 3.0x → 0.0 ~ 1.0
+  const scaleNorm=(canvasScale-0.5)/2.5;
   drawVolSlider(sx,py+190,sw,scaleNorm,'#88ff88','scale');
-  // 자동 맞춤 버튼
+  // 자동 맞춤 버튼 (히트 영역 동일: py+210, 140×22)
   const afW=140,afH=22,afX=LW/2-afW/2,afY=py+210;
-  const afHov=hovSetBtn===1;
-  G.fillStyle=canvasAutoFit?'#44aa44':(afHov?'#445544':'#222');G.fillRect(afX,afY,afW,afH);
-  G.strokeStyle=canvasAutoFit?'#88ff88':'#555';G.lineWidth=1;G.strokeRect(afX,afY,afW,afH);
-  G.fillStyle=canvasAutoFit?'#fff':'#aaa';G.font='bold 10px Courier New';G.textAlign='center';
-  G.fillText(canvasAutoFit?'✓ 자동 맞춤 ON':'자동 맞춤 OFF',LW/2,afY+15);
+  uiBtn(afX,afY,afW,afH,canvasAutoFit?'✓ 자동 맞춤 ON':'자동 맞춤 OFF',hovSetBtn===1||canvasAutoFit,canvasAutoFit?'#44cc66':'#ff8844',10);
   // 조작 안내
-  G.fillStyle='#666';G.font='10px Courier New';G.textAlign='center';
-  G.fillText('━ 조작 ━',LW/2,py+255);
-  G.fillStyle='#aaa';G.font='10px Courier New';
+  G.fillStyle='#7a7486';G.font='10px Courier New';G.textAlign='center';
+  G.fillText('━━ 조작 ━━',LW/2,py+255);
+  G.fillStyle='#a8a2b4';
   G.fillText('이동 WASD / 방향키  ·  대시 SHIFT  ·  선택 SPACE/ENTER  ·  일시정지 P/ESC',LW/2,py+272);
   G.fillText('창 크기를 바꾸면 자동으로 화면이 맞춰져요',LW/2,py+288);
-  // 닫기 버튼
+  // 닫기 버튼 (히트 영역 동일)
   const cbW=120,cbH=32,cbX=LW/2-cbW/2,cbY=py+ph-46;
-  const hov=hovSetBtn===0;
-  G.fillStyle='rgba(0,0,0,0.7)';G.fillRect(cbX+2,cbY+2,cbW,cbH);
-  G.fillStyle=hov?'#ff8844':'#2a1a30';G.fillRect(cbX,cbY,cbW,cbH);
-  G.strokeStyle=hov?'#ffcc66':'#aa6633';G.lineWidth=1.5;G.strokeRect(cbX,cbY,cbW,cbH);
-  G.fillStyle=hov?'#000':'#eee';G.font='bold 13px Courier New';G.textAlign='center';
-  G.fillText('닫기',LW/2,cbY+21);
+  uiBtn(cbX,cbY,cbW,cbH,'닫기',hovSetBtn===0,'#ff8844',13);
 }
 function drawVolSlider(x,y,w,val,col,id){
   // 트랙
@@ -6587,6 +6582,77 @@ function drawNotifs(){
 }
 
 // 일시정지 오버레이
+// ═══ 🎨 UI 킷 — 오버레이 공통 스타일 (딤/패널/헤더/버튼) — 화면 통일감 ═══
+function uiDim(a){
+  a=a===undefined?0.8:a;
+  const g=G.createLinearGradient(0,0,0,LH);
+  g.addColorStop(0,'rgba(10,7,16,'+(a*0.92).toFixed(3)+')');
+  g.addColorStop(0.5,'rgba(4,3,8,'+a.toFixed(3)+')');
+  g.addColorStop(1,'rgba(12,6,18,'+(a*0.95).toFixed(3)+')');
+  G.fillStyle=g;G.fillRect(0,0,LW,LH);
+  const v=G.createRadialGradient(LW/2,LH/2,LH*0.25,LW/2,LH/2,LH*0.8);
+  v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(0,0,0,0.5)');
+  G.fillStyle=v;G.fillRect(0,0,LW,LH);
+}
+function uiPanel(x,y,w,h,accent,title){
+  accent=accent||'#ffaa55';
+  G.save();
+  G.fillStyle='rgba(0,0,0,0.55)';G.fillRect(x+4,y+5,w,h);            // 그림자
+  const g=G.createLinearGradient(x,y,x,y+h);
+  g.addColorStop(0,'#1d1d2a');g.addColorStop(0.12,'#15151f');g.addColorStop(1,'#0b0b13');
+  G.fillStyle=g;G.fillRect(x,y,w,h);                                  // 본체 그라데이션
+  G.fillStyle=accent;G.fillRect(x,y,w,2);                             // 상단 액센트
+  G.strokeStyle='rgba(255,255,255,0.10)';G.lineWidth=1;G.strokeRect(x+0.5,y+0.5,w-1,h-1);
+  G.strokeStyle=accent+'44';G.strokeRect(x-2.5,y-2.5,w+5,h+5);        // 외곽 이중선
+  G.strokeStyle=accent;G.lineWidth=2;                                 // 코너 브래킷
+  const cr=9;
+  [[x,y,1,1],[x+w,y,-1,1],[x,y+h,1,-1],[x+w,y+h,-1,-1]].forEach(p=>{
+    G.beginPath();G.moveTo(p[0]+p[2]*cr,p[1]);G.lineTo(p[0],p[1]);G.lineTo(p[0],p[1]+p[3]*cr);G.stroke();
+  });
+  if(title){
+    G.fillStyle=accent+'22';G.fillRect(x,y+2,w,24);
+    G.fillStyle=accent;G.globalAlpha=0.6;G.fillRect(x,y+26,w,1);G.globalAlpha=1;
+    G.font='bold 12px Courier New';G.textAlign='left';G.fillStyle=accent;
+    G.fillText(title,x+12,y+19);
+  }
+  G.restore();
+}
+function uiHeader(text,y,c1,c2,size){
+  size=size||38;
+  G.save();G.textAlign='center';
+  G.font='bold '+size+'px Courier New';
+  G.fillStyle='rgba(0,0,0,0.8)';G.fillText(text,LW/2+3,y+3);
+  const tg=G.createLinearGradient(0,y-size*0.8,0,y+6);
+  tg.addColorStop(0,c1||'#fff3cc');tg.addColorStop(1,c2||'#ffaa22');
+  G.shadowColor=(c2||'#ffaa22');G.shadowBlur=16;
+  G.fillStyle=tg;G.fillText(text,LW/2,y);
+  G.shadowBlur=0;
+  const tw=G.measureText(text).width,ly=y-size*0.32;
+  const lg1=G.createLinearGradient(LW/2-tw/2-150,0,LW/2-tw/2-20,0);
+  lg1.addColorStop(0,'rgba(255,200,120,0)');lg1.addColorStop(1,'rgba(255,200,120,0.7)');
+  G.fillStyle=lg1;G.fillRect(LW/2-tw/2-150,ly,130,2);
+  const lg2=G.createLinearGradient(LW/2+tw/2+20,0,LW/2+tw/2+150,0);
+  lg2.addColorStop(0,'rgba(255,200,120,0.7)');lg2.addColorStop(1,'rgba(255,200,120,0)');
+  G.fillStyle=lg2;G.fillRect(LW/2+tw/2+20,ly,130,2);
+  G.restore();
+}
+function uiBtn(x,y,w,h,label,hov,accent,fontSize){
+  accent=accent||'#ff8844';
+  G.save();
+  G.fillStyle='rgba(0,0,0,0.65)';G.fillRect(x+3,y+3,w,h);
+  const g=G.createLinearGradient(x,y,x,y+h);
+  if(hov){g.addColorStop(0,accent);g.addColorStop(1,shade(accent,-60));}
+  else{g.addColorStop(0,'#262633');g.addColorStop(1,'#14141d');}
+  G.fillStyle=g;G.fillRect(x,y,w,h);
+  if(hov){G.shadowColor=accent;G.shadowBlur=14;}
+  G.strokeStyle=hov?'#ffe6c8':accent+'77';G.lineWidth=hov?2:1.5;G.strokeRect(x,y,w,h);
+  G.shadowBlur=0;
+  G.fillStyle=hov?'#10060a':'#e8e8f0';G.font='bold '+(fontSize||13)+'px Courier New';
+  G.textAlign='center';G.textBaseline='middle';
+  G.fillText(label,x+w/2,y+h/2+1);
+  G.textBaseline='alphabetic';
+  G.restore();
+}
 const RECIPES=[
   ['🖥️ 램','🖥️ 보증서','⚡ 풀스펙','ram','warrant'],
   ['🔪 칼','🍖 레시피','🔥 풀코스','knife','recipe'],
@@ -6594,106 +6660,99 @@ const RECIPES=[
   ['🦯 지팡이','💊 진통제','💜 기종','staff','pill'],
   ['🐕 뭉치','🦴 간식','🐕 언리쉬드','mungchi','leash'],
   ['🪓 슬액','☕ 아아','⚔ 개방','gsword','coffee'],
+  ['💵 동전','🪙 분산투자','💎 비트코인','coin','leverage'],
 ];
 function drawPauseOverlay(){
   G.save();
-  G.fillStyle='rgba(0,0,0,0.82)';G.fillRect(0,0,LW,LH);
-  G.fillStyle='#ffdd66';G.font='bold 38px Courier New';G.textAlign='center';
-  G.fillStyle='#000';G.fillText('⏸ PAUSED',LW/2+2,58);
-  G.fillStyle='#ffdd66';G.fillText('⏸ PAUSED',LW/2,56);
-  G.fillStyle='#aaa';G.font='11px Courier New';
-  G.fillText('P / ESC 재개  ·  슬라이더로 볼륨 조절',LW/2,76);
-  // 두 컬럼 빌드 표시 (압축)
+  uiDim(0.84);
+  uiHeader('⏸ P A U S E D',56,'#ffeeb0','#ff9933',32);
+  G.fillStyle='#9a93a8';G.font='11px Courier New';G.textAlign='center';
+  G.fillText('P / ESC 재개  ·  슬라이더로 볼륨 조절',LW/2,78);
+  // ━━ 두 컬럼 빌드 표시 ━━
   const colW=300,leftX=LW/2-colW-10,rightX=LW/2+10;
-  const colH=240,colY=90;
-  // 무기 컬럼
-  G.fillStyle='rgba(20,20,30,0.85)';G.fillRect(leftX,colY,colW,colH);
-  G.strokeStyle='#ff8866';G.lineWidth=1.5;G.strokeRect(leftX,colY,colW,colH);
-  G.fillStyle='#ff8866';G.font='bold 12px Courier New';G.textAlign='left';
-  G.fillText(`⚔ 무기 (${player.wpns.length}/${W_SLOTS})`,leftX+14,colY+18);
+  const colH=240,colY=92;
+  uiPanel(leftX,colY,colW,colH,'#ff8866','⚔ 무기  '+player.wpns.length+'/'+W_SLOTS);
   for(let i=0;i<W_SLOTS;i++){
-    const w=player.wpns[i],wy=colY+30+i*28;
-    G.fillStyle='rgba(0,0,0,0.4)';G.fillRect(leftX+10,wy-2,colW-20,24);
-    if(!w){G.fillStyle='#333';G.font='11px Courier New';G.fillText('(빈 슬롯)',leftX+18,wy+14);continue}
+    const w=player.wpns[i],wy=colY+38+i*28;
+    G.fillStyle='rgba(255,255,255,0.035)';G.fillRect(leftX+10,wy-2,colW-20,24);
+    G.textAlign='left';
+    if(!w){G.fillStyle='#3a3a46';G.font='11px Courier New';G.fillText('(빈 슬롯)',leftX+18,wy+14);continue}
     const wd=WDEFS[w.type];if(!wd)continue;
     const maxed=wd.evolved||w.lv>=W_MAX_LV;
     G.fillStyle=wd.evolved?'#ffdd44':(maxed?'#ffaa44':'#fff');G.font='bold 11px Courier New';G.fillText(wd.name,leftX+18,wy+11);
     if(!wd.evolved){
       G.fillStyle='#222';G.fillRect(leftX+18,wy+15,170,4);
-      G.fillStyle=maxed?'#ffdd44':'#ff8866';G.fillRect(leftX+18,wy+15,170*(w.lv/W_MAX_LV),4);
+      const bg2=G.createLinearGradient(leftX+18,0,leftX+188,0);
+      bg2.addColorStop(0,maxed?'#ffdd44':'#cc5533');bg2.addColorStop(1,maxed?'#fff0a0':'#ff9966');
+      G.fillStyle=bg2;G.fillRect(leftX+18,wy+15,170*(w.lv/W_MAX_LV),4);
     }
     G.fillStyle=maxed?'#ffdd44':'#aaa';G.font='bold 10px Courier New';G.textAlign='right';
-    G.fillText(wd.evolved?'★EVO':(maxed?'MAX':`L${w.lv}/${W_MAX_LV}`),leftX+colW-14,wy+15);
-    G.textAlign='left';
+    G.fillText(wd.evolved?'★EVO':(maxed?'MAX':'L'+w.lv+'/'+W_MAX_LV),leftX+colW-14,wy+15);
   }
-  // 아이템 컬럼
-  G.fillStyle='rgba(20,20,30,0.85)';G.fillRect(rightX,colY,colW,colH);
-  G.strokeStyle='#88ccff';G.lineWidth=1.5;G.strokeRect(rightX,colY,colW,colH);
-  G.fillStyle='#88ccff';G.font='bold 12px Courier New';G.textAlign='left';
-  G.fillText(`🎁 아이템 (${player.pCnt()}/${P_SLOTS})`,rightX+14,colY+18);
+  uiPanel(rightX,colY,colW,colH,'#88ccff','🎁 아이템  '+player.pCnt()+'/'+P_SLOTS);
   const pIds=Object.keys(player.passives);
   for(let i=0;i<P_SLOTS;i++){
-    const id=pIds[i],iy=colY+30+i*28;
-    G.fillStyle='rgba(0,0,0,0.4)';G.fillRect(rightX+10,iy-2,colW-20,24);
-    if(!id){G.fillStyle='#333';G.font='11px Courier New';G.fillText('(빈 슬롯)',rightX+18,iy+14);continue}
+    const id=pIds[i],iy=colY+38+i*28;
+    G.fillStyle='rgba(255,255,255,0.035)';G.fillRect(rightX+10,iy-2,colW-20,24);
+    G.textAlign='left';
+    if(!id){G.fillStyle='#3a3a46';G.font='11px Courier New';G.fillText('(빈 슬롯)',rightX+18,iy+14);continue}
     const ps=PASSIVES.find(x=>x.id===id),lv=player.passives[id];
     if(!ps)continue;
     const maxed=lv>=P_MAX_LV;
     G.fillStyle=maxed?'#88ddff':'#fff';G.font='bold 11px Courier New';G.fillText(ps.name,rightX+18,iy+11);
     G.fillStyle='#222';G.fillRect(rightX+18,iy+15,170,4);
-    G.fillStyle=maxed?'#88ddff':'#44aaff';G.fillRect(rightX+18,iy+15,170*(lv/P_MAX_LV),4);
+    const bg3=G.createLinearGradient(rightX+18,0,rightX+188,0);
+    bg3.addColorStop(0,maxed?'#88ddff':'#2266aa');bg3.addColorStop(1,maxed?'#cceeff':'#55aaee');
+    G.fillStyle=bg3;G.fillRect(rightX+18,iy+15,170*(lv/P_MAX_LV),4);
     G.fillStyle=maxed?'#88ddff':'#aaa';G.font='bold 10px Courier New';G.textAlign='right';
-    G.fillText(maxed?'MAX':`L${lv}/${P_MAX_LV}`,rightX+colW-14,iy+15);
-    G.textAlign='left';
+    G.fillText(maxed?'MAX':'L'+lv+'/'+P_MAX_LV,rightX+colW-14,iy+15);
   }
-  // ━━━ 진화 조합법 ━━━
-  const rY=colY+colH+18;
-  G.fillStyle='#ffaa66';G.font='bold 12px Courier New';G.textAlign='center';
-  G.fillText('━━━ ✨ 진화 조합법 ━━━',LW/2,rY);
-  G.fillStyle='#666';G.font='9px Courier New';
-  G.fillText('무기 MAX + 페어 아이템 MAX → 레벨업 카드에서 진화 선택',LW/2,rY+12);
+  // ━━ ✨ 진화 조합법 패널 ━━
+  const rpY=346,rpW=colW*2+20;
+  uiPanel(leftX,rpY,rpW,90,'#ffaa66','✨ 진화 조합법');
+  G.fillStyle='#8a8496';G.font='9px Courier New';G.textAlign='right';
+  G.fillText('레벨업: 무기 MAX+페어 Lv3  ·  💎보스상자: 무기 Lv6+페어 보유',leftX+rpW-12,rpY+18);
   RECIPES.forEach((r,i)=>{
-    const col=i%2,row=Math.floor(i/2);
-    const x=col*LW/2+20,y=rY+30+row*18;
-    // 진행도 체크
+    const c2=i%2,row=Math.floor(i/2);
+    const x=leftX+14+c2*(colW+5),y=rpY+40+row*13;
     const w=player.wpns.find(ww=>ww.type===r[3]);
     const wLv=w?w.lv||0:0;
     const pLv=player.passives[r[4]]||0;
-    const wMaxed=w&&wLv>=W_MAX_LV;
-    const pMaxed=pLv>=P_MAX_LV;
+    const wMaxed=w&&wLv>=W_MAX_LV,pRdy=pLv>=3;
     const evolvedRes=EVOS[r[3]]?.res;
     const done=player.wpns.some(ww=>ww.type===evolvedRes);
     let col1,col2,icon;
     if(done){col1='#88ff88';col2='#aaffaa';icon='✓'}
-    else if(wMaxed&&pMaxed){col1='#ffdd44';col2='#ffeeaa';icon='★'}
+    else if(wMaxed&&pRdy){col1='#ffdd44';col2='#ffeeaa';icon='★'}
     else if(w||pLv>0){col1='#aabbcc';col2='#ccddee';icon='▸'}
     else{col1='#555';col2='#777';icon='○'}
-    G.fillStyle=col1;G.font='10px Courier New';G.textAlign='left';
-    G.fillText(`${icon} `,x,y);
-    G.fillStyle=w?col2:col1;G.fillText(r[0]+(w?` L${wLv}`:''),x+14,y);
-    G.fillStyle=col1;G.fillText('+',x+95,y);
-    G.fillStyle=pLv>0?col2:col1;G.fillText(r[1]+(pLv>0?` L${pLv}`:''),x+108,y);
-    G.fillStyle=col1;G.fillText('→',x+200,y);
-    G.fillStyle=col2;G.fillText(r[2],x+218,y);
+    G.font='10px Courier New';G.textAlign='left';
+    G.fillStyle=col1;G.fillText(icon+' ',x,y);
+    G.fillStyle=w?col2:col1;G.fillText(r[0]+(w?' L'+wLv:''),x+14,y);
+    G.fillStyle=col1;G.fillText('+',x+98,y);
+    G.fillStyle=pLv>0?col2:col1;G.fillText(r[1]+(pLv>0?' L'+pLv:''),x+111,y);
+    G.fillStyle=col1;G.fillText('→',x+208,y);
+    G.fillStyle=col2;G.fillText(r[2],x+226,y);
   });
-  // ━━━ 볼륨 슬라이더 ━━━ (ESC로 일시정지 후 조절 가능)
+  // ━━ 볼륨 슬라이더 (히트 영역 고정: 448/478) ━━
   const sliderY1=448, sliderY2=478, sliderSx=LW/2-140, sliderSw=280;
-  // 섹션 라벨
-  G.fillStyle='#aaa';G.font='9px Courier New';G.textAlign='center';
-  G.fillText('━━━ 🔉 볼륨 조절 ━━━',LW/2,sliderY1-12);
-  // BGM 슬라이더
   G.fillStyle='#fff';G.font='bold 10px Courier New';G.textAlign='left';
   G.fillText('🎵 BGM',sliderSx,sliderY1-2);
-  G.fillStyle='#aaa';G.textAlign='right';G.fillText(`${Math.round(bgmVol*100)}%`,sliderSx+sliderSw,sliderY1-2);
+  G.fillStyle='#aaa';G.textAlign='right';G.fillText(Math.round(bgmVol*100)+'%',sliderSx+sliderSw,sliderY1-2);
   drawVolSlider(sliderSx,sliderY1+4,sliderSw,bgmVol,'#ff8844','bgm');
-  // SFX 슬라이더
   G.fillStyle='#fff';G.font='bold 10px Courier New';G.textAlign='left';
   G.fillText('🔊 효과음',sliderSx,sliderY2-2);
-  G.fillStyle='#aaa';G.textAlign='right';G.fillText(`${Math.round(sfxVol*100)}%`,sliderSx+sliderSw,sliderY2-2);
+  G.fillStyle='#aaa';G.textAlign='right';G.fillText(Math.round(sfxVol*100)+'%',sliderSx+sliderSw,sliderY2-2);
   drawVolSlider(sliderSx,sliderY2+4,sliderSw,sfxVol,'#44aaff','sfx');
-  // 하단 통계
-  G.fillStyle='#888';G.font='10px Courier New';G.textAlign='center';
-  G.fillText(`Lv.${player.lv} · ${killCount} 처치 · 생존 ${String(Math.floor(gameTime/60)).padStart(2,'0')}:${String(Math.floor(gameTime%60)).padStart(2,'0')}`,LW/2,LH-12);
+  // ━━ 하단 통계 배지 ━━
+  {
+    const txt='Lv.'+player.lv+'  ·  💀 '+killCount+'  ·  ⏱ '+String(Math.floor(gameTime/60)).padStart(2,'0')+':'+String(Math.floor(gameTime%60)).padStart(2,'0');
+    G.font='bold 10px Courier New';
+    const tw=G.measureText(txt).width+28;
+    G.fillStyle='rgba(0,0,0,0.6)';G.fillRect(LW/2-tw/2,LH-26,tw,18);
+    G.strokeStyle='rgba(255,255,255,0.12)';G.lineWidth=1;G.strokeRect(LW/2-tw/2,LH-26,tw,18);
+    G.fillStyle='#bbb';G.textAlign='center';G.fillText(txt,LW/2,LH-13);
+  }
   G.restore();
 }
 // 일시정지 화면 볼륨 슬라이더 클릭 감지
