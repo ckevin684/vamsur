@@ -234,6 +234,32 @@ start firefox index.html
 - 👤 **커밋 이름은 `ckevin684 <ckevin684@gmail.com>`** (repo git config에 설정됨). `unknown`으로 박히면 `git config user.name "ckevin684"`·`user.email "ckevin684@gmail.com"` 재적용 후 커밋.
 
 ## 다음 작업 후보 (백로그)
-1. **진화 접근성 개선** (위 우선검토 1) ⬅ 제일 중요
+1. ~~진화 접근성 개선~~ ✅ **해결됨 (2026-06-10: 보스 보물상자 + 조건 완화)**
 2. **친구 실사 픽셀 스프라이트** — 사용자가 투명 PNG 정면 전신(1024², 7명 동일) 주면 base64 박고 sChar 교체(걷기모션은 코드로). 논의 완료, 이미지 대기.
 3. **캐릭터 격차 정밀 튜닝** / 무기 6칸 / 모바일·실 SFX / VTuber 실제 이미지
+
+## 🆕 세션 2026-06-10: 스팀 퀄리티 1차 (보물상자/진화 접근성/UI 킷)
+
+### 💎 보스 보물상자 (VS식 진화 게이트) — 진화 접근성 해결
+- 보스(최종 제외) 처치 시 `chest` 픽업 확정 드랍 (60s 유지). `BAL.chest` 설정.
+- 열면 게임 정지+연출(`chestAnim`, `renderChest`): **무기 Lv6+ & 페어템 보유(레벨무관) → 즉시 진화!** 아니면 랜덤 무기/아이템 강화 3회. +골드 25~50.
+- 레벨업 카드 진화 조건도 완화: 페어템 만렙→**Lv3+** (rollLvUpCards).
+- 충돌 처리: 상자 중 레벨업 발생→`pendingLvUps` 보류(gainXp/openChest/closeChest 3곳).
+- 풀런 검증: 소민 15분 완주 시 상자 3개로 진화 4개 자동 달성.
+
+### 🎨 UI 킷 (공용) — "허접함" 해결의 핵심
+- `uiDim(a)` 그라데이션 딤+비네팅 / `uiPanel(x,y,w,h,accent,title)` 그림자+그라데이션+코너브래킷 / `uiHeader(text,y,c1,c2,size)` 글로우 헤더+장식라인 / `uiBtn(...)` / `hudPanel(...)`(인게임 경량).
+- 적용: 일시정지(ESC)·설정·메타 강화상점·인게임 HUD 전체·알림 토스트·레벨업 화면·지워니 투자창/증권상점·종원 호텔 딤.
+- **새 오버레이/패널 만들 땐 반드시 이 킷 사용** (스타일 통일).
+- 레벨업 카드 스태거 등장 애니(`lvUpAnimStart`, performance.now 기반).
+- 화면 전환 페이드: `stateFade`/`drawStateFade()` (레벨업↔플레이 제외). 페이지 CSS도 배경 그라데이션+캔버스 글로우.
+
+### 기타
+- 타이틀: 핏빛 달+별+불씨+로고 부유/글로우, v1.1. RECIPES에 지워니(동전→비트코인) 추가.
+- 13분~ 스폰 클라이맥스 램프(lateFloor 다시 감소 — 진화 빨라진 보상).
+- 일시정지 진화 조합법 문구 = 새 조건 기준으로 갱신.
+
+### ⚠️ 이번 세션 인프라 노하우 (다음 세션 필독)
+- **Cowork Edit 도구가 이 파일(380KB+) 끝부분을 2번 잘라먹음** → 대형 수정은 **bash python(replace/assert)** 로만. 수정 후 `tail -c` + `node --check` 필수.
+- git lock 파일 못 지울 땐 `mcp__cowork__allow_cowork_file_delete` 호출 후 rm.
+- 검증 하네스: `outputs/sim.js`(+sim_tests.js) = node 헤드리스 DOM/canvas 스텁 시뮬. 스크린샷 = playwright-core+@sparticuz/chromium (한글폰트: @fontsource/noto-sans-kr woff2→ttf, FONTCONFIG_PATH=/tmp/fonts).
