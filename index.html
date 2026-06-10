@@ -6558,12 +6558,15 @@ function drawMinimap(){
   // 적
   G.fillStyle='#ff5555';
   enemies.forEach(e=>{const p=rel(e.x,e.y);if(inMap(p))G.fillRect(p.x-1.2,p.y-1.2,2.6,2.6)});
-  // 코인
-  G.fillStyle='#ffcc22';
-  coins.forEach(c=>{const p=rel(c.x,c.y);if(inMap(p))G.fillRect(p.x-1,p.y-1,2,2)});
-  // 픽업
-  G.fillStyle='#88ff88';
-  pickups.forEach(pk=>{const p=rel(pk.x,pk.y);if(inMap(p))G.fillRect(p.x-2,p.y-2,4,4)});
+  // 코인/일반 픽업은 미니맵에서 제외 (후반 점 범벅 방지 — 사용자 요청 2026-06)
+  // 💎 보물상자만 표시 (보스 드랍, 60s 한정 — 중요도 높음). 맵 밖이면 가장자리 화살표.
+  pickups.forEach(pk=>{
+    if(pk.t!=='chest'||pk.dead)return;
+    const p=rel(pk.x,pk.y),bl=Math.sin(gameTime*4)*0.5+0.5;
+    if(inMap(p)){G.fillStyle='#ffd24a';G.fillRect(p.x-3,p.y-3,6,6);G.fillStyle='#7a4a1a';G.fillRect(p.x-2,p.y-1,4,3);}
+    else{const a=Math.atan2(pk.y-player.y,pk.x-player.x),ax=cx+Math.cos(a)*(mw/2-8),ay=cy+Math.sin(a)*(mh/2-8);
+      G.save();G.globalAlpha=0.6+bl*0.4;G.translate(ax,ay);G.rotate(a);G.fillStyle='#ffd24a';G.beginPath();G.moveTo(6,0);G.lineTo(-4,-4);G.lineTo(-4,4);G.closePath();G.fill();G.restore();}
+  });
   // 🛒 상점 (지워니) — 맵 밖이면 가장자리 화살표
   if(shopEnt){
     const p=rel(shopEnt.x,shopEnt.y),bl=Math.sin(gameTime*4)*0.5+0.5;
