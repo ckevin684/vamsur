@@ -3479,6 +3479,43 @@ function sBomber(x,y,fr,hit,elite,danger){
   G.fillStyle=fl>0.5?'#ffdd33':'#ff6600';G.beginPath();G.arc(x+3,y-14+bob,2.5,0,Math.PI*2);G.fill();
   if(!hit){G.fillStyle='#220';G.fillRect(x-4,y-1+bob,2,2);G.fillRect(x+1,y-1+bob,2,2);}
 }
+// ═══ 적 분리 (서로 겹침 방지) — 공간 해시 그리드, O(n) ═══
+// 각 적이 주변 적과 너무 가까우면 자기 자신만 살짝 밀려남 (양쪽이 각자 차례에 밀림 = 대칭).
+// minD에 0.62 곱해 약간의 겹침은 허용 → 뱀서식 '빽빽한 호드' 느낌 유지하면서 완전 포개짐만 방지.
+function separateEnemies(){
+  const n=enemies.length;if(n<2)return;
+  const CELL=44,grid=new Map();
+  for(let i=0;i<n;i++){
+    const e=enemies[i];if(e.dead)continue;
+    const k=Math.floor(e.x/CELL)*131072+Math.floor(e.y/CELL);
+    let arr=grid.get(k);if(!arr){arr=[];grid.set(k,arr)}
+    arr.push(e);
+  }
+  for(let i=0;i<n;i++){
+    const e=enemies[i];
+    if(e.dead||e.planted)continue;          // 박힌 해골은 안 밀림 (포탑)
+    const cx=Math.floor(e.x/CELL),cy=Math.floor(e.y/CELL);
+    let pushX=0,pushY=0;
+    for(let ox=-1;ox<=1;ox++)for(let oy=-1;oy<=1;oy++){
+      const arr=grid.get((cx+ox)*131072+(cy+oy));if(!arr)continue;
+      for(let j=0;j<arr.length;j++){
+        const o=arr[j];if(o===e||o.dead)continue;
+        const minD=(e.sz+o.sz)*0.62;
+        let dx=e.x-o.x,dy=e.y-o.y;
+        const d2=dx*dx+dy*dy;
+        if(d2>=minD*minD)continue;
+        if(d2<0.01){const a=Math.random()*Math.PI*2;dx=Math.cos(a);dy=Math.sin(a);pushX+=dx*minD*0.35;pushY+=dy*minD*0.35;continue}  // 완전 포개짐 → 랜덤 방향
+        const d=Math.sqrt(d2),ov=(minD-d)/d*0.35;  // 겹친 만큼의 35%씩 (소프트, 수 프레임에 수렴)
+        pushX+=dx*ov;pushY+=dy*ov;
+      }
+    }
+    if(pushX||pushY){
+      const m=Math.hypot(pushX,pushY),cap=e.sz*0.5;  // 프레임당 최대 이동 캡 (떨림 방지)
+      if(m>cap){pushX*=cap/m;pushY*=cap/m}
+      e.x+=pushX;e.y+=pushY;
+    }
+  }
+}
 class Enemy{
   constructor(x,y,type,elite=false){
     this.x=x;this.y=y;this.type=type;this.dead=false;
@@ -6221,6 +6258,7 @@ function update(dt){
   if(!bossActive&&bossIdx<BDEFS.length&&gameTime>=BDEFS[bossIdx].t){boss=new Boss(BDEFS[bossIdx]);bossActive=true;bossIdx++;shake(0.4,6)}
   enemies.forEach(e=>e.update(dt));enemies=enemies.filter(e=>!e.dead);
   if(enemies.length>380)enemies=enemies.slice(enemies.length-380);
+  separateEnemies();  // 적끼리 겹침 방지 (공간 해시)
   if(boss){boss.update(dt);if(boss&&boss.dead)boss=null}
   // 컴패니언 (뭉치) 업데이트
   if(player.companions)player.companions.forEach(c=>c.update(dt));
