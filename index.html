@@ -1535,6 +1535,7 @@ document.addEventListener('keydown',e=>{
   if(menuKey(e)){e.preventDefault();return;}  // ⌨️ 메뉴/선택 화면 키보드 조작 (소비 시 게임키 차단)
   if((e.key==='p'||e.key==='P'||e.key==='Escape')&&state==='playing'){paused=!paused;e.preventDefault()}
   if(e.key==='Escape'&&state==='shop'){state='title';e.preventDefault()}  // 상점 → 타이틀
+  if(e.key==='Escape'&&state==='codex'){state='title';e.preventDefault()}  // 도감 → 타이틀
   if((e.key==='Shift'||e.code==='ShiftLeft'||e.code==='ShiftRight')&&state==='playing'&&!paused){if(player)player.tryDash();e.preventDefault()}  // 대시 = Shift (Space는 선택)
   if(e.key==='`'||e.code==='Backquote'){godMode=!godMode;notify(godMode?'🛡️ 무적 ON':'무적 OFF','디버그','#ffdd44');e.preventDefault()}
 });
@@ -5311,45 +5312,43 @@ function drawHUD(){
   G.restore();
   // 우측 - 무기 슬롯 (4칸 고정 그리드, 한글 잘림 방지 위해 패널 확장)
   G.save();
-  const wsX=LW-148,wsY=8,wsH=22+W_SLOTS*16;
+  const wsX=LW-148,wsY=8,wsH=58;
   hudPanel(wsX,wsY,140,wsH,'#ff8866');
-  G.fillStyle='#ff8866';G.font='bold 9px Courier New';G.textAlign='left';G.fillText(`⚔ 무기 ${p.wpns.length}/${W_SLOTS}`,wsX+6,wsY+14);
+  G.fillStyle='#ff8866';G.font='bold 9px Courier New';G.textAlign='left';G.fillText(`⚔ ${p.wpns.length}/${W_SLOTS}`,wsX+6,wsY+14);
   for(let i=0;i<W_SLOTS;i++){
-    const w=p.wpns[i],wy=wsY+27+i*16;
-    G.fillStyle='rgba(0,0,0,0.5)';G.fillRect(wsX+4,wy-10,132,15);
-    if(!w){G.fillStyle='#222';G.fillRect(wsX+4,wy-10,132,15);G.fillStyle='#444';G.font='9px Courier New';G.fillText('빈 슬롯',wsX+8,wy);continue}
+    const w=p.wpns[i],bx=wsX+6+i*33,by=wsY+19,bs=30;
+    G.fillStyle='rgba(0,0,0,0.45)';G.fillRect(bx,by,bs,bs);
+    if(!w){G.strokeStyle='rgba(255,255,255,0.08)';G.lineWidth=1;G.strokeRect(bx+0.5,by+0.5,bs-1,bs-1);continue}
     const wd=WDEFS[w.type];if(!wd)continue;
-    G.fillStyle=wd.col+'33';G.fillRect(wsX+4,wy-10,132,15);
-    // 쿨다운 진행도
+    const maxed=w.lv>=W_MAX_LV;
+    if(wd.evolved){G.save();G.shadowColor='#ffdd44';G.shadowBlur=6;G.strokeStyle='#ffdd44';G.lineWidth=1.5;G.strokeRect(bx+0.5,by+0.5,bs-1,bs-1);G.restore();}
+    else{G.strokeStyle=maxed?'#ffaa44':wd.col+'88';G.lineWidth=1;G.strokeRect(bx+0.5,by+0.5,bs-1,bs-1);}
+    G.font='16px serif';G.textAlign='center';G.fillStyle='#fff';G.fillText(wd.name.split(' ')[0],bx+bs/2,by+20);
+    // 쿨다운 바 (하단)
     const maxCd=wd.cd*wlvAt(WLV.cdM,w.lv)/p.as,cdP=Math.max(0,Math.min(1,1-w.t/maxCd));
-    G.fillStyle=wd.col;G.fillRect(wsX+4,wy+4,132*cdP,2);
-    // 이름
-    const maxed=wd.evolved||w.lv>=W_MAX_LV;
-    G.fillStyle=wd.evolved?'#ffdd44':(maxed?'#ffaa44':'#eee');G.font='bold 9px Courier New';
-    G.fillText(wd.name.slice(0,12),wsX+8,wy);
-    // 레벨
-    G.fillStyle=maxed?'#ffdd44':'#aaa';G.font='bold 8px Courier New';G.textAlign='right';
-    G.fillText(wd.evolved?'★EVO':(w.lv>=W_MAX_LV?'MAX':`L${w.lv}`),wsX+134,wy);
-    G.textAlign='left';
+    G.fillStyle='rgba(0,0,0,0.6)';G.fillRect(bx,by+bs-3,bs,3);
+    G.fillStyle=wd.col;G.fillRect(bx,by+bs-3,bs*cdP,3);
+    // 레벨 뱃지 (우상단)
+    G.fillStyle='rgba(0,0,0,0.75)';G.fillRect(bx+bs-15,by,15,9);
+    G.fillStyle=(wd.evolved||maxed)?'#ffdd44':'#ddd';G.font='bold 7px Courier New';
+    G.fillText(wd.evolved?'EVO':(maxed?'MAX':'L'+w.lv),bx+bs-7.5,by+7);
   }
-  // 아이템 슬롯 (지워니 전설템으로 늘어날 수 있음)
+  // 아이템 슬롯 — 아이콘 그리드 (지워니 전설템으로 칸 추가 가능)
   const pSlots=P_SLOTS+(p.extraSlots||0);
-  const isX=wsX,isY=wsY+wsH+6,isH=22+pSlots*16,pIds=Object.keys(p.passives);
+  const isX=wsX,isY=wsY+wsH+6,iRows=Math.ceil(pSlots/6),isH=20+iRows*24,pIds=Object.keys(p.passives);
   hudPanel(isX,isY,140,isH,'#88ccff');
-  G.fillStyle='#88ccff';G.font='bold 9px Courier New';G.textAlign='left';G.fillText(`🎁 아이템 ${pIds.length}/${pSlots}`,isX+6,isY+14);
+  G.fillStyle='#88ccff';G.font='bold 9px Courier New';G.textAlign='left';G.fillText(`🎁 ${pIds.length}/${pSlots}`,isX+6,isY+13);
   for(let i=0;i<pSlots;i++){
-    const id=pIds[i],iy=isY+27+i*16;
-    G.fillStyle='rgba(0,0,0,0.5)';G.fillRect(isX+4,iy-10,132,15);
-    if(!id){G.fillStyle='#222';G.fillRect(isX+4,iy-10,132,15);G.fillStyle='#444';G.font='9px Courier New';G.fillText('빈 슬롯',isX+8,iy);continue}
-    const ps=PASSIVES.find(x=>x.id===id),lv=p.passives[id];
-    if(!ps)continue;
+    const id=pIds[i],bx=isX+6+(i%6)*22,by=isY+17+Math.floor(i/6)*24,bs=20;
+    G.fillStyle='rgba(0,0,0,0.45)';G.fillRect(bx,by,bs,bs);
+    if(!id){G.strokeStyle='rgba(255,255,255,0.08)';G.lineWidth=1;G.strokeRect(bx+0.5,by+0.5,bs-1,bs-1);continue}
+    const ps=PASSIVES.find(x=>x.id===id),lv=p.passives[id];if(!ps)continue;
     const maxed=lv>=P_MAX_LV;
-    G.fillStyle=(maxed?'#88ccff33':'#88ccff15');G.fillRect(isX+4,iy-10,132,15);
-    G.fillStyle=maxed?'#88ddff':'#ccc';G.font='bold 9px Courier New';
-    G.fillText(ps.name.slice(0,12),isX+8,iy);
-    G.fillStyle=maxed?'#88ddff':'#aaa';G.font='bold 8px Courier New';G.textAlign='right';
-    G.fillText(maxed?'MAX':`L${lv}`,isX+134,iy);
-    G.textAlign='left';
+    G.strokeStyle=maxed?'#88ddff':'rgba(136,204,255,0.45)';G.lineWidth=1;G.strokeRect(bx+0.5,by+0.5,bs-1,bs-1);
+    G.font='11px serif';G.textAlign='center';G.fillStyle='#fff';G.fillText(ps.name.split(' ')[0],bx+bs/2,by+14);
+    // 레벨 (우하단 미니 뱃지)
+    G.fillStyle='rgba(0,0,0,0.78)';G.fillRect(bx+bs-9,by+bs-8,9,8);
+    G.fillStyle=maxed?'#88ddff':'#ccc';G.font='bold 6px Courier New';G.fillText(maxed?'M':lv,bx+bs-4.5,by+bs-1.5);
   }
   G.restore();
   // 보스 체력바
@@ -5381,9 +5380,10 @@ function drawHUD(){
 // ═══ TITLE SCREEN ═══
 setInterval(()=>{if(state==='title')titleFr++},100);
 const TITLE_BTNS=[
-  {label:'▶ 게임 시작',y:322,w:240,h:42,action:'start'},
-  {label:'🛒 강화 상점',y:374,w:240,h:36,action:'shop'},
-  {label:'⚙ 설정',y:416,w:240,h:34,action:'settings'},
+  {label:'▶ 게임 시작',y:312,w:240,h:42,action:'start'},
+  {label:'📖 도감',y:364,w:240,h:34,action:'codex'},
+  {label:'🛒 강화 상점',y:404,w:240,h:34,action:'shop'},
+  {label:'⚙ 설정',y:444,w:240,h:32,action:'settings'},
 ];
 function renderTitle(){
   // 배경 - 어두운 그라데이션 + 파티클
@@ -6063,6 +6063,7 @@ c.addEventListener('mousemove',e=>{
     else if(dragSlider.id==='sfx')sfxVol=v;
   }
   if(state==='title')hovTitleBtn=getTitleBtnAt(m.x,m.y);
+  if(state==='codex'){const ci=getCodexAt(m.x,m.y);if(ci>=0)codexSel=ci;}
   if(state==='select')hovChar=getCharAt(m.x,m.y);
   if(state==='levelup')hovUI=getUpgradeAt(m.x,m.y);
   if(investOpen)hovInvest=getInvestClick(m.x,m.y);
@@ -6149,6 +6150,11 @@ c.addEventListener('click',e=>{
     return;
   }
   if(state==='shop'){ shopBuy(getShopClick(m.x,m.y)); return; }
+  if(state==='codex'){
+    const ci=getCodexAt(m.x,m.y);if(ci>=0){codexSel=ci;SFX.gem();return;}
+    const b=codexBackRect();if(m.x>=b.x&&m.x<=b.x+b.w&&m.y>=b.y&&m.y<=b.y+b.h)state='title';
+    return;
+  }
   if(state==='select'&&hovChar>=0)startGame(CHARS[hovChar]);
   if(state==='levelup'){
     // 🔄 새로고침 버튼
@@ -6181,6 +6187,7 @@ function advanceRoulette(){
 function doTitleAction(a){
   if(a==='start'){state='select';playBgm('title')}
   else if(a==='shop'){state='shop';selMeta=0;playBgm('title')}
+  else if(a==='codex'){state='codex';codexSel=0}
   else if(a==='settings'){settingsOpen=true}
 }
 function pickUpgrade(i){
@@ -6322,6 +6329,7 @@ function render(){
   G.fillStyle='#080808';G.fillRect(0,0,LW,LH);
   if(state==='title'){renderTitle();if(settingsOpen)renderSettings();drawStateFade();return}
   if(state==='shop'){renderShop();drawStateFade();return}
+  if(state==='codex'){renderCodex();drawStateFade();return}
   if(state==='select'){renderSelect();if(settingsOpen)renderSettings();drawStateFade();return}
   // 화면 흔들림 + 카메라 선행
   const sx=shakeT>0?rnd(-shakeM,shakeM):0,sy=shakeT>0?rnd(-shakeM,shakeM):0;
@@ -6709,6 +6717,158 @@ function uiBtn(x,y,w,h,label,hov,accent,fontSize){
   G.textBaseline='alphabetic';
   G.restore();
 }
+// ═══ 📖 도감 (CODEX) — 아이콘 중심 설명 체계 ═══
+// ✏️ 플레이버 텍스트는 전부 임시 초안 — Kevin이 하나씩 교체 예정. id 기준으로 여기만 고치면 됨.
+const CODEX_FLAVOR={
+  // 기본 무기
+  ram:'준형이가 조립하다 남은 DDR4 8기가.\n정전기 조심. 던지면 의외로 잘 튕긴다.',
+  knife:'종원이가 2시즌스 호텔에서 쓰던 셰프 나이프.\n칼날에 비밀 레시피의 흔적이 남아있다.',
+  light:'심야경비 윤소민의 업무용 손전등.\n배터리는 회사 비품이다.',
+  staff:'기종이가 리즈시절 사용했던 지팡이. 아는 사람만 안다.\n가끔 무기로도 사용했다는 소문이 있다.',
+  mungchi:'최초의 반려견 뭉치. 흰 포메라니안.\n물지는 않는다. 아마도.',
+  gsword:'기훈이가 몬헌 2000시간 끝에 현실로 가져온 슬래시 액스.\n변형 기믹은 로망이다.',
+  coin:'지워니의 행운의 동전.\n던질 때마다 수익률이 떠오른다. 대부분 마이너스였다.',
+  // 진화 무기
+  fullspec:'준형전자 풀스펙 완성체.\n본체 가격보다 비싸졌다는 소문이 있다.',
+  fullcourse:'종원의 풀코스. 예약은 3개월 대기.\n친구는 공짜.',
+  nightwatch:'심야경계령 발동.\n이 시간부터 윤소민 구역이다.',
+  awakegj:'완치된 기종이. 허리는 멀쩡하다.\n이제 아무도 못 말린다.',
+  unleash:'각성한 황금 뭉치.\n모든 것을 할퀸다. 간식은 효과가 있었다.',
+  caff:'개방의 검.\n백다방 아아를 흡수해 잠금이 해제됐다.',
+  bitcoin:'드디어 떡상한 비트코인.\n지워니는 울고 있다. 기쁨의 눈물이다.',
+  // 아이템
+  warrant:'오버클럭된 램. 시스템이 빨라진다.\n공격속도도 빨라진다. 과학이다.',
+  recipe:'셰프의 숫돌. 칼을 갈면 잘 썰린다.\n당연한 이치.',
+  log:'대용량 손전등 배터리.\n더 밝으면 떨어진 보석도 잘 보인다.',
+  pill:'기종이 재활의 동반자.\n짚고만 있어도 회복되는 기분이 든다.',
+  leash:'뭉치가 제일 좋아하는 간식.\n흥분한 뭉치는 더 넓게 뛰논다.',
+  coffee:'차지액스 강화날.\n날을 갈았더니 급소에 더 잘 꽂힌다.',
+  leverage:'분산투자의 지혜가 담긴 동전.\n계란을 한 바구니에 담지 마라. 맞아도 덜 아프다.',
+  anger:'최초가 빡쳤다.\n발이 빨라진다.',
+  cane:'기종의 허리 복대.\n생존의 기본은 허리 보호다.',
+  torch:'소민의 순찰일지.\n기록이 쌓이면 경험이 된다.',
+  monhun:'기훈의 몬헌 2000시간.\n큰 놈들의 약점은 이미 외우고 있다.',
+  bark:'준형전자 특제 충격 방어막.\nAS는 불가능하다.',
+  knife2:'종원의 프라이팬.\n후려치면 적이 날아간다. 요리도 된다.',
+  // 소민 변신
+  shibuki:'여우신의 변덕.\n빔이 변덕스럽게 폭발한다.',
+  riko:'이지피지 칼춤.\n세 갈래로 갈라지는 빔.',
+  huya:'어둠 마법 영창.\n가늘지만 아주 아프다.',
+  lize:'흡혈의 밤.\n맞힐 때마다 피가 돌아온다.',
+  tabi:'트로트 폭격.\n음표가 적 머리 위로 떨어진다.',
+  sleep:'야간경비의 숙명.\n졸리면 빔도 존다.',
+  hina:'절대적 아이돌 강림.\n잭팟이다.',
+  workmode:'사장님 전화를 받아버렸다.\n손전등 2개 풀가동. 야근수당은 없다.',
+};
+const CODEX_KINDS={wpn:{label:'기본 무기',col:'#ff8866'},evo:{label:'진화 무기',col:'#ffdd44'},itm:{label:'아이템',col:'#88ccff'},form:{label:'소민 변신',col:'#cc88ff'}};
+let CODEX_LIST=null,codexSel=0;
+function getCodexList(){
+  if(CODEX_LIST)return CODEX_LIST;
+  const L=[];
+  BASE_WPNS.forEach(t=>L.push({kind:'wpn',id:t,icon:WDEFS[t].name.split(' ')[0],name:WDEFS[t].name.replace(/^\S+ /,'')}));
+  Object.keys(WDEFS).filter(t=>WDEFS[t].evolved).forEach(t=>L.push({kind:'evo',id:t,icon:WDEFS[t].name.split(' ')[0],name:WDEFS[t].name.replace(/^\S+ /,'')}));
+  PASSIVES.forEach(p=>L.push({kind:'itm',id:p.id,icon:p.name.split(' ')[0],name:p.name.replace(/^\S+ /,''),sub:p.desc}));
+  STREAMER_FORMS.concat([WORK_FORM]).forEach(f=>L.push({kind:'form',id:f.id,icon:f.emoji,name:f.name,sub:f.desc}));
+  CODEX_LIST=L;return L;
+}
+const CODEX_GRID={x:20,y:96,cell:40,gap:5,cols:7};
+function getCodexAt(mx,my){
+  const G2=CODEX_GRID,n=getCodexList().length;
+  const c=Math.floor((mx-G2.x)/(G2.cell+G2.gap)),r=Math.floor((my-G2.y)/(G2.cell+G2.gap));
+  if(c<0||c>=G2.cols||r<0)return -1;
+  const i=r*G2.cols+c;
+  if(i>=n)return -1;
+  const bx=G2.x+c*(G2.cell+G2.gap),by=G2.y+r*(G2.cell+G2.gap);
+  if(mx>bx+G2.cell||my>by+G2.cell)return -1;
+  return i;
+}
+function codexBackRect(){return {x:LW/2-70,y:LH-46,w:140,h:30};}
+function wrapText(txt,maxW){
+  const out=[];
+  txt.split('\n').forEach(seg=>{
+    let line='';
+    for(const ch of seg){
+      if(G.measureText(line+ch).width>maxW){out.push(line);line=ch===' '?'':ch;}
+      else line+=ch;
+    }
+    out.push(line);
+  });
+  return out;
+}
+function renderCodex(){
+  const bg=G.createRadialGradient(LW/2,LH*0.3,40,LW/2,LH*0.4,LH);
+  bg.addColorStop(0,'#181226');bg.addColorStop(1,'#060409');
+  G.fillStyle=bg;G.fillRect(0,0,LW,LH);
+  uiHeader('📖 도감',50,'#ffeeaa','#ffaa22',26);
+  G.fillStyle='#8a8496';G.font='10px Courier New';G.textAlign='center';
+  G.fillText('아이콘에 마우스를 올리면 설명이 나와요',LW/2,72);
+  const L=getCodexList(),G2=CODEX_GRID;
+  // ── 아이콘 그리드 ──
+  L.forEach((e,i)=>{
+    const c=i%G2.cols,r=Math.floor(i/G2.cols);
+    const bx=G2.x+c*(G2.cell+G2.gap),by=G2.y+r*(G2.cell+G2.gap);
+    const sel=codexSel===i,kc=CODEX_KINDS[e.kind].col;
+    const cg=G.createLinearGradient(bx,by,bx,by+G2.cell);
+    cg.addColorStop(0,sel?'#2c2c3e':'#191922');cg.addColorStop(1,sel?'#1c1c2a':'#0e0e15');
+    G.fillStyle=cg;G.fillRect(bx,by,G2.cell,G2.cell);
+    if(sel){G.save();G.shadowColor=kc;G.shadowBlur=12;G.strokeStyle=kc;G.lineWidth=2;G.strokeRect(bx,by,G2.cell,G2.cell);G.restore();}
+    else{G.strokeStyle=kc+'55';G.lineWidth=1;G.strokeRect(bx+0.5,by+0.5,G2.cell-1,G2.cell-1);}
+    G.font='20px serif';G.textAlign='center';G.fillStyle='#fff';
+    G.fillText(e.icon,bx+G2.cell/2,by+27);
+  });
+  // ── 섹션 범례 ──
+  {
+    let lx=G2.x,ly=G2.y+Math.ceil(L.length/G2.cols)*(G2.cell+G2.gap)+16;
+    G.font='bold 9px Courier New';G.textAlign='left';
+    Object.values(CODEX_KINDS).forEach(k=>{
+      G.fillStyle=k.col;G.fillRect(lx,ly-7,8,8);
+      G.fillStyle='#aaa';G.fillText(k.label,lx+12,ly);
+      lx+=G.measureText(k.label).width+34;
+    });
+  }
+  // ── 상세 패널 ──
+  const e=L[codexSel];
+  if(e){
+    const kc=CODEX_KINDS[e.kind].col;
+    const dx=G2.x+G2.cols*(G2.cell+G2.gap)+18,dy=96,dw=LW-dx-20,dh=380;
+    uiPanel(dx,dy,dw,dh,kc,CODEX_KINDS[e.kind].label);
+    G.textAlign='center';
+    G.font='52px serif';G.fillText(e.icon,dx+dw/2,dy+92);
+    G.fillStyle='#fff';G.font='bold 17px Courier New';G.fillText(e.name,dx+dw/2,dy+124);
+    if(e.sub){G.fillStyle=kc;G.font='bold 10px Courier New';G.fillText(e.sub,dx+dw/2,dy+142);}
+    G.fillStyle='rgba(255,255,255,0.12)';G.fillRect(dx+24,dy+154,dw-48,1);
+    // 플레이버 텍스트
+    const fl=CODEX_FLAVOR[e.id]||'(설명 준비 중…)';
+    G.fillStyle='#c8c2d4';G.font='11px Courier New';
+    wrapText(fl,dw-56).forEach((ln,li)=>G.fillText(ln,dx+dw/2,dy+178+li*17));
+    // 진화 관계 (아이콘 공식)
+    let formula=null;
+    if(e.kind==='wpn'&&EVOS[e.id]){
+      const ev=EVOS[e.id],itm=PASSIVES.find(p=>p.id===ev.need);
+      formula=[WDEFS[e.id].name.split(' ')[0],itm?itm.name.split(' ')[0]:'?',WDEFS[ev.res].name.split(' ')[0]];
+    }else if(e.kind==='evo'){
+      const base=Object.keys(EVOS).find(b=>EVOS[b].res===e.id);
+      if(base){const itm=PASSIVES.find(p=>p.id===EVOS[base].need);
+        formula=[WDEFS[base].name.split(' ')[0],itm?itm.name.split(' ')[0]:'?',e.icon];}
+    }else if(e.kind==='itm'&&EVO_ITEM[e.id]){
+      const base=EVO_ITEM[e.id];
+      formula=[WDEFS[base].name.split(' ')[0],e.icon,WDEFS[EVOS[base].res].name.split(' ')[0]];
+    }
+    if(formula){
+      const fy=dy+dh-46;
+      G.fillStyle='rgba(255,255,255,0.12)';G.fillRect(dx+24,fy-22,dw-48,1);
+      G.font='20px serif';
+      G.fillText(formula[0],dx+dw/2-66,fy+6);
+      G.fillStyle='#888';G.font='bold 14px Courier New';G.fillText('+',dx+dw/2-33,fy+5);
+      G.font='20px serif';G.fillStyle='#fff';G.fillText(formula[1],dx+dw/2,fy+6);
+      G.fillStyle='#888';G.font='bold 14px Courier New';G.fillText('=',dx+dw/2+33,fy+5);
+      G.save();G.shadowColor='#ffdd44';G.shadowBlur=8;G.font='24px serif';G.fillStyle='#fff';G.fillText(formula[2],dx+dw/2+68,fy+8);G.restore();
+    }
+  }
+  // 뒤로
+  const b=codexBackRect();
+  uiBtn(b.x,b.y,b.w,b.h,'◀ 뒤로 (ESC)',false,'#ffaa55',12);
+}
 const RECIPES=[
   ['🖥️ 램','🖥️ 보증서','⚡ 풀스펙','ram','warrant'],
   ['🔪 칼','🍖 레시피','🔥 풀코스','knife','recipe'],
@@ -6767,28 +6927,32 @@ function drawPauseOverlay(){
   const rpY=346,rpW=colW*2+20;
   uiPanel(leftX,rpY,rpW,90,'#ffaa66','✨ 진화 조합법');
   G.fillStyle='#8a8496';G.font='9px Courier New';G.textAlign='right';
-  G.fillText('레벨업: 무기 MAX+페어 Lv3  ·  💎보스상자: 무기 Lv6+페어 보유',leftX+rpW-12,rpY+18);
+  G.fillText('💎보스상자: 무기 Lv6+페어템 보유 = 즉시진화  ·  자세한 건 타이틀 📖 도감',leftX+rpW-12,rpY+18);
   RECIPES.forEach((r,i)=>{
-    const c2=i%2,row=Math.floor(i/2);
-    const x=leftX+14+c2*(colW+5),y=rpY+40+row*13;
+    const c2=i%4,row=Math.floor(i/4);
+    const chW=146,chH=23,x=leftX+10+c2*(chW+6),y=rpY+33+row*27;
     const w=player.wpns.find(ww=>ww.type===r[3]);
     const wLv=w?w.lv||0:0;
     const pLv=player.passives[r[4]]||0;
-    const wMaxed=w&&wLv>=W_MAX_LV,pRdy=pLv>=3;
-    const evolvedRes=EVOS[r[3]]?.res;
-    const done=player.wpns.some(ww=>ww.type===evolvedRes);
-    let col1,col2,icon;
-    if(done){col1='#88ff88';col2='#aaffaa';icon='✓'}
-    else if(wMaxed&&pRdy){col1='#ffdd44';col2='#ffeeaa';icon='★'}
-    else if(w||pLv>0){col1='#aabbcc';col2='#ccddee';icon='▸'}
-    else{col1='#555';col2='#777';icon='○'}
-    G.font='10px Courier New';G.textAlign='left';
-    G.fillStyle=col1;G.fillText(icon+' ',x,y);
-    G.fillStyle=w?col2:col1;G.fillText(r[0]+(w?' L'+wLv:''),x+14,y);
-    G.fillStyle=col1;G.fillText('+',x+98,y);
-    G.fillStyle=pLv>0?col2:col1;G.fillText(r[1]+(pLv>0?' L'+pLv:''),x+111,y);
-    G.fillStyle=col1;G.fillText('→',x+208,y);
-    G.fillStyle=col2;G.fillText(r[2],x+226,y);
+    const ready=w&&wLv>=W_MAX_LV&&pLv>=3;
+    const done=player.wpns.some(ww=>ww.type===EVOS[r[3]]?.res);
+    // 칩 배경 (상태별)
+    G.fillStyle=done?'rgba(80,200,100,0.12)':(ready?'rgba(255,221,68,0.14)':'rgba(255,255,255,0.04)');
+    G.fillRect(x,y,chW,chH);
+    G.strokeStyle=done?'#55cc77':(ready?'#ffdd44':'rgba(255,255,255,0.10)');G.lineWidth=1;G.strokeRect(x+0.5,y+0.5,chW-1,chH-1);
+    if(ready&&!done){const bl=0.5+0.5*Math.sin(gameTime*6);G.save();G.globalAlpha=bl*0.5;G.strokeStyle='#ffdd44';G.lineWidth=2;G.strokeRect(x,y,chW,chH);G.restore();}
+    // 아이콘 공식: 무기 + 아이템 = 진화 (보유/미보유 = 밝기)
+    const wpnIcon=WDEFS[r[3]].name.split(' ')[0],itmIcon=(PASSIVES.find(pp=>pp.id===r[4])||{name:'?'}).name.split(' ')[0],resIcon=WDEFS[EVOS[r[3]].res].name.split(' ')[0];
+    G.textAlign='center';G.fillStyle='#fff';
+    G.font='13px serif';G.globalAlpha=w?1:0.3;G.fillText(wpnIcon,x+20,y+17);G.globalAlpha=1;
+    G.fillStyle='#777';G.font='bold 11px Courier New';G.fillText('+',x+38,y+16);
+    G.fillStyle='#fff';G.font='13px serif';G.globalAlpha=pLv>0?1:0.3;G.fillText(itmIcon,x+56,y+17);G.globalAlpha=1;
+    G.fillStyle='#777';G.font='bold 11px Courier New';G.fillText('=',x+74,y+16);
+    G.fillStyle='#fff';G.font='15px serif';G.globalAlpha=done?1:(ready?0.95:0.4);G.fillText(resIcon,x+95,y+17);G.globalAlpha=1;
+    // 우측 상태
+    if(done){G.fillStyle='#7fdd99';G.font='bold 10px Courier New';G.fillText('✓',x+chW-13,y+16);}
+    else if(ready){G.fillStyle='#ffdd44';G.font='bold 10px Courier New';G.fillText('★',x+chW-13,y+16);}
+    else{G.fillStyle='#777';G.font='8px Courier New';G.textAlign='right';G.fillText((w?'L'+wLv:'–')+'·'+(pLv>0?'L'+pLv:'–'),x+chW-5,y+15);G.textAlign='center';}
   });
   // ━━ 볼륨 슬라이더 (히트 영역 고정: 448/478) ━━
   const sliderY1=448, sliderY2=478, sliderSx=LW/2-140, sliderSw=280;
