@@ -1197,7 +1197,7 @@ function applyMetaUpgrades(p){
   p.rerolls = 2 + (u.reroll||0);  // 레벨업 새로고침: 기본 2 + 상점 구매(최대 8 → 총 10)
 }
 let godMode=false;  // 디버그 무적 — 콘솔에서 godMode=true 또는 게임 중 ` (백틱) 키로 토글
-let upgradeChoices=[],hovUI=-1,hovChar=-1,lastTs=0;
+let upgradeChoices=[],hovUI=-1,hovChar=-1,lastTs=0,lvUpAnimStart=0;  // lvUpAnimStart: 레벨업 카드 등장 애니
 let parts=[],killCount=0,afr=0,afrT=0;
 let totalDmg=0,dmgPeak=0,dmgByWpn={};  // 누적 데미지 / 최고 단일타 / 무기(wt)별 데미지 (결과화면 표시용)
 // wt(전달체 타입) → 무기 패밀리 라벨. 기본/진화/시그니처를 한 무기로 묶음. 미등록은 fmtWpnFam에서 '기타' 처리.
@@ -4873,6 +4873,7 @@ function drawLvUpBursts(){
 // ═══ LEVEL UP ═══
 function triggerLvUp(){
   state='levelup';SFX.lvUp();
+  lvUpAnimStart=performance.now();  // 카드 등장 애니
   rollLvUpCards();
 }
 // 레벨업 카드 풀 생성 + 3장 선택 (새로고침이 재호출)
@@ -5001,6 +5002,7 @@ function rollLvUpCards(){
 function rerollLvUp(){
   if(!player||(player.rerolls||0)<=0)return;
   player.rerolls--;
+  lvUpAnimStart=performance.now();  // 리롤도 등장 애니
   rollLvUpCards();
   SFX.shoot();
 }
@@ -5140,16 +5142,26 @@ function drawBar(x,y,w,h,pct,bgC1,bgC2,c1,c2,c3,label,labCol){
     G.fillStyle=labCol||'#fff';G.fillText(label,x+w/2,y+h-3);
   }
 }
+// HUD 경량 패널 — 인게임용 (uiPanel보다 가볍고 반투명, 가독성 우선)
+function hudPanel(x,y,w,h,accent){
+  accent=accent||'#666';
+  const g=G.createLinearGradient(x,y,x,y+h);
+  g.addColorStop(0,'rgba(24,24,36,0.88)');g.addColorStop(1,'rgba(10,10,16,0.88)');
+  G.fillStyle=g;G.fillRect(x,y,w,h);
+  G.fillStyle=accent;G.globalAlpha=0.85;G.fillRect(x,y,w,2);G.globalAlpha=1;
+  G.strokeStyle='rgba(255,255,255,0.12)';G.lineWidth=1;G.strokeRect(x+0.5,y+0.5,w-1,h-1);
+  G.strokeStyle=accent;G.lineWidth=1.5;
+  const cr=6;
+  [[x,y,1,1],[x+w,y,-1,1],[x,y+h,1,-1],[x+w,y+h,-1,-1]].forEach(p2=>{
+    G.beginPath();G.moveTo(p2[0]+p2[2]*cr,p2[1]);G.lineTo(p2[0],p2[1]);G.lineTo(p2[0],p2[1]+p2[3]*cr);G.stroke();
+  });
+}
 function drawHUD(){
   const p=player;
   // 좌측 패널 (높이 확장 — 한글 폰트 메트릭 여유)
   G.save();
   // 패널 배경
-  const grd=G.createLinearGradient(0,0,0,92);
-  grd.addColorStop(0,'rgba(20,20,30,0.85)');grd.addColorStop(1,'rgba(10,10,15,0.85)');
-  G.fillStyle=grd;G.fillRect(8,8,250,90);
-  G.strokeStyle=p.cd.color;G.lineWidth=2;G.strokeRect(9,9,248,88);
-  G.strokeStyle='rgba(255,255,255,0.15)';G.lineWidth=1;G.strokeRect(11,11,244,84);
+  hudPanel(8,8,250,90,p.cd.color);
   // 초상화 영역 구분선
   G.strokeStyle='rgba(255,255,255,0.08)';G.lineWidth=1;G.beginPath();G.moveTo(46,14);G.lineTo(46,92);G.stroke();
   // 캐릭터 미니 초상화
@@ -5230,9 +5242,8 @@ function drawHUD(){
   // 윤소민 변신 인디케이터 (현재 변신 + 다음 룰렛까지 카운트다운)
   if(rouletteOn(p)){
     const sIX=260,sIY=10,sIW=140,sIH=30;  // 높이 24→30 (한글 위 잘림 방지)
-    G.fillStyle='rgba(0,0,0,0.7)';G.fillRect(sIX,sIY,sIW,sIH);
     const form=p.streamerForm,col=form?form.col:'#888';
-    G.strokeStyle=col;G.lineWidth=1.5;G.strokeRect(sIX,sIY,sIW,sIH);
+    hudPanel(sIX,sIY,sIW,sIH,col);
     G.fillStyle=col;G.font='bold 11px Courier New';G.textAlign='left';
     if(form){
       G.fillText(form.emoji+' '+form.name,sIX+6,sIY+18);
@@ -5255,9 +5266,7 @@ function drawHUD(){
   // 중앙 - 시계
   G.save();
   const mm=String(Math.floor(gameTime/60)).padStart(2,'0'),ss=String(Math.floor(gameTime%60)).padStart(2,'0');
-  G.fillStyle='rgba(0,0,0,0.7)';G.fillRect(LW/2-46,8,92,42);
-  G.strokeStyle='#555';G.lineWidth=1;G.strokeRect(LW/2-46,8,92,42);
-  G.fillStyle='#222';G.fillRect(LW/2-44,10,88,2);
+  hudPanel(LW/2-46,8,92,42,'#ffdd88');
   G.fillStyle='#fff';G.font='bold 22px Courier New';G.textAlign='center';
   G.fillStyle='#222';G.fillText(`${mm}:${ss}`,LW/2+1,33);
   G.fillStyle='#ffdd88';G.fillText(`${mm}:${ss}`,LW/2,32);
@@ -5266,8 +5275,7 @@ function drawHUD(){
   // 우측 - 무기 슬롯 (4칸 고정 그리드, 한글 잘림 방지 위해 패널 확장)
   G.save();
   const wsX=LW-148,wsY=8,wsH=22+W_SLOTS*16;
-  G.fillStyle='rgba(20,20,30,0.85)';G.fillRect(wsX,wsY,140,wsH);
-  G.strokeStyle='#444';G.lineWidth=1;G.strokeRect(wsX,wsY,140,wsH);
+  hudPanel(wsX,wsY,140,wsH,'#ff8866');
   G.fillStyle='#ff8866';G.font='bold 9px Courier New';G.textAlign='left';G.fillText(`⚔ 무기 ${p.wpns.length}/${W_SLOTS}`,wsX+6,wsY+14);
   for(let i=0;i<W_SLOTS;i++){
     const w=p.wpns[i],wy=wsY+27+i*16;
@@ -5290,8 +5298,7 @@ function drawHUD(){
   // 아이템 슬롯 (지워니 전설템으로 늘어날 수 있음)
   const pSlots=P_SLOTS+(p.extraSlots||0);
   const isX=wsX,isY=wsY+wsH+6,isH=22+pSlots*16,pIds=Object.keys(p.passives);
-  G.fillStyle='rgba(20,20,30,0.85)';G.fillRect(isX,isY,140,isH);
-  G.strokeStyle='#444';G.lineWidth=1;G.strokeRect(isX,isY,140,isH);
+  hudPanel(isX,isY,140,isH,'#88ccff');
   G.fillStyle='#88ccff';G.font='bold 9px Courier New';G.textAlign='left';G.fillText(`🎁 아이템 ${pIds.length}/${pSlots}`,isX+6,isY+14);
   for(let i=0;i<pSlots;i++){
     const id=pIds[i],iy=isY+27+i*16;
@@ -5692,8 +5699,7 @@ function getCharAt(mx,my){for(let i=0;i<CHARS.length;i++){const col=i%CCOLS,row=
 // ═══ LEVEL UP SCREEN ═══
 const tagColors={'✨진화':'#ffdd44','무기 ⬆':'#ff8844','무기 NEW':'#ffaa66','아이템 ⬆':'#44aaff','아이템 NEW':'#88ccff','보너스':'#88ff88'};
 function renderLevelUp(){
-  // 어두운 배경
-  G.fillStyle='rgba(0,0,0,0.85)';G.fillRect(0,0,LW,LH);
+  uiDim(0.86);
   // 빛줄기 효과
   G.save();
   const cx=LW/2,cy=LH/2;
@@ -5718,9 +5724,17 @@ function renderLevelUp(){
   G.fillStyle='#888';G.font='10px Courier New';
   G.fillText(`무기 ${player.wpns.length}/${W_SLOTS} · 아이템 ${player.pCnt()}/${P_SLOTS}`,cx,cy-115);
   // 카드들
+  const lvAnimT=(performance.now()-lvUpAnimStart)/1000;
   upgradeChoices.forEach((u,i)=>{
     const cx2=105+i*198,cy2=LH/2-100,cw2=168,ch2=188;
     const hov=hovUI===i,tc=tagColors[u.tag]||'#888';
+    // 등장 애니: 스태거(0.09s 간격) + ease-out 스케일/슬라이드
+    const ct=Math.max(0,Math.min(1,(lvAnimT-i*0.09)/0.28));
+    if(ct<=0)return;
+    const ease=1-Math.pow(1-ct,3);
+    G.save();G.globalAlpha=ease;
+    const cxm=cx2+cw2/2,cym=cy2+ch2/2;
+    G.translate(cxm,cym+(1-ease)*26);G.scale(0.86+0.14*ease,0.86+0.14*ease);G.translate(-cxm,-cym);
     // 카드 그림자
     G.fillStyle='rgba(0,0,0,0.7)';G.fillRect(cx2+4,cy2+4,cw2,ch2);
     // 카드 배경
@@ -5774,15 +5788,12 @@ function renderLevelUp(){
     G.fillStyle=hov?tc:'#3a3a4a';G.fillRect(cx2+20,cy2+ch2-22,cw2-40,15);
     G.fillStyle=hov?'#000':'#888';G.font='bold 10px Courier New';
     G.fillText(hov?'▶ 선택 ◀':'[ 클릭 ]',cx2+cw2/2,cy2+ch2-12);
+    G.restore();  // 등장 애니 변환 해제
   });
   // 🔄 새로고침 버튼 (남은 횟수)
   {
     const r=rerollBtnRect(), rr=player.rerolls||0, can=rr>0;
-    G.fillStyle=can?'#173a2a':'#1c1c1c';G.fillRect(r.x,r.y,r.w,r.h);
-    G.strokeStyle=can?'#33cc88':'#444';G.lineWidth=2;G.strokeRect(r.x,r.y,r.w,r.h);
-    G.fillStyle=can?'#7fffcc':'#666';G.font='bold 14px Courier New';G.textAlign='center';G.textBaseline='middle';
-    G.fillText('🔄 새로고침  '+rr+'회 남음',LW/2,r.y+r.h/2+1);
-    G.textBaseline='alphabetic';
+    uiBtn(r.x,r.y,r.w,r.h,'🔄 새로고침  '+rr+'회 남음',can,'#33cc88',14);
     if(!can){G.fillStyle='#777';G.font='9px Courier New';G.fillText('(상점에서 새로고침 횟수 구매 — 최대 10)',LW/2,r.y+r.h+13);}
   }
 }
@@ -6569,9 +6580,13 @@ function drawNotifs(){
     const x=LW-10-(1-slide)*40,y=baseY+i*40;  // 36→40 더 여유
     G.globalAlpha=fade*0.95;
     // 배경 (높이 32→36 — 한글 위 잘림 방지)
-    G.fillStyle='rgba(0,0,0,0.85)';G.fillRect(x-180,y-22,180,36);
-    G.fillStyle=n.col;G.fillRect(x-180,y-22,3,36);
-    G.fillStyle=n.col+'33';G.fillRect(x-177,y-22,177,36);
+    G.fillStyle='rgba(0,0,0,0.5)';G.fillRect(x-178,y-20,180,36);   // 그림자
+    const ng=G.createLinearGradient(0,y-22,0,y+14);
+    ng.addColorStop(0,'rgba(30,30,44,0.94)');ng.addColorStop(1,'rgba(12,12,20,0.94)');
+    G.fillStyle=ng;G.fillRect(x-180,y-22,180,36);
+    G.fillStyle=n.col;G.fillRect(x-180,y-22,3,36);                  // 좌측 액센트
+    G.fillStyle=n.col;G.globalAlpha=fade*0.16;G.fillRect(x-177,y-22,177,36);G.globalAlpha=fade*0.95;
+    G.strokeStyle='rgba(255,255,255,0.10)';G.lineWidth=1;G.strokeRect(x-179.5,y-21.5,179,35);
     // 텍스트 (제목과 부제 y 조정)
     G.fillStyle=n.col;G.font='bold 11px Courier New';G.textAlign='left';
     G.fillText(n.title,x-170,y-6);
