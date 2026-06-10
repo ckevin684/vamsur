@@ -263,3 +263,10 @@ start firefox index.html
 - **Cowork Edit 도구가 이 파일(380KB+) 끝부분을 2번 잘라먹음** → 대형 수정은 **bash python(replace/assert)** 로만. 수정 후 `tail -c` + `node --check` 필수.
 - git lock 파일 못 지울 땐 `mcp__cowork__allow_cowork_file_delete` 호출 후 rm.
 - 검증 하네스: `outputs/sim.js`(+sim_tests.js) = node 헤드리스 DOM/canvas 스텁 시뮬. 스크린샷 = playwright-core+@sparticuz/chromium (한글폰트: @fontsource/noto-sans-kr woff2→ttf, FONTCONFIG_PATH=/tmp/fonts).
+
+## 🆕 세션 2026-06-10 (후반): 적 분리 + 맵 5배 + 아이콘 체계/도감
+- **적 분리**: `separateEnemies()` 공간 해시(CELL 44), minD=(sz합)×0.62 소프트 분리, 박힌 해골 제외. 400마리 0.8ms.
+- **맵 5배**: 이동 클램프 ±9000, 장식 ±9500 (TILES 2200/GRASS 4500/FOGS 90). 상점/호텔 스폰 600~850 + 경계 클램프.
+- **미니맵**: 코인/일반 픽업 점 제거, 💎상자만 마커+가장자리 화살표.
+- **📖 도감**(state='codex'): 타이틀 버튼. `CODEX_FLAVOR`(id→플레이버, **전부 임시 초안 — Kevin이 교체 예정**), `getCodexList()`(무기/진화/아이템/변신 35종), `renderCodex`/`getCodexAt`. 새 항목 추가 시 CODEX_FLAVOR에 id만 추가하면 자동 노출.
+- **아이콘 중심**: ESC 조합법=아이콘 공식 칩(RECIPES 7개), HUD 우측=아이콘 그리드(무기 30px·아이템 20px, 레벨뱃지/쿨다운바/진화 금테).
