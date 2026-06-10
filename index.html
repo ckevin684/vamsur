@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html><head><meta charset="UTF-8">
-<style>*{margin:0;padding:0;box-sizing:border-box}body{background:radial-gradient(ellipse at center,#150f1d 0%,#070509 75%);display:flex;justify-content:center;align-items:center;min-height:100vh;overflow:hidden}canvas{display:block;border:1px solid #261822;border-radius:4px;box-shadow:0 0 70px rgba(255,90,40,0.10),0 12px 50px rgba(0,0,0,0.8)}</style>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<style>*{margin:0;padding:0;box-sizing:border-box}body{background:radial-gradient(ellipse at center,#150f1d 0%,#070509 75%);display:flex;justify-content:center;align-items:center;min-height:100vh;overflow:hidden}canvas{display:block;border:1px solid #261822;border-radius:4px;box-shadow:0 0 70px rgba(255,90,40,0.10),0 12px 50px rgba(0,0,0,0.8);touch-action:none;-webkit-user-select:none;user-select:none}body{touch-action:none}</style>
 </head><body>
 <canvas id="c"></canvas>
 <script>
@@ -1549,6 +1550,60 @@ document.addEventListener('keydown',e=>{
   if(e.key==='`'||e.code==='Backquote'){godMode=!godMode;notify(godMode?'🛡️ 무적 ON':'무적 OFF','디버그','#ffdd44');e.preventDefault()}
 });
 document.addEventListener('keyup',e=>{keys[e.key]=false;keys[e.code]=false;if(e.key){keys[e.key.toLowerCase()]=false;keys[e.key.toUpperCase()]=false}});  // 대/소문자 모두 클리어 (Shift 떼기 끼임 방지)
+
+// ═══ 📱 모바일 터치 — 가상 조이스틱 + 대시/일시정지 버튼 + 탭=클릭 변환 ═══
+const IS_TOUCH=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+const TJ={active:false,id:null,ax:0,ay:0,dx:0,dy:0,mag:0};  // 조이스틱 (ax,ay=앵커 표시용)
+function touchPos(t){const r=c.getBoundingClientRect();return {x:(t.clientX-r.left)*(LW/r.width),y:(t.clientY-r.top)*(LH/r.height)};}
+function dashBtnRect(){return {x:LW-170,y:LH-70,r:34};}   // 미니맵 왼쪽
+function pauseBtnRect(){return {x:LW/2+52,y:12,w:30,h:30};} // 시계 오른쪽
+function inGameTouch(){return state==='playing'&&!paused&&!chestAnim&&!investOpen&&!shopOpen&&!hotelOpen&&!cookOpen&&!investResultOpen&&!(player&&(player.awaitingClick||player.workCut>0||player.rouletteT>0));}
+const tapInfo={};  // touchId → {x,y,t,moved}
+c.addEventListener('touchstart',e=>{
+  e.preventDefault();iac();
+  for(const t of e.changedTouches){
+    const p=touchPos(t);
+    tapInfo[t.identifier]={x:p.x,y:p.y,t:performance.now(),moved:false};
+    if(inGameTouch()){
+      const db=dashBtnRect();
+      if(Math.hypot(p.x-db.x,p.y-db.y)<db.r+8){if(player)player.tryDash();delete tapInfo[t.identifier];continue}
+      const pb=pauseBtnRect();
+      if(p.x>=pb.x-4&&p.x<=pb.x+pb.w+4&&p.y>=pb.y-4&&p.y<=pb.y+pb.h+4){paused=true;delete tapInfo[t.identifier];continue}
+      if(!TJ.active){TJ.active=true;TJ.id=t.identifier;TJ.ax=p.x;TJ.ay=p.y;TJ.dx=0;TJ.dy=0;TJ.mag=0;}
+    }
+  }
+},{passive:false});
+c.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  for(const t of e.changedTouches){
+    const p=touchPos(t),ti=tapInfo[t.identifier];
+    if(ti&&Math.hypot(p.x-ti.x,p.y-ti.y)>12)ti.moved=true;
+    if(TJ.active&&t.identifier===TJ.id){
+      let vx=p.x-TJ.ax,vy=p.y-TJ.ay;
+      const d=Math.hypot(vx,vy),R=46;
+      if(d>R){TJ.ax=p.x-vx/d*R;TJ.ay=p.y-vy/d*R;}  // 멀리 끌면 앵커가 따라옴 (러닝 조이스틱)
+      TJ.mag=Math.min(d,R)/R;
+      if(d>4){TJ.dx=vx/d;TJ.dy=vy/d;}
+      if(TJ.mag<0.12){TJ.dx=0;TJ.dy=0;}  // 데드존
+    }
+  }
+},{passive:false});
+function endTouch(e){
+  e.preventDefault();
+  for(const t of e.changedTouches){
+    const ti=tapInfo[t.identifier];delete tapInfo[t.identifier];
+    if(TJ.active&&t.identifier===TJ.id){TJ.active=false;TJ.dx=0;TJ.dy=0;TJ.mag=0;continue}
+    // 탭 = 클릭 (메뉴/모달/레벨업/상자/룰렛 — 기존 click 핸들러 재사용)
+    if(ti&&!ti.moved&&performance.now()-ti.t<450){
+      const r=c.getBoundingClientRect();
+      const cx2=ti.x*(r.width/LW)+r.left,cy2=ti.y*(r.height/LH)+r.top;
+      c.dispatchEvent(new MouseEvent('mousemove',{clientX:cx2,clientY:cy2,bubbles:true}));
+      c.dispatchEvent(new MouseEvent('click',{clientX:cx2,clientY:cy2,bubbles:true}));
+    }
+  }
+}
+c.addEventListener('touchend',endTouch,{passive:false});
+c.addEventListener('touchcancel',endTouch,{passive:false});
 // 윈도우 포커스 잃으면 자동 일시정지
 window.addEventListener('blur',()=>{if(state==='playing')paused=true});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&state==='playing')paused=true});
@@ -1620,6 +1675,7 @@ class Player{
     if(keys['ArrowRight']||keys['KeyD'])dx+=1;
     if(keys['ArrowUp']||keys['KeyW'])dy-=1;
     if(keys['ArrowDown']||keys['KeyS'])dy+=1;
+    if(TJ.active&&(TJ.dx||TJ.dy)){dx=TJ.dx;dy=TJ.dy;}  // 📱 터치 조이스틱 (키보드보다 우선)
     if(dx||dy){const l=Math.hypot(dx,dy);dx/=l;dy/=l;this.facing={x:dx,y:dy}}
     // 대시 처리 + 졸음 시 이동속도 절반 + 휠체어 시 이동속도 +70%
     const sleepNerf=(this.streamerForm&&this.streamerForm.id==='sleep')?0.5:1;
@@ -6116,6 +6172,11 @@ c.addEventListener('click',e=>{
   }
   // 💎 보물상자 — 보상 확인 후 클릭으로 수령
   if(state==='playing'&&chestAnim){ if(chestAnim.t>0.9)closeChest(); return; }
+  // ⏸ 일시정지 중: 슬라이더 영역 밖 클릭/탭 = 재개 (모바일 재개 수단 겸용)
+  if(paused&&state==='playing'&&!settingsOpen){
+    if(m.y<430||m.y>505){paused=false;for(const k in keys)keys[k]=false;}
+    return;
+  }
   // 📊 지워니 투자 결과 애니 → 클릭하면 다음(현금 있으면 투자창)
   if(investResultOpen&&player){
     if(performance.now()-investResultStart>1000){  // 스냅(떡상/떡락) 본 뒤 클릭 허용
@@ -6487,6 +6548,30 @@ function render(){
   renderHotel();   // 🏨 종원 요리 선택
   renderCook();    // 🔪 종원 칼질 미니게임
   renderChest();   // 💎 보스 보물상자 오픈 연출
+  // 📱 모바일 터치 UI (조이스틱/대시/일시정지 버튼)
+  if(IS_TOUCH&&state==='playing'&&!paused){
+    G.save();
+    if(TJ.active){
+      G.globalAlpha=0.3;G.strokeStyle='#fff';G.lineWidth=2;
+      G.beginPath();G.arc(TJ.ax,TJ.ay,46,0,Math.PI*2);G.stroke();
+      G.globalAlpha=0.5;G.fillStyle='#fff';
+      G.beginPath();G.arc(TJ.ax+TJ.dx*46*TJ.mag,TJ.ay+TJ.dy*46*TJ.mag,17,0,Math.PI*2);G.fill();
+    }
+    const db=dashBtnRect(),rdy=player&&player.dashCd<=0;
+    G.globalAlpha=0.42;
+    G.fillStyle=rdy?'rgba(136,221,255,0.65)':'rgba(60,60,72,0.65)';
+    G.beginPath();G.arc(db.x,db.y,db.r,0,Math.PI*2);G.fill();
+    G.globalAlpha=0.75;G.strokeStyle=rdy?'#bbeeff':'#666677';G.lineWidth=2;
+    G.beginPath();G.arc(db.x,db.y,db.r,0,Math.PI*2);G.stroke();
+    G.fillStyle=rdy?'#012a3a':'#9999aa';G.font='bold 14px Courier New';G.textAlign='center';G.textBaseline='middle';
+    G.fillText(rdy?'⚡ 대시':player.dashCd.toFixed(1),db.x,db.y);
+    G.textBaseline='alphabetic';
+    const pb=pauseBtnRect();
+    G.globalAlpha=0.5;G.fillStyle='rgba(0,0,0,0.65)';G.fillRect(pb.x,pb.y,pb.w,pb.h);
+    G.strokeStyle='#888';G.lineWidth=1;G.strokeRect(pb.x,pb.y,pb.w,pb.h);
+    G.fillStyle='#ddd';G.font='bold 12px Courier New';G.textAlign='center';G.fillText('❚❚',pb.x+pb.w/2,pb.y+20);
+    G.globalAlpha=1;G.restore();
+  }
   if(paused)drawPauseOverlay();
   if(state==='levelup')renderLevelUp();
   if(state==='dead')renderResult(false);
