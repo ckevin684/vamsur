@@ -56,6 +56,54 @@ const SFX={
   phialReady:()=>[440,660,880,1320].forEach((f,i)=>setTimeout(()=>tone(f,'square',0.06,0.2),i*30)),
 };
 
+// ═══ 📊 전적 공유 (Discord 웹훅) ═══
+// 사용법: 디스코드 채널 → 채널 설정 → 연동 → 웹훅 만들기 → URL 복사 → 아래에 붙여넣기.
+// 비워두면('') 아무것도 전송 안 함. ⚠️ 공개 repo라 URL이 노출됨 — 스팸 생기면 디코에서 웹훅 재발급.
+const DISCORD_WEBHOOK='https://discord.com/api/webhooks/1514591599215120395/1cE1EhTGgygiOJVNxRflEJm0Og7hevrhg9iddmu6-EL_46vN60m4NcxNshbBg_Nc6MDp';
+function getPlayerName(){
+  let n='';
+  try{n=localStorage.getItem('vamsur_name')||''}catch(e){}
+  return n;
+}
+function askPlayerName(){
+  if(!DISCORD_WEBHOOK||getPlayerName())return;
+  try{
+    const n=prompt('📊 전적 공유용 닉네임 (디코에 표시, 한 번만 물어봐요)','');
+    if(n&&n.trim())localStorage.setItem('vamsur_name',n.trim().slice(0,12));
+    else localStorage.setItem('vamsur_name','익명의 친구');
+  }catch(e){}
+}
+function sendRunReport(win){
+  if(!DISCORD_WEBHOOK||!player)return;
+  try{
+    const mm=String(Math.floor(gameTime/60)).padStart(2,'0'),ss=String(Math.floor(gameTime%60)).padStart(2,'0');
+    const wpns=player.wpns.map(w=>{const wd=WDEFS[w.type];return wd?wd.name+(wd.evolved?'★':' L'+w.lv):''}).filter(Boolean).join('\n')||'-';
+    const itms=Object.keys(player.passives).map(id=>{const ps=PASSIVES.find(x=>x.id===id);return ps?ps.name.split(' ')[0]+'L'+player.passives[id]:''}).filter(Boolean).join(' ')||'-';
+    const fam={};for(const k in dmgByWpn){const L=fmtWpnFam(k);fam[L]=(fam[L]||0)+dmgByWpn[k];}
+    const top=Object.entries(fam).sort((a,b)=>b[1]-a[1]).slice(0,3)
+      .map(([L,d])=>L+' '+(totalDmg>0?Math.round(d/totalDmg*100):0)+'%').join(' · ')||'-';
+    const recs=[runRecords.time?'⏱':'',runRecords.kills?'💀':'',runRecords.dmg?'💥':''].filter(Boolean).join('');
+    const emb={
+      title:(win?'🏆 클리어!':'💀 사망')+' — '+player.cd.name+' ('+mm+':'+ss+')',
+      color:win?0xffcc44:0xcc3344,
+      author:{name:getPlayerName()||'익명의 친구'},
+      fields:[
+        {name:'⭐ 레벨',value:'Lv.'+player.lv,inline:true},
+        {name:'💀 처치',value:String(killCount),inline:true},
+        {name:'💥 DPS',value:String(Math.floor(totalDmg/Math.max(gameTime,1)).toLocaleString()),inline:true},
+        {name:'⚔ 무기',value:wpns,inline:true},
+        {name:'🎁 아이템',value:itms,inline:true},
+        {name:'📊 딜 지분',value:top,inline:false},
+      ].concat(recs?[{name:'🏆 신기록',value:recs,inline:false}]:[]),
+      footer:{text:'의리채팅 뱀서 v1.1 · 🪙 +'+Math.floor(runGold)+(runRevives?' · 💗부활 '+runRevives:'')},
+      timestamp:new Date().toISOString(),
+    };
+    const fd=new FormData();
+    fd.append('payload_json',JSON.stringify({username:'뱀서 전적봇',embeds:[emb]}));
+    fetch(DISCORD_WEBHOOK,{method:'POST',body:fd,mode:'no-cors'}).catch(()=>{});
+  }catch(e){}
+}
+
 // ═══ BGM (실제 음악 파일) ═══
 const BGM_TITLE=['bgm/캐릭선택창/Vinyl Choir.mp3'];
 const BGM_BATTLE=[
@@ -1189,6 +1237,7 @@ function bankRun(win){
   b.plays=(b.plays||0)+1;
   if(win)b.wins=(b.wins||0)+1;
   saveMeta(); runBanked=true;
+  sendRunReport(win);  // 📊 디스코드 전적 공유 (웹훅 설정 시)
 }
 function rouletteOn(p){ return !!p && p.cd.id==='sm'; }  // 룰렛/변신 = 소민 전용 (메타 해금 제거)
 // 룰렛 변신 — 소민 외 캐릭(해금 시)에게 전 무기 데미지 배율 부여 (소민은 빔 변신이 정체성이라 제외)
@@ -6082,6 +6131,7 @@ function spawnEnemies(dt){
 
 // ═══ MAIN ═══
 function startGame(cd){
+  askPlayerName();  // 📊 웹훅 설정 시 최초 1회 닉네임
   player=new Player(cd);enemies=[];projs=[];gems=[];coins=[];parts=[];boss=null;
   applyMetaUpgrades(player);  // 영구 업그레이드 적용
   runGold=0;runBanked=false;runRevives=0;runRecords={time:false,kills:false,dmg:false};  // 이번 판 골드/부활/신기록 초기화
