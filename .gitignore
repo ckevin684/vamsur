@@ -1,3 +1,7 @@
 # 개발용 — Claude 플레이테스트 하네스 (게임 배포와 무관)
 serve.ps1
 .claude/
+# 에셋 팩 원본 (재배포 금지 라이선스 — 사용분만 base64 임베드)
+basic asset pack/
+items/
+Free - Raven Fantasy Icons/
