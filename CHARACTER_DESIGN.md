@@ -10,7 +10,7 @@
 | 항목 | 값 | 이유 |
 |---|---|---|
 | 캔버스 | **96×96px** (PixelLab 무료 200px 이내) | 영웅형 디테일 살리는 최소 크기 |
-| 비율 | **영웅형 4등신** (레퍼런스 젤다 기준) | 디테일·직업 소품 표현 |
+| 비율 | **키 큰 6등신** (종원 실측: 머리 작게·다리 길게) | 치비 방지·통일 (4등신이라 적으면 머리 큰 치비됨!) |
 | 시점 | **정면 3/4 뷰**, idle 서있는 포즈 | 서바이버 표준, 걷기모션 코드로 |
 | 아웃라인 | **selout (색 외곽선)** — 굵은 검정 X | 레퍼런스와 동일, 부드럽고 고급 |
 | 팔레트 | **차분한 레트로** (SNES JRPG 톤, 채도 한 단계 낮게) | 친구 답변 |
@@ -19,10 +19,13 @@
 ### PixelLab에 넣는 공유 스타일 문장 (모든 캐릭 앞에 동일하게 붙이기)
 ```
 pixel art character sprite, full body, front 3/4 view, idle standing pose,
-heroic 4-head proportions, soft colored selout outlines (no hard black outline),
+tall realistic 6-head proportions, small head, long legs, adult body,
+soft colored selout outlines (no hard black outline),
 muted retro SNES-JRPG color palette, soft shading, transparent background, high detail
 ```
+> 공유 Negative: `chibi, big head, super deformed, 2-head, 3-head, short legs, stubby, hard black outline, blurry`
 > 이 문장은 **글자 하나 안 바꾸고** 6명 전부에 동일하게. 직업 소품만 아래에서 갈아끼움.
+> ⚠️ 절대 "4-head/4등신" 쓰지 말 것 → 머리 큰 치비됨. 종원이 ≈6등신.
 
 ---
 
@@ -47,12 +50,16 @@ confident handsome five-star hotel chef
 ```
 
 ### sm — 윤소민 (경비 알바 + 버튜버 덕후)
-> 손전등 = 경비 손전등 (무기랑 딱 맞음)
+> 실제: 통통한 편(마르지 않음), 20대 중반. 손전등=경비 손전등(빛X, 빔은 코드가 그림) + 한손엔 핸드폰
 ```
-+ a young man in a dark navy security guard uniform with peaked cap and badge,
-holding a large flashlight, a tiny cute anime vtuber charm pinned on his chest,
-night-shift building guard vibe
++ a tall stocky chubby young Korean man in his mid-20s, round face with a bit of
+a belly but long legs, wearing a dark navy security guard uniform with a peaked
+cap and a badge, holding a small black security flashlight (turned off, no light)
+in one hand and a smartphone in the other hand, night-shift building guard
 ```
+> Negative: chibi, big head, super deformed, 2-head, 3-head, short legs, stubby, skinny, thin, slim, light beam, glowing flashlight, lens flare, glow, hard black outline, blurry, glasses
+> ⚠️ 공유 스펙(6등신)이 키 잡아줌. "chubby"는 배만 나오고 키는 유지되게 tall/long legs 같이. 키는 종원이랑 맞춰 고르기.
+> ⚠️ 양손 2소품(손전등+폰)은 AI 난도 높음 → 여러 장 뽑아 best 고르기. 안 되면 폰 생략.
 
 ### gj — 최기종 (군대 디스크 / 군복)
 > 지팡이 = 디스크 터진 허리
@@ -70,12 +77,14 @@ dog (pomeranian) standing beside his feet
 ```
 
 ### zw — 지원이 (멸치 공익 + 주식고수)
-> 비쩍 마른 해골美 + 주식
+> 비쩍 마른 해골美 + 주식 (소민이랑 정반대 — 마른 체형 강하게)
 ```
-+ an extremely skinny, gaunt, pale young man with almost skeletal thin limbs,
-wearing a public-service worker vest over plain clothes, holding a smartphone
-showing a red and blue stock candlestick chart, tired exhausted otaku vibe
++ a very skinny gaunt pale young Korean man in his mid-20s with thin bony limbs
+and a tired exhausted face, wearing a public-service worker safety vest over a
+plain shirt, holding a smartphone showing a red and blue stock candlestick
+chart, scrawny look
 ```
+> Negative: chubby, fat, plump, muscular, buff, chibi, big head, short legs, stubby, hard black outline, blurry, glasses
 
 ---
 
