@@ -3720,7 +3720,14 @@ const GEN_ICON=(function(){
     P(4,2,GHI,4,1);P(3,3,GHI,2,1);P(2,4,GHI,1,2);P(6,5,SYM,1,6);P(9,5,SYM,1,6);P(5,7,SYM,6,1);P(5,9,SYM,6,1);P(11,3,SPK);P(12,3,SPK);P(11,2,SPK);}
   // ─ 진화 재료 7종 ─
   function drawHRAM(g,ox,oy,s){const P=pt(g,ox,oy,s);const GREEN='#4f9e58',GDK='#3a7a42',FIN='#9aa6b2',FINHI='#cdd6df',FINDK='#6c7884',GOLD='#f5d442',ORA='#efa847';for(let x=2;x<30;x+=3){P(x,2,FIN,2,5);P(x,2,FINHI,1,1);P(x+1,2,FINDK,1,5);}P(1,7,'#5d6b78',30,1);P(1,8,GREEN,30,4);P(1,11,GDK,30,1);for(let x=1;x<31;x+=2)P(x,12,(((x-1)/2)%2?ORA:GOLD),2,2);}
-  function drawStone(g,ox,oy,s){const P=pt(g,ox,oy,s);const TOP='#b9b2a6',TOPHI='#d6d0c5',SIDE='#8a8276',BASE='#6b4630',BASEH='#86583a',SPECK='#9a9387';P(2,4,TOP,20,5);P(2,4,TOPHI,20,1);P(2,9,BASE,20,4);P(2,9,BASEH,20,1);P(2,4,SIDE,1,5);P(21,4,SIDE,1,5);P(6,6,SPECK);P(11,5,SPECK);P(15,7,SPECK);P(9,7,SPECK);P(18,6,SPECK);P(4,3,'#eef3f7',14,1);}
+  function drawStone(g,ox,oy,s){const P=pt(g,ox,oy,s);const TOPF='#c2bcb0',FRONT='#8f897d',SIDE='#a39d91',EDGE='#d8d3c8',HOLD='#33333a',GRIT='#9a9387',BLADE='#dfe6ee',BLADEH='#ffffff',SPARK='#fff2a8';P(3,6,TOPF,18,2);P(3,6,EDGE,18,1);P(3,8,FRONT,18,4);P(3,8,SIDE,1,4);P(20,8,SIDE,1,4);P(6,9,GRIT);P(10,10,GRIT);P(14,9,GRIT);P(17,10,GRIT);P(2,12,HOLD,20,2);for(let i=0;i<15;i++){P(4+i,5-Math.floor(i/5),BLADE);}P(4,5,BLADEH);P(11,5,SPARK);P(12,4,SPARK);P(13,5,SPARK);}
+  // ─ 비진화 패시브 6종 ─
+  function drawFist(g,ox,oy,s){const P=pt(g,ox,oy,s);const SKIN='#e0a878',SKINHI='#f0c79a',SKINDK='#b87f50',ANG='#ff3b3b';P(3,5,SKIN,11,9);P(3,5,SKINHI,11,1);P(3,13,SKINDK,11,1);P(4,4,SKIN,2,1);P(7,4,SKIN,2,1);P(10,4,SKIN,2,1);P(6,7,SKINDK,1,5);P(9,7,SKINDK,1,5);P(2,9,SKIN,2,3);P(2,9,SKINHI,1,1);P(13,1,ANG);P(15,1,ANG);P(14,0,ANG);P(14,2,ANG);P(13,3,ANG);P(15,3,ANG);}
+  function drawBelt(g,ox,oy,s){const P=pt(g,ox,oy,s);const BAND='#c8a866',BANDHI='#e0c488',BANDDK='#9c7e44',CLASP='#5a6068',CLASPHI='#8a909a',RIB='#a98c52';P(1,5,BAND,22,7);P(1,5,BANDHI,22,1);P(1,11,BANDDK,22,1);for(let x=4;x<20;x+=3)P(x,6,RIB,1,5);P(9,4,CLASP,6,9);P(9,4,CLASPHI,6,1);P(10,6,'#3a3f46',4,5);P(11,8,CLASPHI,2,1);}
+  function drawClipboard(g,ox,oy,s){const P=pt(g,ox,oy,s);const BOARD='#8a5a32',BOARDHI='#a8744a',PAPER='#f4f1e8',PAPERSH='#d8d3c4',CLIP='#9aa3ad',CLIPHI='#cdd6df',LINE='#5a7da0',RED='#b85a5a';P(2,3,BOARD,14,18);P(2,3,BOARDHI,14,1);P(3,5,PAPER,12,15);P(14,5,PAPERSH,1,15);P(7,2,CLIP,4,3);P(7,2,CLIPHI,4,1);P(5,8,LINE,8,1);P(5,11,LINE,8,1);P(5,14,LINE,6,1);P(5,17,LINE,8,1);P(11,16,RED,2,2);}
+  function drawPad(g,ox,oy,s){const P=pt(g,ox,oy,s);const BODY='#4a4f58',BODYHI='#6a707a',BODYDK='#2f343b',DPAD='#22262c',A='#e05a5a',B='#f0c040',X='#5aaae0',Y='#5ad07a',STICK='#1a1d22';P(2,5,BODY,18,7);P(2,5,BODYHI,18,1);P(1,7,BODY,3,5);P(18,7,BODY,3,5);P(2,11,BODYDK,18,1);P(4,7,DPAD,1,3);P(3,8,DPAD,3,1);P(16,6,Y);P(15,7,X);P(17,7,A);P(16,8,B);P(8,9,STICK,2,2);P(12,9,STICK,2,2);}
+  function drawBurst(g,ox,oy,s){const P=pt(g,ox,oy,s);const O='#ff6a1a',M='#ffb347',I='#ffe066',H='#ffffff';const rows=["....X....","..X.X.X..","...XXX...","X.XXXXX.X",".XXXXXXX.","X.XXXXX.X","...XXX...","..X.X.X..","....X...."];for(let y=0;y<rows.length;y++)for(let x=0;x<rows[y].length;x++){if(rows[y][x]!=='X')continue;const dd=Math.abs(x-4)+Math.abs(y-4);P(x+3,y+3,dd>=3?O:(dd>=2?M:I));}P(7,7,H,2,2);}
+  function drawPan(g,ox,oy,s){const P=pt(g,ox,oy,s);const PAN='#2b2f36',PANHI='#4a4f58',HANDLE='#3a2718',HANDLEH='#5b3f28',EGGW='#f4f1e8',EGGY='#f5c542';const rows=[[3,12],[2,13],[1,14],[1,14],[1,14],[2,13],[3,12]];for(let i=0;i<rows.length;i++){const y=i+4,a=rows[i][0],b=rows[i][1];P(a,y,PAN,b-a+1,1);}P(1,4,PANHI,13,1);P(5,6,EGGW,6,4);P(7,7,EGGY,2,2);P(14,6,HANDLE,7,3);P(14,6,HANDLEH,7,1);}
   function drawBattery(g,ox,oy,s){const P=pt(g,ox,oy,s);const TOP='#d23a3a',TOPHI='#e86a6a',BOT='#2b2f36',BHI='#4a4f58',CAP='#cfcfcf',CAPHI='#fff',LAB='#f0e6c0';P(7,1,CAP,4,2);P(7,1,CAPHI,4,1);P(4,3,TOP,10,6);P(4,3,TOPHI,1,6);P(4,9,LAB,10,2);P(8,9,'#9c6a1e',2,1);P(4,11,BOT,10,5);P(4,11,BHI,1,5);P(8,13,'#fff',2,1);P(8,14,'#fff',1,1);}
   function drawCrutch(g,ox,oy,s){const P=pt(g,ox,oy,s);const AL='#cfd6dd',ALHI='#eef2f6',ALDK='#9aa3ad',PAD2='#6b4630',PADH='#86583a',GRIP='#33373d',TIP='#26282d';P(3,2,PAD2,7,2);P(3,2,PADH,7,1);P(5,4,AL,3,8);P(5,4,ALHI,1,8);P(7,4,ALDK,1,8);P(3,12,GRIP,7,2);P(5,14,AL,3,8);P(5,14,ALHI,1,8);P(7,14,ALDK,1,8);P(5,22,TIP,3,2);}
   function drawBone(g,ox,oy,s){const P=pt(g,ox,oy,s);const B='#f0ead8',BHI='#ffffff',BDK='#d4ccb4';P(1,3,B,3,2);P(1,6,B,3,2);P(0,4,B,2,2);P(16,3,B,3,2);P(16,6,B,3,2);P(18,4,B,2,2);P(3,4,B,14,3);P(3,4,BHI,14,1);P(3,6,BDK,14,1);P(1,3,BHI,3,1);P(16,3,BHI,3,1);}
@@ -3753,11 +3760,14 @@ const GEN_ICON=(function(){
     ram:cell(drawRAM,32,20,-30), knife:cell(drawKnife,28,12,-30), light:cell(drawTorch,26,11,-30),
     staff:cell(drawCane,12,28,-30), mungchi:cell(drawDog,20,18,0), gsword:cell(drawAxe,18,28,-30), coin:cell(drawCoin,16,16,0),
     // 진화 재료
-    warrant:cell(drawHRAM,32,16,-30), recipe:cell(drawStone,24,14,-30), log:cell(drawBattery,18,17,-30),
+    warrant:cell(drawHRAM,32,16,-30), recipe:cell(drawStone,24,15,-30), log:cell(drawBattery,18,17,-30),
     pill:cell(drawCrutch,13,26,-30), leash:cell(drawBone,20,10,-30), coffee:cell(drawCoffee,16,18,0), leverage:cell(drawCoinStack,16,16,0),
     // 진화 무기
     fullspec:cell(drawFullspec,32,20,-30), fullcourse:cell(drawSushi,20,16,0), nightwatch:cell(drawNightwatch,28,11,-30),
     awakegj:cell(drawAwake,22,22,0), unleash:cell(drawGoldDog,20,18,0), caff:cell(drawCaff,19,28,-30), bitcoin:cell(drawBitcoin,16,16,0),
+    // 비진화 패시브
+    anger:cell(drawFist,18,16,0), cane:cell(drawBelt,24,16,0), torch:cell(drawClipboard,18,23,0),
+    monhun:cell(drawPad,22,14,-30), bark:cell(drawBurst,15,15,0), knife2:cell(drawPan,22,12,-30),
   };
 })();
 function drawIcon(id,cx,cy,size,fallback){
